@@ -80,6 +80,24 @@ class AuthSecurityIntegrationTest {
     }
 
     @Test
+    void spaRootIsPublic() throws Exception {
+        mockMvc.perform(get("/"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void spaLoginRouteIsPublic() throws Exception {
+        mockMvc.perform(get("/login"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void spaStatsRouteIsPublic() throws Exception {
+        mockMvc.perform(get("/stats/reservation"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
     void protectedEndpointReturns401WithoutToken() throws Exception {
         mockMvc.perform(get("/api/test/protected"))
                 .andExpect(status().isUnauthorized())

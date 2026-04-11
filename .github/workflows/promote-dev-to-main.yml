@@ -1,0 +1,71 @@
+name: Promote Dev to Main
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: '승격할 브랜치 또는 커밋 (기본값: dev)'
+        required: false
+        default: 'dev'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: promote-dev-to-main
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: Fast-forward Main
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch branches
+        run: |
+          git fetch origin dev main --prune
+
+      - name: Resolve source commit
+        id: source
+        shell: bash
+        run: |
+          SOURCE_INPUT="${{ github.event.inputs.source_ref }}"
+          if [ -z "$SOURCE_INPUT" ]; then
+            SOURCE_INPUT="dev"
+          fi
+
+          if git rev-parse --verify "origin/${SOURCE_INPUT}" >/dev/null 2>&1; then
+            SOURCE_SHA="$(git rev-parse "origin/${SOURCE_INPUT}")"
+          else
+            SOURCE_SHA="$(git rev-parse "${SOURCE_INPUT}")"
+          fi
+
+          echo "sha=${SOURCE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "Resolved source commit: ${SOURCE_SHA}"
+
+      - name: Validate source belongs to dev
+        shell: bash
+        run: |
+          git merge-base --is-ancestor "${{ steps.source.outputs.sha }}" origin/dev
+
+      - name: Validate main can be fast-forwarded
+        shell: bash
+        run: |
+          git merge-base --is-ancestor origin/main "${{ steps.source.outputs.sha }}"
+
+      - name: Promote dev commit to main
+        run: |
+          git push origin "${{ steps.source.outputs.sha }}:refs/heads/main"
+
+      - name: Summary
+        run: |
+          echo "Promoted ${{ steps.source.outputs.sha }} to main."

@@ -1,0 +1,63 @@
+name: Release Package
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-package-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Build Release Bundle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Build backend bootJar
+        working-directory: backend
+        run: |
+          chmod +x gradlew
+          ./gradlew clean bootJar
+
+      - name: Prepare release bundle
+        run: |
+          mkdir -p release
+          cp backend/build/libs/*.jar release/
+          cp backend/.env.example release/backend.env.example
+          cp docs/deployment-release.md release/
+          cp docs/deployment-strategy.md release/
+
+      - name: Upload release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-dashboard-release-${{ github.sha }}
+          path: release
+          if-no-files-found: error

@@ -1,9 +1,14 @@
-# 로컬 PC 배포 가이드
+# 로컬 실행 가이드
 
 ## 개요
 
-B&VIIT Analytics Dashboard를 사내 PC에서 운영하는 방법입니다.
-백엔드(Spring Boot)와 프론트엔드(Vite)를 한 PC에서 실행합니다.
+B&VIIT Analytics Dashboard를 개발/검증용으로 로컬 PC에서 실행하는 방법입니다.
+백엔드(Spring Boot)와 프론트엔드(Vite)를 한 PC에서 각각 실행합니다.
+
+운영 배포 기준 문서는 아래를 참고하세요.
+
+- `docs/deployment-strategy.md`
+- `docs/deployment-release.md`
 
 ---
 
@@ -74,12 +79,14 @@ VITE_USE_MSW=false
 1. 기존 포트(8080, 5173) 프로세스 종료
 2. `backend/.env` 환경변수 로드
 3. 백엔드 실행 (포트 8080, mssql 프로파일)
-4. 프론트엔드 실행 (포트 5173)
+4. 프론트엔드 개발 서버 실행 (포트 5173)
 
 ### 접속
 
 - 대시보드: http://localhost:5173
 - 기본 계정: `admin / 1234`
+
+> 이 방식은 운영 배포용이 아니라 개발/검증용 실행 흐름입니다.
 
 ### 종료
 
