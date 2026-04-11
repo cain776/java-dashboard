@@ -1,0 +1,109 @@
+import { useState } from 'react'
+import { Plus } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { Select } from './Select'
+import { PeriodChip } from './PeriodChip'
+import {
+  MAX_PERIODS,
+  YEAR_OPTIONS, MONTH_OPTIONS,
+} from '@/constants/chart'
+import { getCurrentPeriod, getDefaultYears, periodLabel } from '@/utils/stats'
+import type { FilterBarControls } from './useFilterBar'
+
+const currentPeriod = getCurrentPeriod()
+const defaultYears = getDefaultYears()
+
+export function FilterBar({
+  mode, setMode, periods, setPeriods, years, setYears, removePeriod,
+}: FilterBarControls) {
+  const [addYear, setAddYear] = useState(currentPeriod.year)
+  const [addMonth, setAddMonth] = useState(currentPeriod.month)
+  const [addYearOnly, setAddYearOnly] = useState(defaultYears[1] ?? currentPeriod.year)
+
+  const addPeriod = () => {
+    if (mode === 'month' && periods.length < MAX_PERIODS) {
+      if (!periods.some((p) => p.year === addYear && p.month === addMonth))
+        setPeriods([...periods, { year: addYear, month: addMonth }])
+    }
+    if (mode === 'year' && years.length < MAX_PERIODS) {
+      if (!years.includes(addYearOnly))
+        setYears([...years, addYearOnly])
+    }
+  }
+
+  return (
+    <Card className="border-border/70 shadow-sm !py-0">
+      <CardContent className="flex min-h-14 flex-wrap items-center gap-2 py-1.5">
+        {/* 모드 토글 */}
+        <div className="flex h-8 items-center gap-1 rounded-md bg-gray-100 p-0.5">
+          {([['month', '월별'], ['year', '연도별']] as const).map(([m, label]) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setMode(m)}
+              className={`h-full rounded px-3 text-sm font-medium transition-colors ${
+                mode === m
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        <div className="h-5 w-px bg-gray-200" />
+
+        {/* 기간 칩 */}
+        {mode === 'month'
+          ? periods.map((p, i) => (
+              <PeriodChip
+                key={`${p.year}-${p.month}`}
+                label={periodLabel(p)}
+                index={i}
+                isBase={i === 0}
+                onRemove={periods.length > 1 ? () => removePeriod(i) : undefined}
+              />
+            ))
+          : years.map((y, i) => (
+              <PeriodChip
+                key={y}
+                label={`${y}년`}
+                index={i}
+                isBase={i === 0}
+                onRemove={years.length > 1 ? () => removePeriod(i) : undefined}
+              />
+            ))
+        }
+
+        <div className="h-5 w-px bg-gray-200" />
+
+        {/* 기간 추가 */}
+        {((mode === 'month' && periods.length < MAX_PERIODS) ||
+          (mode === 'year' && years.length < MAX_PERIODS)) && (
+          <div className="flex items-center gap-1.5">
+            {mode === 'month' ? (
+              <>
+                <Select value={addYear} onChange={setAddYear} options={YEAR_OPTIONS} title="추가 연도" />
+                <Select value={addMonth} onChange={setAddMonth} options={MONTH_OPTIONS} title="추가 월" />
+              </>
+            ) : (
+              <Select value={addYearOnly} onChange={setAddYearOnly} options={YEAR_OPTIONS} title="추가 연도" />
+            )}
+            <button
+              type="button"
+              onClick={addPeriod}
+              className="flex h-8 items-center gap-1 rounded-md border border-dashed border-gray-300 px-3 text-sm font-medium text-gray-500 transition-colors hover:border-gray-400 hover:text-gray-700"
+            >
+              <Plus className="h-3.5 w-3.5" />추가
+            </button>
+          </div>
+        )}
+
+        <div className="ml-auto rounded-md bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700">
+          조건 변경 시 즉시 반영
+        </div>
+      </CardContent>
+    </Card>
+  )
+}

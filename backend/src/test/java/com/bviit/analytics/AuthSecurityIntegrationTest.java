@@ -1,0 +1,121 @@
+package com.bviit.analytics;
+
+import com.bviit.analytics.config.JwtUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@SpringBootTest(properties = {
+        "app.seed.enabled=true",
+        "app.seed.admin-login-id=admin",
+        "app.seed.admin-email=admin@bviit.com",
+        "app.seed.admin-password=1234",
+        "app.seed.admin-name=관리자",
+        "spring.h2.console.enabled=false"
+})
+@AutoConfigureMockMvc
+class AuthSecurityIntegrationTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private JwtUtil jwtUtil;
+
+    @Test
+    void loginReturnsWrappedTokenAndUser() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginPayload("admin", "1234"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.token").isString())
+                .andExpect(jsonPath("$.data.user.loginId").value("admin"))
+                .andExpect(jsonPath("$.data.user.email").value("admin@bviit.com"))
+                .andExpect(jsonPath("$.data.user.name").isNotEmpty());
+    }
+
+    @Test
+    void loginNormalizesLoginIdBeforeAuthentication() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginPayload("  ADMIN  ", "1234"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.user.loginId").value("admin"));
+    }
+
+    @Test
+    void loginReturns401ForWrongPassword() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginPayload("admin", "wrong-password"))))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.message").value("아이디 또는 비밀번호가 올바르지 않습니다."));
+    }
+
+    @Test
+    void loginReturns400ForMalformedJson() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"loginId\":\"admin\","))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("요청 본문을 읽을 수 없습니다."));
+    }
+
+    @Test
+    void protectedEndpointReturns401WithoutToken() throws Exception {
+        mockMvc.perform(get("/api/test/protected"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.message").value("인증이 필요합니다."));
+    }
+
+    @Test
+    void protectedEndpointReturns401ForBlankBearerToken() throws Exception {
+        mockMvc.perform(get("/api/test/protected")
+                        .header("Authorization", "Bearer   "))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.message").value("인증이 필요합니다."));
+    }
+
+    @Test
+    void protectedEndpointReturns401ForInvalidToken() throws Exception {
+        mockMvc.perform(get("/api/test/protected")
+                        .header("Authorization", "Bearer invalid.token.value"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.message").value("인증이 필요합니다."));
+    }
+
+    @Test
+    void protectedEndpointReturns200ForValidToken() throws Exception {
+        mockMvc.perform(get("/api/test/protected")
+                        .header("Authorization", "Bearer " + jwtUtil.generateToken("admin")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.loginId").value("admin"));
+    }
+
+    private record LoginPayload(String loginId, String password) {
+    }
+}

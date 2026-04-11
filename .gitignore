@@ -1,0 +1,6 @@
+.vscode/
+.frontend-git-backup/
+frontend/.git.frontend-backup/
+*.bundle
+frontend/.env
+*.log
