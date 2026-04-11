@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Minus, TrendingDown, TrendingUp } from 'lucide-react'
 import {
   Bar,
@@ -27,7 +28,8 @@ import {
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/components/filters/useFilterBar'
 import { CHART_COLORS, MONTHS, YEAR_STROKE_PATTERNS } from '@/constants/chart'
-import { changeRate, formatAxisNumber, periodLabel, type Period } from '@/utils/stats'
+import { changeRate, formatAxisNumber, periodLabel } from '@/utils/stats'
+import { statsApi, type ExaminationMonthlyItem } from '@/api/stats'
 
 type MetricKey =
   | 'total'
@@ -68,49 +70,11 @@ const METRIC_COLORS: Record<MetricKey, string> = {
   outpatient: 'var(--chart-5)',
 }
 
-const mockData: Record<number, MonthlyData[]> = {
-  2024: [
-    { visionCorrection: 104, cataract: 36, dreamlens: 22, outpatient: 161 },
-    { visionCorrection: 109, cataract: 38, dreamlens: 23, outpatient: 165 },
-    { visionCorrection: 114, cataract: 40, dreamlens: 24, outpatient: 171 },
-    { visionCorrection: 121, cataract: 43, dreamlens: 26, outpatient: 179 },
-    { visionCorrection: 118, cataract: 42, dreamlens: 25, outpatient: 176 },
-    { visionCorrection: 127, cataract: 46, dreamlens: 28, outpatient: 186 },
-    { visionCorrection: 136, cataract: 50, dreamlens: 31, outpatient: 196 },
-    { visionCorrection: 133, cataract: 49, dreamlens: 30, outpatient: 191 },
-    { visionCorrection: 129, cataract: 47, dreamlens: 29, outpatient: 188 },
-    { visionCorrection: 138, cataract: 53, dreamlens: 31, outpatient: 198 },
-    { visionCorrection: 142, cataract: 55, dreamlens: 32, outpatient: 203 },
-    { visionCorrection: 149, cataract: 58, dreamlens: 34, outpatient: 210 },
-  ],
-  2025: [
-    { visionCorrection: 112, cataract: 39, dreamlens: 24, outpatient: 169 },
-    { visionCorrection: 117, cataract: 41, dreamlens: 25, outpatient: 173 },
-    { visionCorrection: 123, cataract: 44, dreamlens: 26, outpatient: 181 },
-    { visionCorrection: 131, cataract: 47, dreamlens: 28, outpatient: 189 },
-    { visionCorrection: 128, cataract: 46, dreamlens: 27, outpatient: 185 },
-    { visionCorrection: 137, cataract: 50, dreamlens: 30, outpatient: 196 },
-    { visionCorrection: 147, cataract: 55, dreamlens: 33, outpatient: 207 },
-    { visionCorrection: 143, cataract: 53, dreamlens: 31, outpatient: 202 },
-    { visionCorrection: 149, cataract: 57, dreamlens: 34, outpatient: 209 },
-    { visionCorrection: 155, cataract: 59, dreamlens: 35, outpatient: 214 },
-    { visionCorrection: 151, cataract: 58, dreamlens: 34, outpatient: 210 },
-    { visionCorrection: 160, cataract: 63, dreamlens: 37, outpatient: 220 },
-  ],
-  2026: [
-    { visionCorrection: 126, cataract: 44, dreamlens: 27, outpatient: 181 },
-    { visionCorrection: 132, cataract: 46, dreamlens: 28, outpatient: 188 },
-    { visionCorrection: 137, cataract: 48, dreamlens: 29, outpatient: 194 },
-    { visionCorrection: 144, cataract: 52, dreamlens: 31, outpatient: 202 },
-    { visionCorrection: 140, cataract: 50, dreamlens: 30, outpatient: 198 },
-    { visionCorrection: 152, cataract: 56, dreamlens: 33, outpatient: 212 },
-    { visionCorrection: 160, cataract: 60, dreamlens: 36, outpatient: 224 },
-    { visionCorrection: 156, cataract: 58, dreamlens: 34, outpatient: 218 },
-    { visionCorrection: 165, cataract: 62, dreamlens: 37, outpatient: 230 },
-    { visionCorrection: 172, cataract: 66, dreamlens: 39, outpatient: 240 },
-    { visionCorrection: 168, cataract: 64, dreamlens: 38, outpatient: 235 },
-    { visionCorrection: 178, cataract: 70, dreamlens: 41, outpatient: 248 },
-  ],
+const EMPTY: MonthlyData = {
+  visionCorrection: 0,
+  cataract: 0,
+  dreamlens: 0,
+  outpatient: 0,
 }
 
 const withTotal = (data: MonthlyData): WithTotal => ({
@@ -118,29 +82,18 @@ const withTotal = (data: MonthlyData): WithTotal => ({
   total: data.visionCorrection + data.cataract + data.dreamlens + data.outpatient,
 })
 
-const periodData = (period: Period) =>
-  withTotal(
-    mockData[period.year]?.[period.month] ?? {
-      visionCorrection: 0,
-      cataract: 0,
-      dreamlens: 0,
-      outpatient: 0,
+function toDataMap(items: ExaminationMonthlyItem[]): Record<number, MonthlyData[]> {
+  const map: Record<number, MonthlyData[]> = {}
+  for (const item of items) {
+    if (!map[item.year]) map[item.year] = Array.from({ length: 12 }, () => ({ ...EMPTY }))
+    map[item.year][item.month - 1] = {
+      visionCorrection: item.visionCorrection,
+      cataract: item.cataract,
+      dreamlens: item.dreamlens,
+      outpatient: item.outpatient,
     }
-  )
-
-const yearSum = (year: number) => {
-  const data = mockData[year] ?? []
-  const sum = {
-    visionCorrection: data.reduce((acc, item) => acc + item.visionCorrection, 0),
-    cataract: data.reduce((acc, item) => acc + item.cataract, 0),
-    dreamlens: data.reduce((acc, item) => acc + item.dreamlens, 0),
-    outpatient: data.reduce((acc, item) => acc + item.outpatient, 0),
   }
-
-  return {
-    ...sum,
-    total: sum.visionCorrection + sum.cataract + sum.dreamlens + sum.outpatient,
-  }
+  return map
 }
 
 export function ExaminationPage() {
@@ -148,8 +101,43 @@ export function ExaminationPage() {
   const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(['total'])
 
   const { mode, periods, years } = filter
-  const periodsData = useMemo(() => periods.map(periodData), [periods])
-  const yearTotals = useMemo(() => years.map(yearSum), [years])
+
+  // 필요한 연도 수집
+  const queryYears = useMemo(() => {
+    const set = new Set<number>()
+    if (mode === 'month') periods.forEach((p) => set.add(p.year))
+    else years.forEach((y) => set.add(y))
+    return [...set].sort()
+  }, [mode, periods, years])
+
+  // API 호출
+  const { data: apiData } = useQuery({
+    queryKey: ['examination-monthly', queryYears],
+    queryFn: () => statsApi.getExaminationMonthly(queryYears),
+    enabled: queryYears.length > 0,
+  })
+
+  const dataMap = useMemo(() => (apiData ? toDataMap(apiData) : {}), [apiData])
+
+  const periodsData = useMemo(
+    () => periods.map((p) => withTotal(dataMap[p.year]?.[p.month] ?? EMPTY)),
+    [periods, dataMap],
+  )
+  const yearTotals = useMemo(
+    () =>
+      years.map((year) => {
+        const months = dataMap[year] ?? []
+        const sum = { ...EMPTY }
+        for (const m of months) {
+          sum.visionCorrection += m.visionCorrection
+          sum.cataract += m.cataract
+          sum.dreamlens += m.dreamlens
+          sum.outpatient += m.outpatient
+        }
+        return withTotal(sum)
+      }),
+    [years, dataMap],
+  )
   const activeMetrics = useMemo(
     () => (selectedMetrics.includes('total') ? (['total'] as MetricKey[]) : selectedMetrics),
     [selectedMetrics]
@@ -220,14 +208,7 @@ export function ExaminationPage() {
       MONTHS.map((month, monthIndex) => {
         const row: Record<string, string | number> = { month }
         years.forEach((year, index) => {
-          const data = withTotal(
-            mockData[year]?.[monthIndex] ?? {
-              visionCorrection: 0,
-              cataract: 0,
-              dreamlens: 0,
-              outpatient: 0,
-            }
-          )
+          const data = withTotal(dataMap[year]?.[monthIndex] ?? EMPTY)
 
           if (activeMetrics.includes('total')) {
             row[`y${index}_total`] = data.total
@@ -240,7 +221,7 @@ export function ExaminationPage() {
         })
         return row
       }),
-    [activeMetrics, years]
+    [activeMetrics, years, dataMap]
   )
 
   const toggleMetric = (metricKey: MetricKey) => {

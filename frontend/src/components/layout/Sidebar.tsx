@@ -4,6 +4,7 @@ import { ChevronDown } from 'lucide-react'
 import {
   menuItems,
   type MenuLink,
+  type MenuStatus,
 } from '@/config/navigation'
 
 const getOpenMenus = (pathname: string) =>
@@ -13,11 +14,18 @@ const getOpenMenus = (pathname: string) =>
       .map((item) => item.id)
   )
 
-const childLinkClassName = (isActive: boolean) =>
+// 구현 상태별 텍스트 색상 (활성 상태가 아닐 때만 적용)
+const statusTextClass = (status?: MenuStatus): string => {
+  if (status === 'pending') return 'text-red-500 hover:text-red-600'
+  if (status === 'backend-only') return 'text-amber-600 hover:text-amber-700'
+  return 'text-gray-500 hover:text-gray-900'
+}
+
+const childLinkClassName = (isActive: boolean, status?: MenuStatus) =>
   `block rounded-md px-2.5 py-2 text-sm transition-colors ${
     isActive
       ? 'bg-blue-50 font-medium text-blue-600'
-      : 'text-gray-500 hover:bg-gray-50 hover:text-gray-900'
+      : `${statusTextClass(status)} hover:bg-gray-50`
   }`
 
 function SidebarChildLinks({
@@ -33,7 +41,7 @@ function SidebarChildLinks({
         <li key={child.href}>
           <Link
             to={child.href}
-            className={childLinkClassName(pathname === child.href)}
+            className={childLinkClassName(pathname === child.href, child.status)}
           >
             {child.label}
           </Link>
@@ -138,7 +146,9 @@ export function Sidebar({ collapsed, onToggleSidebar }: { collapsed: boolean; on
                     to={item.href}
                     title={collapsed ? item.label : undefined}
                     className={`flex items-center rounded-lg text-sm font-medium transition-colors
-                      ${isActive ? 'text-blue-600 bg-blue-50' : 'text-gray-700 hover:bg-gray-100'}
+                      ${isActive
+                        ? 'text-blue-600 bg-blue-50'
+                        : `${statusTextClass(item.status) || 'text-gray-700'} hover:bg-gray-100`}
                       ${collapsed ? 'justify-center px-0 py-2.5' : 'gap-3 px-3 py-2.5'}`}
                   >
                     <Icon className="h-[18px] w-[18px] flex-shrink-0" />

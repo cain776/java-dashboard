@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { TrendingDown, TrendingUp, Minus } from 'lucide-react'
 import {
   Bar, BarChart, Line, LineChart,
@@ -14,7 +15,8 @@ import {
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/components/filters/useFilterBar'
 import { CHART_COLORS, MONTHS, YEAR_STROKE_PATTERNS } from '@/constants/chart'
-import { changeRate, formatAxisNumber, periodLabel, type Period } from '@/utils/stats'
+import { changeRate, formatAxisNumber, periodLabel } from '@/utils/stats'
+import { statsApi, type SurgeryMonthlyItem } from '@/api/stats'
 
 /* ── 타입 ── */
 type GroupKey = 'total' | 'refractive' | 'lens' | 'cataract'
@@ -46,51 +48,21 @@ const GROUP_COLORS: Record<GroupKey, string> = {
   cataract: 'var(--chart-4)',
 }
 
-/* ── Mock 데이터 ── */
-// [lasek, lasik, smile, smilePro, icl, tIcl, kpl, tKpl, viva, catMulti, catMono, catEdof]
-const toData = (a: number[]): SurgeryData => ({
-  lasek:a[0], lasik:a[1], smile:a[2], smilePro:a[3],
-  icl:a[4], tIcl:a[5], kpl:a[6], tKpl:a[7], viva:a[8],
-  catMulti:a[9], catMono:a[10], catEdof:a[11],
-})
-
-const mockData: Record<number, SurgeryData[]> = {
-  2024: [
-    [14,11,22,15,7,4,2,1,3,8,7,4],[15,12,24,17,8,5,2,1,3,9,7,5],
-    [17,13,26,18,9,5,3,2,3,10,8,5],[19,14,28,20,10,6,3,2,4,11,9,6],
-    [18,13,27,19,9,5,3,2,4,10,8,5],[21,16,31,22,11,7,4,2,5,12,10,7],
-    [23,17,33,24,12,7,4,2,5,14,11,7],[22,16,31,23,11,7,3,2,5,13,10,7],
-    [24,18,35,26,13,8,4,3,5,15,12,8],[26,19,37,28,14,8,4,3,6,16,12,8],
-    [25,18,35,26,13,8,4,2,5,15,11,8],[27,20,38,28,15,9,5,3,6,16,13,9],
-  ].map(toData),
-  2025: [
-    [18,14,28,20,10,6,3,2,4,12,9,6],[20,16,30,22,11,7,3,2,5,13,10,7],
-    [22,15,32,24,12,8,4,2,4,14,11,7],[25,18,35,26,13,8,4,3,5,15,12,8],
-    [23,17,33,25,12,7,3,2,5,14,11,8],[28,20,38,28,15,9,5,3,6,16,13,9],
-    [30,22,40,30,16,10,5,3,6,18,14,10],[28,21,38,28,15,9,4,3,6,17,13,9],
-    [32,23,42,32,17,10,5,3,7,19,15,10],[34,25,44,34,18,11,5,4,7,20,16,11],
-    [32,24,42,32,17,10,5,3,7,19,15,10],[35,26,46,35,19,12,6,4,8,21,17,12],
-  ].map(toData),
-  2026: [
-    [24,18,35,26,13,8,4,3,5,15,12,8],[27,20,38,29,15,9,5,3,6,17,13,9],
-    [25,19,36,27,14,9,4,3,6,16,12,9],[30,22,42,32,17,10,5,3,7,19,15,11],
-    [28,21,40,30,16,9,5,3,6,18,14,10],[33,24,45,34,18,11,6,4,7,20,16,12],
-    [36,26,48,36,20,12,6,4,8,22,17,13],[34,25,46,35,19,11,5,4,7,21,16,12],
-    [38,27,50,38,21,12,6,4,8,23,18,13],[40,29,52,40,22,13,7,5,9,24,19,14],
-    [38,28,50,38,21,12,6,4,8,23,18,13],[42,30,54,42,24,14,7,5,9,25,20,15],
-  ].map(toData),
-}
-
 /* ── 유틸 ── */
 const EMPTY: SurgeryData = { lasek:0,lasik:0,smile:0,smilePro:0,icl:0,tIcl:0,kpl:0,tKpl:0,viva:0,catMulti:0,catMono:0,catEdof:0 }
 const gSum = (d: SurgeryData, g: typeof GROUPS[number]) => g.types.reduce((s, k) => s + d[k], 0)
-const pData = (p: Period) => mockData[p.year]?.[p.month] ?? EMPTY
 
-const yearSum = (year: number): SurgeryData => {
-  const ms = mockData[year] ?? []
-  const r = { ...EMPTY }
-  for (const m of ms) for (const k of SURGERY_KEYS) r[k] += m[k]
-  return r
+function toDataMap(items: SurgeryMonthlyItem[]): Record<number, SurgeryData[]> {
+  const map: Record<number, SurgeryData[]> = {}
+  for (const item of items) {
+    if (!map[item.year]) map[item.year] = Array.from({ length: 12 }, () => ({ ...EMPTY }))
+    map[item.year][item.month - 1] = {
+      lasek: item.lasek, lasik: item.lasik, smile: item.smile, smilePro: item.smilePro,
+      icl: item.icl, tIcl: item.tIcl, kpl: item.kpl, tKpl: item.tKpl, viva: item.viva,
+      catMulti: item.catMulti, catMono: item.catMono, catEdof: item.catEdof,
+    }
+  }
+  return map
 }
 
 /* ── 메인 ── */
@@ -100,8 +72,26 @@ export function SurgeryPage() {
 
   const [selectedGroups, setSelectedGroups] = useState<GroupKey[]>(['total'])
 
+  // 필요한 연도 수집
+  const queryYears = useMemo(() => {
+    const set = new Set<number>()
+    if (mode === 'month') periods.forEach((p) => set.add(p.year))
+    else years.forEach((y) => set.add(y))
+    return [...set].sort()
+  }, [mode, periods, years])
+
+  // API 호출
+  const { data: apiData } = useQuery({
+    queryKey: ['surgery-monthly', queryYears],
+    queryFn: () => statsApi.getSurgeryMonthly(queryYears),
+  })
+
+  const dataMap = useMemo(() => apiData ? toDataMap(apiData) : {}, [apiData])
   /* 월별 */
-  const periodsData = useMemo(() => periods.map(pData), [periods])
+  const periodsData = useMemo(
+    () => periods.map((period) => dataMap[period.year]?.[period.month] ?? EMPTY),
+    [periods, dataMap],
+  )
   const activeGroups = useMemo(
     () => (selectedGroups.includes('total') ? (['total'] as GroupKey[]) : selectedGroups),
     [selectedGroups],
@@ -123,7 +113,22 @@ export function SurgeryPage() {
   )
 
   /* 연도별 */
-  const yearTotals = useMemo(() => years.map(yearSum), [years])
+  const yearTotals = useMemo(
+    () =>
+      years.map((year) => {
+        const monthlyItems = dataMap[year] ?? []
+        const result = { ...EMPTY }
+
+        for (const item of monthlyItems) {
+          for (const key of SURGERY_KEYS) {
+            result[key] += item[key]
+          }
+        }
+
+        return result
+      }),
+    [years, dataMap],
+  )
 
   const yearChartSeries = useMemo(() => {
     if (activeGroups.includes('total')) {
@@ -153,7 +158,7 @@ export function SurgeryPage() {
     MONTHS.map((month, mi) => {
       const row: Record<string, string | number> = { month }
       years.forEach((y, i) => {
-        const d = mockData[y]?.[mi] ?? EMPTY
+        const d = dataMap[y]?.[mi] ?? EMPTY
         if (activeGroups.includes('total')) {
           row[`y${i}_total`] = gSum(d, GROUPS[0])
           return
@@ -165,7 +170,7 @@ export function SurgeryPage() {
       })
       return row
     }),
-    [activeGroups, years],
+    [activeGroups, years, dataMap],
   )
 
   const toggleGroup = (gk: GroupKey) => {
@@ -234,69 +239,83 @@ export function SurgeryPage() {
 
       {/* ── 차트 ── */}
       {mode === 'month' ? (
-        <Card className="border-border/70 shadow-sm">
-          <CardHeader>
-            <CardTitle>수술 유형별 비교</CardTitle>
-            <CardDescription>{periods.map(periodLabel).join(' · ')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={monthChartConfig} className="h-80 w-full">
-              <BarChart data={monthChartData}>
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} />
-                <YAxis tickLine={false} axisLine={false} tickMargin={8} tickFormatter={formatAxisNumber} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                {periods.map((_, i) => (
-                  <Bar key={`p${i}`} dataKey={`p${i}`} fill={`var(--color-p${i})`}
-                    radius={[4, 4, 0, 0]} barSize={Math.max(16, 56 / periods.length)} />
-                ))}
-              </BarChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      ) : (
-        <Card className="border-border/70 shadow-sm">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>월별 추이 비교</CardTitle>
-                <CardDescription>
-                  전체는 합산 흐름으로, 세부 그룹을 여러 개 선택하면 그래프가 분화되어 표시됩니다.
-                </CardDescription>
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader>
+              <CardTitle>수술 유형별 비교</CardTitle>
+              <CardDescription>{periods.map(periodLabel).join(' · ')}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={monthChartConfig} className="h-80 w-full">
+                <BarChart data={monthChartData}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} />
+                  <YAxis tickLine={false} axisLine={false} tickMargin={8} tickFormatter={formatAxisNumber} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  {periods.map((_, i) => (
+                    <Bar
+                      key={`p${i}`}
+                      dataKey={`p${i}`}
+                      fill={`var(--color-p${i})`}
+                      radius={[4, 4, 0, 0]}
+                      barSize={Math.max(16, 56 / periods.length)}
+                    />
+                  ))}
+                </BarChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card className="border-border/70 shadow-sm">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>월별 추이 비교</CardTitle>
+                  <CardDescription>
+                    전체는 합산 흐름으로, 세부 그룹을 여러 개 선택하면 그래프가 분화되어 표시됩니다.
+                  </CardDescription>
+                </div>
+                <div className="flex flex-wrap gap-1 rounded-md bg-gray-100 p-1">
+                  {GROUPS.map((g) => (
+                    <button
+                      key={g.key}
+                      type="button"
+                      onClick={() => toggleGroup(g.key)}
+                      className={`h-8 rounded px-3 text-sm font-medium transition-colors ${
+                        activeGroups.includes(g.key) ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                      style={activeGroups.includes(g.key) ? { color: GROUP_COLORS[g.key] } : undefined}
+                    >
+                      {g.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="flex flex-wrap gap-1 rounded-md bg-gray-100 p-1">
-                {GROUPS.map((g) => (
-                  <button key={g.key} type="button" onClick={() => toggleGroup(g.key)}
-                    className={`h-8 rounded px-3 text-sm font-medium transition-colors ${
-                      activeGroups.includes(g.key) ? 'bg-white shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                    style={activeGroups.includes(g.key) ? { color: GROUP_COLORS[g.key] } : undefined}
-                  >{g.label}</button>
-                ))}
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer config={yearLineConfig} className="h-80 w-full">
-              <LineChart data={yearChartData}>
-                <CartesianGrid vertical={false} />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
-                <YAxis tickLine={false} axisLine={false} tickMargin={8} tickFormatter={formatAxisNumber} />
-                <ChartLegend content={<ChartLegendContent />} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                {yearChartSeries.map((s) => (
-                  <Line key={s.key} type="monotone" dataKey={s.key}
-                    stroke={`var(--color-${s.key})`}
-                    strokeWidth={activeGroups.includes('total') ? 2.75 : 2.25}
-                    strokeDasharray={s.strokeDasharray || undefined}
-                    dot={yearChartSeries.length <= 4 ? { r: 4 } : false}
-                    activeDot={{ r: 6 }} />
-                ))}
-              </LineChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      )}
+            </CardHeader>
+            <CardContent>
+              <ChartContainer config={yearLineConfig} className="h-80 w-full">
+                <LineChart data={yearChartData}>
+                  <CartesianGrid vertical={false} />
+                  <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
+                  <YAxis tickLine={false} axisLine={false} tickMargin={8} tickFormatter={formatAxisNumber} />
+                  <ChartLegend content={<ChartLegendContent />} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  {yearChartSeries.map((s) => (
+                    <Line
+                      key={s.key}
+                      type="monotone"
+                      dataKey={s.key}
+                      stroke={`var(--color-${s.key})`}
+                      strokeWidth={activeGroups.includes('total') ? 2.75 : 2.25}
+                      strokeDasharray={s.strokeDasharray || undefined}
+                      dot={yearChartSeries.length <= 4 ? { r: 4 } : false}
+                      activeDot={{ r: 6 }}
+                    />
+                  ))}
+                </LineChart>
+              </ChartContainer>
+            </CardContent>
+          </Card>
+        )}
     </div>
   )
 }

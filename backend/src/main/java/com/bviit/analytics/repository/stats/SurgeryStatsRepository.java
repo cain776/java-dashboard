@@ -10,12 +10,16 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 수술 통계 쿼리 (OPERATIONDATA + Cataract_Operationdata).
+ * 수술 통계 쿼리 (레거시 stats-weekly-report.js 준용).
+ *
+ * 핵심 원칙:
+ *   1) 시력교정: OPERATIONDATA에서 CUST_NUM이 Cataract_Operationdata에 있으면 제외 (중복 방지)
+ *   2) 환자 수 기준: COUNT(DISTINCT CUST_NUM) per type per month
+ *   3) 테스트 고객 제외 (CUST_NAME LIKE '%TEST%' OR '%테스트%')
+ *   4) 수술 코드 제외 (X, OP불가, 모든수술가능, op x, Strabismus, TEST-TEST)
+ *
  * MSSQL 2014 호환: STRING_AGG, TRIM 등 사용 금지.
  * READ-ONLY — SELECT만 실행.
- *
- * 수술 코드 분류 기준: softcrm/routes/surgery-status.js 203~249행
- * 테스트 제외 기준: softcrm/docs/specs/surgery-status/surgery-count-standard.md
  */
 @Repository
 @Profile("mssql")
@@ -30,18 +34,10 @@ public class SurgeryStatsRepository {
     }
 
     /**
-     * 시력교정 + 렌즈 수술 월별 건수 (OPERATIONDATA).
-     * 각 눈(R/L)을 개별 카운트 → UNION ALL.
+     * 시력교정 + 렌즈 수술 월별 환자 수 (OPERATIONDATA, 백내장 환자 제외).
      *
-     * 분류 순서 (CASE WHEN 최상위=가장 구체적 패턴):
-     *   smilePro → smile → viva → tIcl → icl → tKpl → kpl
-     *   → lasik → lasek → other(미분류)
-     *
-     * 근거:
-     *   - SMILE: softcrm surgery-status.js L224
-     *   - Piol(ICL계열): softcrm surgery-status.js L205,220-223
-     *   - LASIK: softcrm surgery-status.js L206,219,242-248
-     *   - LASEK: softcrm surgery-status.js L236-241,245
+     * 분류 순서 (가장 구체적 패턴 먼저):
+     *   smilePro → smile → viva → tIcl → icl → tKpl → kpl → lasik → lasek → other
      */
     public List<Map<String, Object>> findVisionMonthlyByType(List<Integer> years) {
         int minYear = years.stream().mapToInt(Integer::intValue).min().orElse(2025);
@@ -51,8 +47,7 @@ public class SurgeryStatsRepository {
                 .addValue("from", minYear + "-01-01")
                 .addValue("to", maxYear + "-12-31");
 
-        // 수술 코드 분류 CASE 문 (R/L 공통)
-        // MSSQL LIKE는 대소문자 구분 안 함 (기본 collation)
+        // 수술 코드 분류 (R/L 공통)
         String classifyCase = """
                 CASE
                     WHEN op_code LIKE '%SMILE Pro%' OR op_code LIKE '%SMILEpro%'
@@ -78,21 +73,24 @@ public class SurgeryStatsRepository {
                 END
                 """;
 
+        // 환자 수 기준 COUNT(DISTINCT CUST_NUM)
         String sql = """
                 SELECT
                     YEAR(e.op_date) AS yr,
                     MONTH(e.op_date) AS mo,
-                    SUM(CASE WHEN e.op_type = 'lasek'    THEN 1 ELSE 0 END) AS lasek,
-                    SUM(CASE WHEN e.op_type = 'lasik'    THEN 1 ELSE 0 END) AS lasik,
-                    SUM(CASE WHEN e.op_type = 'smile'    THEN 1 ELSE 0 END) AS smile,
-                    SUM(CASE WHEN e.op_type = 'smilePro' THEN 1 ELSE 0 END) AS smilePro,
-                    SUM(CASE WHEN e.op_type = 'icl'      THEN 1 ELSE 0 END) AS icl,
-                    SUM(CASE WHEN e.op_type = 'tIcl'     THEN 1 ELSE 0 END) AS tIcl,
-                    SUM(CASE WHEN e.op_type = 'kpl'      THEN 1 ELSE 0 END) AS kpl,
-                    SUM(CASE WHEN e.op_type = 'tKpl'     THEN 1 ELSE 0 END) AS tKpl,
-                    SUM(CASE WHEN e.op_type = 'viva'     THEN 1 ELSE 0 END) AS viva
+                    COUNT(DISTINCT CASE WHEN e.op_type = 'lasek'    THEN e.cust_num END) AS lasek,
+                    COUNT(DISTINCT CASE WHEN e.op_type = 'lasik'    THEN e.cust_num END) AS lasik,
+                    COUNT(DISTINCT CASE WHEN e.op_type = 'smile'    THEN e.cust_num END) AS smile,
+                    COUNT(DISTINCT CASE WHEN e.op_type = 'smilePro' THEN e.cust_num END) AS smilePro,
+                    COUNT(DISTINCT CASE WHEN e.op_type = 'icl'      THEN e.cust_num END) AS icl,
+                    COUNT(DISTINCT CASE WHEN e.op_type = 'tIcl'     THEN e.cust_num END) AS tIcl,
+                    COUNT(DISTINCT CASE WHEN e.op_type = 'kpl'      THEN e.cust_num END) AS kpl,
+                    COUNT(DISTINCT CASE WHEN e.op_type = 'tKpl'     THEN e.cust_num END) AS tKpl,
+                    COUNT(DISTINCT CASE WHEN e.op_type = 'viva'     THEN e.cust_num END) AS viva,
+                    COUNT(DISTINCT e.cust_num) AS visionPatients
                 FROM (
                     SELECT o.OPERATION_DATE AS op_date,
+                           o.CUST_NUM AS cust_num,
                 """
                 + classifyCase.replace("op_code", "o.OPERATIONR") +
                 """
@@ -102,9 +100,11 @@ public class SurgeryStatsRepository {
                     WHERE o.OPERATION_DATE >= :from AND o.OPERATION_DATE <= :to
                       AND o.OPERATIONR IS NOT NULL AND RTRIM(o.OPERATIONR) <> ''
                       AND o.OPERATIONR NOT IN ('X','OP불가','모든수술가능','op x','Strabismus','TEST-TEST')
+                      AND o.CUST_NUM NOT IN (SELECT DISTINCT CUST_NUM FROM Cataract_Operationdata)
                       AND (cu.CUST_NAME NOT LIKE '%TEST%' AND cu.CUST_NAME NOT LIKE '%테스트%')
                     UNION ALL
                     SELECT o.OPERATION_DATE AS op_date,
+                           o.CUST_NUM AS cust_num,
                 """
                 + classifyCase.replace("op_code", "o.OPERATIONL") +
                 """
@@ -114,6 +114,7 @@ public class SurgeryStatsRepository {
                     WHERE o.OPERATION_DATE >= :from AND o.OPERATION_DATE <= :to
                       AND o.OPERATIONL IS NOT NULL AND RTRIM(o.OPERATIONL) <> ''
                       AND o.OPERATIONL NOT IN ('X','OP불가','모든수술가능','op x','Strabismus','TEST-TEST')
+                      AND o.CUST_NUM NOT IN (SELECT DISTINCT CUST_NUM FROM Cataract_Operationdata)
                       AND (cu.CUST_NAME NOT LIKE '%TEST%' AND cu.CUST_NAME NOT LIKE '%테스트%')
                 ) e
                 GROUP BY YEAR(e.op_date), MONTH(e.op_date)
@@ -123,15 +124,12 @@ public class SurgeryStatsRepository {
     }
 
     /**
-     * 백내장 수술 월별 건수 (Cataract_Operationdata).
-     * 각 눈(R/L)을 개별 카운트, 날짜 컬럼이 눈별로 분리 (OPERATIONR_DATE, OPERATIONL_DATE).
+     * 백내장 수술 월별 환자 수 (Cataract_Operationdata).
      *
      * 분류:
      *   catMulti (다초점): CTR(M), CTRmulti, 3PodF, RESTOR, T-CTR, T-CATARACT, Panoptix, symfony, Lara
-     *   catEdof (EDOF):    EDOF, Vivity, symfony (단독)
-     *   catMono (단초점):  CATARACT, CTR(Sensa/superflex/preciz/k-flex/SN60WF), CTR 단독
-     *
-     * 근거: softcrm/routes/surgery-status.js L207-235
+     *   catEdof (EDOF):    EDOF, Vivity
+     *   catMono (단초점):  CATARACT, CTR 단독, CTR(Sensa/superflex/preciz/k-flex/SN60WF)
      */
     public List<Map<String, Object>> findCataractMonthlyByType(List<Integer> years) {
         int minYear = years.stream().mapToInt(Integer::intValue).min().orElse(2025);
@@ -159,11 +157,13 @@ public class SurgeryStatsRepository {
                 SELECT
                     YEAR(e.op_date) AS yr,
                     MONTH(e.op_date) AS mo,
-                    SUM(CASE WHEN e.cat_type = 'catMulti' THEN 1 ELSE 0 END) AS catMulti,
-                    SUM(CASE WHEN e.cat_type = 'catMono'  THEN 1 ELSE 0 END) AS catMono,
-                    SUM(CASE WHEN e.cat_type = 'catEdof'  THEN 1 ELSE 0 END) AS catEdof
+                    COUNT(DISTINCT CASE WHEN e.cat_type = 'catMulti' THEN e.cust_num END) AS catMulti,
+                    COUNT(DISTINCT CASE WHEN e.cat_type = 'catMono'  THEN e.cust_num END) AS catMono,
+                    COUNT(DISTINCT CASE WHEN e.cat_type = 'catEdof'  THEN e.cust_num END) AS catEdof,
+                    COUNT(DISTINCT e.cust_num) AS cataractPatients
                 FROM (
                     SELECT c.OPERATIONR_DATE AS op_date,
+                           c.CUST_NUM AS cust_num,
                 """
                 + classifyCase.replace("op_code", "c.OPERATIONR") +
                 """
@@ -176,6 +176,7 @@ public class SurgeryStatsRepository {
                       AND (cu.CUST_NAME NOT LIKE '%TEST%' AND cu.CUST_NAME NOT LIKE '%테스트%')
                     UNION ALL
                     SELECT c.OPERATIONL_DATE AS op_date,
+                           c.CUST_NUM AS cust_num,
                 """
                 + classifyCase.replace("op_code", "c.OPERATIONL") +
                 """

@@ -26,57 +26,59 @@ public class ConsultationRateService {
         String fromDate = minYear + "-01-01";
         String toDate = maxYear + "-12-31";
 
-        // RESERVATION 기반: 수술전환율 + 백내장전환율
-        List<Map<String, Object>> reservationRows = repository.findMonthlyConversionData(fromDate, toDate);
-        // EXAM 기반: 상담수 (중단·BS미지시 제외)
-        List<Map<String, Object>> counselRows = repository.findMonthlyCounselData(fromDate, toDate);
-
-        // 상담수 맵
-        Map<String, Integer> counselMap = new LinkedHashMap<>();
-        for (Map<String, Object> row : counselRows) {
-            counselMap.put(toInt(row.get("yr")) + "-" + toInt(row.get("mo")), toInt(row.get("counselCount")));
-        }
+        List<Map<String, Object>> visionRows = repository.findMonthlyVisionRates(fromDate, toDate);
+        List<Map<String, Object>> cataractRows = repository.findMonthlyCataractRates(fromDate, toDate);
 
         // 연도×12 초기화
-        Map<String, ConsultationRateItem> result = new LinkedHashMap<>();
+        Map<String, Builder> result = new LinkedHashMap<>();
         for (int year : years) {
             for (int m = 1; m <= 12; m++) {
-                result.put(year + "-" + m, ConsultationRateItem.builder()
-                        .year(year).month(m)
-                        .visionExamCount(0).visionSurgeryCount(0).visionSurgeryRate(0)
-                        .visionCounselCount(0).visionCounselRate(0)
-                        .cataractExamCount(0).cataractSurgeryCount(0).cataractSurgeryRate(0)
-                        .build());
+                result.put(year + "-" + m, new Builder(year, m));
             }
         }
 
-        // RESERVATION 데이터 + EXAM 상담수 병합
-        for (Map<String, Object> row : reservationRows) {
+        // 시력교정 병합
+        for (Map<String, Object> row : visionRows) {
             int yr = toInt(row.get("yr"));
             int mo = toInt(row.get("mo"));
-            String key = yr + "-" + mo;
-            if (!result.containsKey(key)) continue;
+            Builder b = result.get(yr + "-" + mo);
+            if (b == null) continue;
 
-            int ve = toInt(row.get("visionExam"));
-            int vs = toInt(row.get("visionSurgery"));
-            int ce = toInt(row.get("cataractExam"));
-            int cs = toInt(row.get("cataractSurgery"));
-            int counsel = counselMap.getOrDefault(key, 0);
+            int exam = toInt(row.get("examCount"));
+            int counsel = toInt(row.get("counselCount"));
+            int booked = toInt(row.get("surgeryBookedCount"));
+            int actual = toInt(row.get("actualSurgeryCount"));
 
-            result.put(key, ConsultationRateItem.builder()
-                    .year(yr).month(mo)
-                    .visionExamCount(ve)
-                    .visionSurgeryCount(vs)
-                    .visionSurgeryRate(ve > 0 ? round(vs * 100.0 / ve) : 0)
-                    .visionCounselCount(counsel)
-                    .visionCounselRate(counsel > 0 ? round(vs * 100.0 / counsel) : 0)
-                    .cataractExamCount(ce)
-                    .cataractSurgeryCount(cs)
-                    .cataractSurgeryRate(ce > 0 ? round(cs * 100.0 / ce) : 0)
-                    .build());
+            b.visionExamCount = exam;
+            b.visionCounselCount = counsel;
+            b.visionSurgeryBooked = booked;
+            b.visionActualSurgery = actual;
+            b.visionSurgeryRate = exam > 0 ? round(booked * 100.0 / exam) : 0;
+            b.visionCounselRate = counsel > 0 ? round(booked * 100.0 / counsel) : 0;
         }
 
-        return new ArrayList<>(result.values());
+        // 백내장 병합
+        for (Map<String, Object> row : cataractRows) {
+            int yr = toInt(row.get("yr"));
+            int mo = toInt(row.get("mo"));
+            Builder b = result.get(yr + "-" + mo);
+            if (b == null) continue;
+
+            int exam = toInt(row.get("examCount"));
+            int booked = toInt(row.get("surgeryBookedCount"));
+            int stopped = toInt(row.get("stoppedCount"));
+
+            b.cataractExamCount = exam;
+            b.cataractSurgeryBooked = booked;
+            b.cataractStoppedCount = stopped;
+            b.cataractSurgeryRate = exam > 0 ? round(booked * 100.0 / exam) : 0;
+        }
+
+        List<ConsultationRateItem> items = new ArrayList<>();
+        for (Builder b : result.values()) {
+            items.add(b.build());
+        }
+        return items;
     }
 
     private static int toInt(Object val) {
@@ -87,5 +89,42 @@ public class ConsultationRateService {
 
     private static double round(double val) {
         return Math.round(val * 10.0) / 10.0;
+    }
+
+    /** 가변 빌더 — 시력교정/백내장 두 소스 병합용 */
+    private static class Builder {
+        final int year;
+        final int month;
+        int visionExamCount;
+        int visionCounselCount;
+        int visionSurgeryBooked;
+        int visionActualSurgery;
+        double visionSurgeryRate;
+        double visionCounselRate;
+        int cataractExamCount;
+        int cataractSurgeryBooked;
+        int cataractStoppedCount;
+        double cataractSurgeryRate;
+
+        Builder(int year, int month) {
+            this.year = year;
+            this.month = month;
+        }
+
+        ConsultationRateItem build() {
+            return ConsultationRateItem.builder()
+                    .year(year).month(month)
+                    .visionExamCount(visionExamCount)
+                    .visionCounselCount(visionCounselCount)
+                    .visionSurgeryBooked(visionSurgeryBooked)
+                    .visionActualSurgery(visionActualSurgery)
+                    .visionSurgeryRate(visionSurgeryRate)
+                    .visionCounselRate(visionCounselRate)
+                    .cataractExamCount(cataractExamCount)
+                    .cataractSurgeryBooked(cataractSurgeryBooked)
+                    .cataractStoppedCount(cataractStoppedCount)
+                    .cataractSurgeryRate(cataractSurgeryRate)
+                    .build();
+        }
     }
 }

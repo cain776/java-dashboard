@@ -177,4 +177,80 @@ export const handlers = [
 
     return HttpResponse.json({ success: true, data })
   }),
+  http.get('/api/stats/surgery/monthly', ({ request }) => {
+    const url = new URL(request.url)
+    const years = (url.searchParams.get('years') ?? '').split(',').map(Number).filter(Boolean)
+    if (!years.length) years.push(new Date().getFullYear())
+
+    const genSurgeryMonth = (i: number, seed: number) => {
+      const base = 20 + ((i * 3 + seed) % 15)
+      return {
+        lasek: base + 2, lasik: base + 5, smile: base + 8, smilePro: base + 3,
+        icl: Math.max(3, base - 10), tIcl: Math.max(2, base - 12), kpl: 4, tKpl: 2, viva: 3,
+        catMulti: base, catMono: base + 4, catEdof: Math.max(1, base - 15),
+      }
+    }
+
+    const data = years.flatMap((year) =>
+      Array.from({ length: 12 }, (_, i) => {
+        const m = genSurgeryMonth(i, year)
+        const total = m.lasek + m.lasik + m.smile + m.smilePro + m.icl + m.tIcl + m.kpl + m.tKpl + m.viva + m.catMulti + m.catMono + m.catEdof
+        return { year, month: i + 1, ...m, total }
+      }),
+    )
+
+    return HttpResponse.json({ success: true, data })
+  }),
+  http.get('/api/stats/surgery-ratio', ({ request }) => {
+    const url = new URL(request.url)
+    const years = (url.searchParams.get('years') ?? '').split(',').map(Number).filter(Boolean)
+    if (!years.length) years.push(new Date().getFullYear())
+
+    const genSurgeryMonth = (i: number, seed: number) => {
+      const base = 20 + ((i * 3 + seed) % 15)
+      return {
+        lasek: base + 2, lasik: base + 5, smile: base + 8, smilePro: base + 3,
+        icl: Math.max(3, base - 10), tIcl: Math.max(2, base - 12), kpl: 4, tKpl: 2, viva: 3,
+        catMulti: base, catMono: base + 4, catEdof: Math.max(1, base - 15),
+      }
+    }
+
+    const data = years.flatMap((year) =>
+      Array.from({ length: 12 }, (_, i) => {
+        const m = genSurgeryMonth(i, year)
+        const total = m.lasek + m.lasik + m.smile + m.smilePro + m.icl + m.tIcl + m.kpl + m.tKpl + m.viva + m.catMulti + m.catMono + m.catEdof
+        return { year, month: i + 1, ...m, total }
+      }),
+    )
+
+    return HttpResponse.json({ success: true, data })
+  }),
+  http.get('/api/stats/consultation-rate', ({ request }) => {
+    const url = new URL(request.url)
+    const years = (url.searchParams.get('years') ?? '').split(',').map(Number).filter(Boolean)
+    if (!years.length) years.push(new Date().getFullYear())
+
+    const data = years.flatMap((year) =>
+      Array.from({ length: 12 }, (_, i) => {
+        const visionExamCount = 250 + ((i * 7 + year) % 80)
+        const visionSurgeryBooked = Math.round(visionExamCount * (0.4 + ((i % 5) * 0.03)))
+        const visionActualSurgery = Math.round(visionSurgeryBooked * 0.95)
+        const visionCounselCount = Math.round(visionExamCount * 0.75)
+        const cataractExamCount = 80 + ((i * 3) % 30)
+        const cataractSurgeryBooked = Math.round(cataractExamCount * (0.6 + ((i % 4) * 0.05)))
+        const cataractStoppedCount = Math.max(0, Math.round(cataractExamCount * 0.08))
+        return {
+          year, month: i + 1,
+          visionExamCount, visionCounselCount,
+          visionSurgeryBooked, visionActualSurgery,
+          visionSurgeryRate: Math.round((visionSurgeryBooked / visionExamCount) * 1000) / 10,
+          visionCounselRate: Math.round((visionSurgeryBooked / visionCounselCount) * 1000) / 10,
+          cataractExamCount, cataractSurgeryBooked, cataractStoppedCount,
+          cataractSurgeryRate: Math.round((cataractSurgeryBooked / cataractExamCount) * 1000) / 10,
+        }
+      }),
+    )
+
+    return HttpResponse.json({ success: true, data })
+  }),
 ]

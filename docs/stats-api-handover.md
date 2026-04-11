@@ -229,29 +229,42 @@ public class XxxController {
 
 ## 프론트 메뉴 ↔ API ↔ 상태
 
+**범례:**
+- 🟢 완료 — 백엔드 API + 프론트 페이지 모두 연결
+- 🟠 백엔드만 — API는 완료, 프론트는 placeholder (프론트 연결 작업 필요)
+- 🔴 **미착수** — 백엔드 API도 없음, 프론트도 placeholder
+
 | 사이드바 | 페이지 | 라우트 | API | 프론트 파일 | 상태 |
 |---------|--------|--------|-----|-----------|------|
-| HOME | 대시보드 | `/` | - | `DashboardPage.tsx` | 목업 |
-| 검사&예약 | 유입(검사예약) | `/stats/intake-conversion` | `/api/stats/intake-conversion` | placeholder | 미구현 |
-| | 예약 건수 | `/stats/reservation` | `/api/stats/reservation`, `/api/stats/reservation/monthly` | `ReservationPage.tsx` | **API 완료** |
-| | 검사 건수 | `/stats/examination` | `/api/stats/examination` | placeholder | 미구현 |
-| 상담 건수 | 상담 전환율 | `/stats/consultation-rate` | `/api/stats/consultation-rate` | placeholder | 미구현 |
-| 수술 | 수술 건수 | `/stats/surgery` | `/api/stats/surgery/monthly` | `SurgeryPage.tsx` | **API 완료** |
-| | 수술별 비중 | `/stats/surgery-ratio` | `/api/stats/surgery-ratio` | `SurgeryRatioPage.tsx` | **API 완료** |
-| 마케팅 | 해외 환자 | `/stats/overseas` | `/api/stats/overseas` | placeholder | 미구현 |
-| | 마케팅 유입 | `/stats/marketing` | `/api/stats/marketing` | placeholder | 미구현 |
-| 취소&부도 | 예약취소율 | `/stats/cancel-rate` | `/api/stats/cancel-rate` | placeholder | 미구현 |
-| | 부도율 | `/stats/no-show-rate` | `/api/stats/no-show-rate` | placeholder | 미구현 |
-| 객단가 | 객단가 | `/stats/unit-price` | `/api/stats/unit-price` | placeholder | 미구현 |
-| 기타 | 드림렌즈 매출 | `/stats/dreamlens-revenue` | `/api/stats/dreamlens-revenue` | placeholder | 미구현 |
-| | B2B 매출 | `/stats/b2b-revenue` | `/api/stats/b2b-revenue` | placeholder | 미구현 |
-| | 직원 포인트 | `/stats/staff-point` | `/api/stats/staff-point` | placeholder | 미구현 |
-| | PRP 시술율 | `/stats/prp-rate` | `/api/stats/prp-rate` | placeholder | 미구현 |
-| | 재수술율 | `/stats/reoperation-rate` | `/api/stats/reoperation-rate` | placeholder | 미구현 |
-| | 당일OP 비율 | `/stats/same-day-op` | `/api/stats/same-day-op` | placeholder | 미구현 |
-| | 지정의 수술 | `/stats/designated-doctor` | `/api/stats/designated-doctor` | placeholder | 미구현 |
-| | 내원동기별 | `/stats/visit-reason` | `/api/stats/visit-reason` | placeholder | 미구현 |
-| | 일일 접수 | `/stats/daily-reception` | `/api/stats/daily-reception` | placeholder | 미구현 |
+| HOME | 대시보드 | `/` | - | `DashboardPage.tsx` | 🟠 목업 |
+| 검사&예약 | 유입(검사예약) | `/stats/intake-conversion` | `/api/stats/intake-conversion` | placeholder | 🔴 **미구현** |
+| | 예약 건수 | `/stats/reservation` | `/api/stats/reservation`, `/api/stats/reservation/monthly` | `ReservationPage.tsx` | 🟢 **완료** |
+| | 검사 건수 | `/stats/examination` | `/api/stats/examination/monthly` | `ExaminationPage.tsx` | 🟢 **완료** |
+| 상담 건수 | 상담 전환율 | `/stats/consultation-rate` | `/api/stats/consultation-rate` | `ConsultationRatePage.tsx` | 🟢 **완료** |
+| 수술 | 수술 건수 | `/stats/surgery` | `/api/stats/surgery/monthly` | `SurgeryPage.tsx` | 🟢 **완료** |
+| | 수술별 비중 | `/stats/surgery-ratio` | `/api/stats/surgery-ratio` | `SurgeryRatioPage.tsx` | 🟢 **완료** |
+| 마케팅 | 해외 환자 | `/stats/overseas` | `/api/stats/overseas` | placeholder | 🔴 **미구현** |
+| | 마케팅 유입 | `/stats/marketing` | `/api/stats/marketing` | placeholder | 🔴 **미구현** |
+| 취소&부도 | 예약취소율 | `/stats/cancel-rate` | `/api/stats/cancel-rate` | placeholder | 🔴 **미구현** |
+| | 부도율 | `/stats/no-show-rate` | `/api/stats/no-show-rate` | placeholder | 🔴 **미구현** |
+| 객단가 | 객단가 | `/stats/unit-price` | `/api/stats/unit-price` | placeholder | 🔴 **미구현** |
+| 기타 | 드림렌즈 매출 | `/stats/dreamlens-revenue` | `/api/stats/dreamlens-revenue` | placeholder | 🔴 **미구현** |
+| | B2B 매출 | `/stats/b2b-revenue` | `/api/stats/b2b-revenue` | placeholder | 🔴 **미구현** |
+| | 직원 포인트 | `/stats/staff-point` | `/api/stats/staff-point` | placeholder | 🔴 **미구현** |
+| | PRP 시술율 | `/stats/prp-rate` | `/api/stats/prp-rate` | placeholder | 🔴 **미구현** |
+| | 재수술율 | `/stats/reoperation-rate` | `/api/stats/reoperation-rate` | placeholder | 🔴 **미구현** |
+| | 당일OP 비율 | `/stats/same-day-op` | `/api/stats/same-day-op` | placeholder | 🔴 **미구현** |
+| | 지정의 수술 | `/stats/designated-doctor` | `/api/stats/designated-doctor` | placeholder | 🔴 **미구현** |
+| | 내원동기별 | `/stats/visit-reason` | `/api/stats/visit-reason` | placeholder | 🔴 **미구현** |
+| | 일일 접수 | `/stats/daily-reception` | `/api/stats/daily-reception` | placeholder | 🔴 **미구현** |
+
+### 진행률 요약
+
+| 상태 | 개수 | 메뉴 |
+|------|------|------|
+| 🟢 완료 | 5 | 예약 건수, 검사 건수, 상담 전환율, 수술 건수, 수술별 비중 |
+| 🟠 백엔드만 완료 (프론트 연결 대기) | 0 | - |
+| 🔴 완전 미착수 | 15 | 유입, 해외, 마케팅, 취소, 부도, 객단가, 드림렌즈매출, B2B매출, 직원포인트, PRP, 재수술, 당일OP, 지정의, 내원동기, 일일접수 |
 
 ---
 

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
-import { Minus, TrendingDown, TrendingUp } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Loader2, Minus, TrendingDown, TrendingUp } from 'lucide-react'
 import {
   Bar,
   BarChart,
@@ -26,7 +27,8 @@ import {
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/components/filters/useFilterBar'
 import { CHART_COLORS, MONTHS, YEAR_STROKE_PATTERNS } from '@/constants/chart'
-import { formatAxisPercent, periodLabel, type Period } from '@/utils/stats'
+import { formatAxisPercent, periodLabel } from '@/utils/stats'
+import { statsApi, type ConsultationRateItem } from '@/api/stats'
 
 type MetricKey =
   | 'overallConsultation'
@@ -35,10 +37,17 @@ type MetricKey =
   | 'cataractSurgery'
 
 interface MonthlyData {
+  // 화면 표시용 비율 (%)
   overallConsultation: number
   visionConsultation: number
   visionSurgery: number
   cataractSurgery: number
+  // 가중평균 집계용 원본 건수
+  visionExamCount: number
+  visionCounselCount: number
+  visionSurgeryBooked: number
+  cataractExamCount: number
+  cataractSurgeryBooked: number
 }
 
 const METRICS = [
@@ -61,83 +70,44 @@ const METRIC_COLORS: Record<MetricKey, string> = {
   cataractSurgery: 'var(--chart-4)',
 }
 
-const mockData: Record<number, MonthlyData[]> = {
-  2024: [
-    { overallConsultation: 52.8, visionConsultation: 61.2, visionSurgery: 18.4, cataractSurgery: 28.1 },
-    { overallConsultation: 53.5, visionConsultation: 62.1, visionSurgery: 18.9, cataractSurgery: 28.8 },
-    { overallConsultation: 54.6, visionConsultation: 63.4, visionSurgery: 19.7, cataractSurgery: 30.2 },
-    { overallConsultation: 56.2, visionConsultation: 65.0, visionSurgery: 20.5, cataractSurgery: 31.4 },
-    { overallConsultation: 55.4, visionConsultation: 64.1, visionSurgery: 20.1, cataractSurgery: 30.8 },
-    { overallConsultation: 56.8, visionConsultation: 65.8, visionSurgery: 21.4, cataractSurgery: 32.6 },
-    { overallConsultation: 58.1, visionConsultation: 67.4, visionSurgery: 22.7, cataractSurgery: 34.3 },
-    { overallConsultation: 57.5, visionConsultation: 66.9, visionSurgery: 22.1, cataractSurgery: 33.8 },
-    { overallConsultation: 56.9, visionConsultation: 66.1, visionSurgery: 21.8, cataractSurgery: 33.1 },
-    { overallConsultation: 58.7, visionConsultation: 68.0, visionSurgery: 23.4, cataractSurgery: 35.6 },
-    { overallConsultation: 59.2, visionConsultation: 68.6, visionSurgery: 23.9, cataractSurgery: 36.4 },
-    { overallConsultation: 60.1, visionConsultation: 69.4, visionSurgery: 24.6, cataractSurgery: 37.8 },
-  ],
-  2025: [
-    { overallConsultation: 55.3, visionConsultation: 63.9, visionSurgery: 20.1, cataractSurgery: 30.7 },
-    { overallConsultation: 56.1, visionConsultation: 64.8, visionSurgery: 20.9, cataractSurgery: 31.5 },
-    { overallConsultation: 57.4, visionConsultation: 66.2, visionSurgery: 21.6, cataractSurgery: 32.9 },
-    { overallConsultation: 59.0, visionConsultation: 67.7, visionSurgery: 22.8, cataractSurgery: 34.2 },
-    { overallConsultation: 58.4, visionConsultation: 67.1, visionSurgery: 22.3, cataractSurgery: 33.5 },
-    { overallConsultation: 59.8, visionConsultation: 68.6, visionSurgery: 23.7, cataractSurgery: 35.1 },
-    { overallConsultation: 61.4, visionConsultation: 70.2, visionSurgery: 25.1, cataractSurgery: 37.2 },
-    { overallConsultation: 60.8, visionConsultation: 69.6, visionSurgery: 24.5, cataractSurgery: 36.4 },
-    { overallConsultation: 60.2, visionConsultation: 68.9, visionSurgery: 24.1, cataractSurgery: 35.8 },
-    { overallConsultation: 61.7, visionConsultation: 70.5, visionSurgery: 25.4, cataractSurgery: 37.9 },
-    { overallConsultation: 62.1, visionConsultation: 71.0, visionSurgery: 25.8, cataractSurgery: 38.6 },
-    { overallConsultation: 63.0, visionConsultation: 71.8, visionSurgery: 26.5, cataractSurgery: 39.4 },
-  ],
-  2026: [
-    { overallConsultation: 57.2, visionConsultation: 66.1, visionSurgery: 21.8, cataractSurgery: 32.8 },
-    { overallConsultation: 57.9, visionConsultation: 66.9, visionSurgery: 22.3, cataractSurgery: 33.6 },
-    { overallConsultation: 58.8, visionConsultation: 68.0, visionSurgery: 23.0, cataractSurgery: 34.9 },
-    { overallConsultation: 59.6, visionConsultation: 68.8, visionSurgery: 23.5, cataractSurgery: 35.7 },
-    { overallConsultation: 59.1, visionConsultation: 68.2, visionSurgery: 23.2, cataractSurgery: 35.0 },
-    { overallConsultation: 60.5, visionConsultation: 69.7, visionSurgery: 24.3, cataractSurgery: 36.4 },
-    { overallConsultation: 62.0, visionConsultation: 71.3, visionSurgery: 25.6, cataractSurgery: 38.1 },
-    { overallConsultation: 61.4, visionConsultation: 70.7, visionSurgery: 25.0, cataractSurgery: 37.3 },
-    { overallConsultation: 61.9, visionConsultation: 71.1, visionSurgery: 25.5, cataractSurgery: 37.8 },
-    { overallConsultation: 63.1, visionConsultation: 72.4, visionSurgery: 26.8, cataractSurgery: 39.5 },
-    { overallConsultation: 63.6, visionConsultation: 72.9, visionSurgery: 27.2, cataractSurgery: 40.2 },
-    { overallConsultation: 64.4, visionConsultation: 73.7, visionSurgery: 27.9, cataractSurgery: 41.0 },
-  ],
+const EMPTY_RATES: MonthlyData = {
+  overallConsultation: 0, visionConsultation: 0, visionSurgery: 0, cataractSurgery: 0,
+  visionExamCount: 0, visionCounselCount: 0, visionSurgeryBooked: 0,
+  cataractExamCount: 0, cataractSurgeryBooked: 0,
+}
+
+// 비율(%) 계산 — 분모 0 방어
+const computeRate = (numerator: number, denominator: number) =>
+  denominator > 0 ? Number(((numerator / denominator) * 100).toFixed(1)) : 0
+
+// 백엔드 DTO → 화면용 필드 매핑 (원본 건수 유지 → 가중평균 집계 가능)
+function itemToData(item: ConsultationRateItem): MonthlyData {
+  return {
+    overallConsultation: computeRate(
+      item.visionSurgeryBooked + item.cataractSurgeryBooked,
+      item.visionExamCount + item.cataractExamCount,
+    ),
+    visionConsultation: item.visionCounselRate,
+    visionSurgery: item.visionSurgeryRate,
+    cataractSurgery: item.cataractSurgeryRate,
+    visionExamCount: item.visionExamCount,
+    visionCounselCount: item.visionCounselCount,
+    visionSurgeryBooked: item.visionSurgeryBooked,
+    cataractExamCount: item.cataractExamCount,
+    cataractSurgeryBooked: item.cataractSurgeryBooked,
+  }
+}
+
+function toDataMap(items: ConsultationRateItem[]): Record<number, MonthlyData[]> {
+  const map: Record<number, MonthlyData[]> = {}
+  for (const item of items) {
+    if (!map[item.year]) map[item.year] = Array.from({ length: 12 }, () => ({ ...EMPTY_RATES }))
+    map[item.year][item.month - 1] = itemToData(item)
+  }
+  return map
 }
 
 const formatRate = (value: number) => `${value.toFixed(1)}%`
-
-const periodData = (period: Period) =>
-  mockData[period.year]?.[period.month] ?? {
-    overallConsultation: 0,
-    visionConsultation: 0,
-    visionSurgery: 0,
-    cataractSurgery: 0,
-  }
-
-const yearAverage = (year: number) => {
-  const data = mockData[year] ?? []
-  const valid = data.filter((item) =>
-    Object.values(item).some((value) => value > 0)
-  )
-
-  if (!valid.length) {
-    return {
-      overallConsultation: 0,
-      visionConsultation: 0,
-      visionSurgery: 0,
-      cataractSurgery: 0,
-    }
-  }
-
-  return {
-    overallConsultation: Number((valid.reduce((sum, item) => sum + item.overallConsultation, 0) / valid.length).toFixed(1)),
-    visionConsultation: Number((valid.reduce((sum, item) => sum + item.visionConsultation, 0) / valid.length).toFixed(1)),
-    visionSurgery: Number((valid.reduce((sum, item) => sum + item.visionSurgery, 0) / valid.length).toFixed(1)),
-    cataractSurgery: Number((valid.reduce((sum, item) => sum + item.cataractSurgery, 0) / valid.length).toFixed(1)),
-  }
-}
 
 const changePoint = (base: number, next: number) => next - base
 
@@ -146,8 +116,60 @@ export function ConsultationRatePage() {
   const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(['overallConsultation'])
 
   const { mode, periods, years } = filter
-  const periodsData = useMemo(() => periods.map(periodData), [periods])
-  const yearAverages = useMemo(() => years.map(yearAverage), [years])
+
+  // 필요한 연도 수집
+  const queryYears = useMemo(() => {
+    const set = new Set<number>()
+    if (mode === 'month') periods.forEach((p) => set.add(p.year))
+    else years.forEach((y) => set.add(y))
+    return [...set].sort()
+  }, [mode, periods, years])
+
+  // API 호출
+  const { data: apiItems, isLoading, isError } = useQuery({
+    queryKey: ['consultation-rate', queryYears],
+    queryFn: () => statsApi.getConsultationRate(queryYears),
+    enabled: queryYears.length > 0,
+  })
+
+  const dataMap = useMemo(() => (apiItems ? toDataMap(apiItems) : {}), [apiItems])
+  const periodsData = useMemo(
+    () => periods.map((period) => dataMap[period.year]?.[period.month] ?? EMPTY_RATES),
+    [periods, dataMap],
+  )
+  // 연도별 집계는 가중평균: SUM(분자) / SUM(분모) × 100
+  // 단순 월별 비율 평균은 표본 크기 차이를 왜곡하므로 금지.
+  const yearAverages = useMemo<MonthlyData[]>(
+    () =>
+      years.map((year) => {
+        const months = dataMap[year] ?? []
+        const sums = months.reduce(
+          (acc, m) => ({
+            visionExamCount: acc.visionExamCount + m.visionExamCount,
+            visionCounselCount: acc.visionCounselCount + m.visionCounselCount,
+            visionSurgeryBooked: acc.visionSurgeryBooked + m.visionSurgeryBooked,
+            cataractExamCount: acc.cataractExamCount + m.cataractExamCount,
+            cataractSurgeryBooked: acc.cataractSurgeryBooked + m.cataractSurgeryBooked,
+          }),
+          {
+            visionExamCount: 0, visionCounselCount: 0, visionSurgeryBooked: 0,
+            cataractExamCount: 0, cataractSurgeryBooked: 0,
+          },
+        )
+
+        return {
+          ...sums,
+          overallConsultation: computeRate(
+            sums.visionSurgeryBooked + sums.cataractSurgeryBooked,
+            sums.visionExamCount + sums.cataractExamCount,
+          ),
+          visionConsultation: computeRate(sums.visionSurgeryBooked, sums.visionCounselCount),
+          visionSurgery: computeRate(sums.visionSurgeryBooked, sums.visionExamCount),
+          cataractSurgery: computeRate(sums.cataractSurgeryBooked, sums.cataractExamCount),
+        }
+      }),
+    [years, dataMap],
+  )
   const activeMetrics = useMemo(
     () =>
       selectedMetrics.includes('overallConsultation')
@@ -220,12 +242,7 @@ export function ConsultationRatePage() {
         const row: Record<string, string | number> = { month }
 
         years.forEach((year, yearIndex) => {
-          const data = mockData[year]?.[monthIndex] ?? {
-            overallConsultation: 0,
-            visionConsultation: 0,
-            visionSurgery: 0,
-            cataractSurgery: 0,
-          }
+          const data = dataMap[year]?.[monthIndex] ?? EMPTY_RATES
 
           if (activeMetrics.includes('overallConsultation')) {
             row[`y${yearIndex}_overallConsultation`] = data.overallConsultation
@@ -239,7 +256,7 @@ export function ConsultationRatePage() {
 
         return row
       }),
-    [activeMetrics, years],
+    [activeMetrics, years, dataMap],
   )
 
   const toggleMetric = (metricKey: MetricKey) => {
@@ -266,7 +283,21 @@ export function ConsultationRatePage() {
     <div className="space-y-6">
       <FilterBar {...filter} />
 
-      <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {isLoading && (
+        <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
+          <Loader2 className="h-5 w-5 animate-spin" />
+          <span className="text-sm">데이터를 불러오는 중...</span>
+        </div>
+      )}
+      {isError && (
+        <Card className="border-destructive/30 bg-destructive/5 shadow-sm">
+          <CardContent className="py-6 text-center text-sm text-destructive">
+            데이터를 불러오지 못했습니다. 백엔드 서버를 확인해주세요.
+          </CardContent>
+        </Card>
+      )}
+
+      {!isLoading && !isError && <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         {METRICS.map((metric) => {
           const values =
             mode === 'month'
@@ -323,9 +354,9 @@ export function ConsultationRatePage() {
             </Card>
           )
         })}
-      </section>
+      </section>}
 
-      {mode === 'month' ? (
+      {!isLoading && !isError && (mode === 'month' ? (
         <Card className="border-border/70 shadow-sm">
           <CardHeader>
             <CardTitle>상담/수술 전환율 비교</CardTitle>
@@ -420,7 +451,7 @@ export function ConsultationRatePage() {
             </ChartContainer>
           </CardContent>
         </Card>
-      )}
+      ))}
     </div>
   )
 }

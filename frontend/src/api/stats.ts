@@ -82,6 +82,44 @@ export interface SurgeryMonthlyItem {
   total: number
 }
 
+/* ── Monthly (검사 건수 페이지용) ── */
+
+export interface ExaminationMonthlyItem {
+  year: number
+  month: number
+  visionCorrection: number
+  cataract: number
+  dreamlens: number
+  outpatient: number
+  total: number
+}
+
+/* ── 상담 전환율 페이지용 ── */
+
+const consultationRateItemSchema = z.object({
+  year: z.number(),
+  month: z.number(),
+  // 시력교정
+  visionExamCount: z.number(),
+  visionCounselCount: z.number(),
+  visionSurgeryBooked: z.number(),
+  visionActualSurgery: z.number(),
+  visionSurgeryRate: z.number(),
+  visionCounselRate: z.number(),
+  // 백내장
+  cataractExamCount: z.number(),
+  cataractSurgeryBooked: z.number(),
+  cataractStoppedCount: z.number(),
+  cataractSurgeryRate: z.number(),
+})
+
+const consultationRateResponseSchema = z.object({
+  success: z.boolean(),
+  data: z.array(consultationRateItemSchema),
+})
+
+export type ConsultationRateItem = z.infer<typeof consultationRateItemSchema>
+
 export const statsApi = {
   getReservationStats: async (
     params: ReservationStatsParams
@@ -115,5 +153,23 @@ export const statsApi = {
       `/stats/reservation/monthly?years=${years.join(',')}`
     )
     return res.data
+  },
+
+  getExaminationMonthly: async (
+    years: number[]
+  ): Promise<ExaminationMonthlyItem[]> => {
+    const res = await api.get<ApiResponse<ExaminationMonthlyItem[]>>(
+      `/stats/examination/monthly?years=${years.join(',')}`
+    )
+    return res.data
+  },
+
+  getConsultationRate: async (
+    years: number[]
+  ): Promise<ConsultationRateItem[]> => {
+    const response = await api.get<unknown>(
+      `/stats/consultation-rate?years=${years.join(',')}`
+    )
+    return consultationRateResponseSchema.parse(response).data
   },
 }

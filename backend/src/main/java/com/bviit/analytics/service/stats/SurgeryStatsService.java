@@ -20,67 +20,63 @@ public class SurgeryStatsService {
     private final SurgeryStatsRepository repository;
 
     /**
-     * 연도별 월간 수술 유형별 건수.
-     * OPERATIONDATA(시력교정+렌즈) + Cataract_Operationdata(백내장) 두 쿼리 결과를 머지.
+     * 연도별 월간 수술 유형별 환자 수 (레거시 기준).
+     * 시력교정(OPERATIONDATA, 백내장 제외) + 백내장(Cataract_Operationdata) 두 쿼리 병합.
      */
     @Transactional(readOnly = true)
     public List<SurgeryMonthlyItem> getMonthlyStats(List<Integer> years) {
         List<Map<String, Object>> visionRows = repository.findVisionMonthlyByType(years);
         List<Map<String, Object>> cataractRows = repository.findCataractMonthlyByType(years);
 
-        // 연도×12개월 초기 맵 (빈 달 = 0)
-        Map<String, int[]> map = new LinkedHashMap<>();
+        // 연도×12 초기화
+        Map<String, Bucket> map = new LinkedHashMap<>();
         for (int year : years) {
             for (int m = 1; m <= 12; m++) {
-                // [lasek, lasik, smile, smilePro, icl, tIcl, kpl, tKpl, viva, catMulti, catMono, catEdof]
-                map.put(year + "-" + m, new int[12]);
+                map.put(year + "-" + m, new Bucket(year, m));
             }
         }
 
-        // 시력교정 결과 머지
+        // 시력교정 병합
         for (Map<String, Object> row : visionRows) {
             String key = toInt(row.get("yr")) + "-" + toInt(row.get("mo"));
-            int[] counts = map.get(key);
-            if (counts == null) continue;
+            Bucket b = map.get(key);
+            if (b == null) continue;
 
-            counts[0] += toInt(row.get("lasek"));
-            counts[1] += toInt(row.get("lasik"));
-            counts[2] += toInt(row.get("smile"));
-            counts[3] += toInt(row.get("smilePro"));
-            counts[4] += toInt(row.get("icl"));
-            counts[5] += toInt(row.get("tIcl"));
-            counts[6] += toInt(row.get("kpl"));
-            counts[7] += toInt(row.get("tKpl"));
-            counts[8] += toInt(row.get("viva"));
+            b.lasek = toInt(row.get("lasek"));
+            b.lasik = toInt(row.get("lasik"));
+            b.smile = toInt(row.get("smile"));
+            b.smilePro = toInt(row.get("smilePro"));
+            b.icl = toInt(row.get("icl"));
+            b.tIcl = toInt(row.get("tIcl"));
+            b.kpl = toInt(row.get("kpl"));
+            b.tKpl = toInt(row.get("tKpl"));
+            b.viva = toInt(row.get("viva"));
+            b.visionPatients = toInt(row.get("visionPatients"));
         }
 
-        // 백내장 결과 머지
+        // 백내장 병합
         for (Map<String, Object> row : cataractRows) {
             String key = toInt(row.get("yr")) + "-" + toInt(row.get("mo"));
-            int[] counts = map.get(key);
-            if (counts == null) continue;
+            Bucket b = map.get(key);
+            if (b == null) continue;
 
-            counts[9] += toInt(row.get("catMulti"));
-            counts[10] += toInt(row.get("catMono"));
-            counts[11] += toInt(row.get("catEdof"));
+            b.catMulti = toInt(row.get("catMulti"));
+            b.catMono = toInt(row.get("catMono"));
+            b.catEdof = toInt(row.get("catEdof"));
+            b.cataractPatients = toInt(row.get("cataractPatients"));
         }
 
         // DTO 변환
         List<SurgeryMonthlyItem> result = new ArrayList<>();
-        for (Map.Entry<String, int[]> entry : map.entrySet()) {
-            String[] parts = entry.getKey().split("-");
-            int year = Integer.parseInt(parts[0]);
-            int month = Integer.parseInt(parts[1]);
-            int[] c = entry.getValue();
-            int total = 0;
-            for (int v : c) total += v;
-
+        for (Bucket b : map.values()) {
             result.add(SurgeryMonthlyItem.builder()
-                    .year(year).month(month)
-                    .lasek(c[0]).lasik(c[1]).smile(c[2]).smilePro(c[3])
-                    .icl(c[4]).tIcl(c[5]).kpl(c[6]).tKpl(c[7]).viva(c[8])
-                    .catMulti(c[9]).catMono(c[10]).catEdof(c[11])
-                    .total(total)
+                    .year(b.year).month(b.month)
+                    .lasek(b.lasek).lasik(b.lasik).smile(b.smile).smilePro(b.smilePro)
+                    .icl(b.icl).tIcl(b.tIcl).kpl(b.kpl).tKpl(b.tKpl).viva(b.viva)
+                    .catMulti(b.catMulti).catMono(b.catMono).catEdof(b.catEdof)
+                    .visionPatients(b.visionPatients)
+                    .cataractPatients(b.cataractPatients)
+                    .total(b.visionPatients + b.cataractPatients)
                     .build());
         }
 
@@ -91,5 +87,21 @@ public class SurgeryStatsService {
         if (val == null) return 0;
         if (val instanceof Number n) return n.intValue();
         return Integer.parseInt(val.toString());
+    }
+
+    /** 시력교정 + 백내장 병합용 가변 버킷 */
+    private static class Bucket {
+        final int year;
+        final int month;
+        int lasek, lasik, smile, smilePro;
+        int icl, tIcl, kpl, tKpl, viva;
+        int catMulti, catMono, catEdof;
+        int visionPatients;
+        int cataractPatients;
+
+        Bucket(int year, int month) {
+            this.year = year;
+            this.month = month;
+        }
     }
 }

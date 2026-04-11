@@ -4,9 +4,12 @@ import {
   Megaphone, Ban, BadgeDollarSign, MoreHorizontal,
 } from 'lucide-react'
 
+export type MenuStatus = 'complete' | 'backend-only' | 'pending'
+
 export interface MenuLink {
   label: string
   href: string
+  status?: MenuStatus
 }
 
 export interface MenuItem {
@@ -15,6 +18,7 @@ export interface MenuItem {
   href: string
   icon: LucideIcon
   children?: MenuLink[]
+  status?: MenuStatus
 }
 
 export interface StatsPageDefinition {
@@ -242,9 +246,38 @@ const findPage = (id: string) => {
   return getStatsPageById(id)
 }
 
+/**
+ * 메뉴별 구현 상태 맵.
+ *   complete     — 백엔드 API + 프론트 페이지 모두 연결 완료 (회색 기본)
+ *   backend-only — 백엔드 API만 완료, 프론트 페이지는 placeholder (주황)
+ *   pending      — 백엔드·프론트 모두 미착수 (빨강)
+ */
+const MENU_STATUS: Record<string, MenuStatus> = {
+  'intake-conversion': 'pending',
+  'reservation': 'complete',
+  'examination': 'complete',
+  'consultation-rate': 'complete',
+  'surgery': 'complete',
+  'surgery-ratio': 'complete',
+  'overseas': 'pending',
+  'marketing': 'pending',
+  'cancel-rate': 'pending',
+  'no-show-rate': 'pending',
+  'unit-price': 'pending',
+  'dreamlens-revenue': 'pending',
+  'b2b-revenue': 'pending',
+  'staff-point': 'pending',
+  'prp-rate': 'pending',
+  'reoperation-rate': 'pending',
+  'same-day-op': 'pending',
+  'designated-doctor': 'pending',
+  'visit-reason': 'pending',
+  'daily-reception': 'pending',
+}
+
 const link = (id: string): MenuLink => {
   const page = findPage(id)
-  return { label: page.label, href: page.path }
+  return { label: page.label, href: page.path, status: MENU_STATUS[id] }
 }
 
 export const menuItems: MenuItem[] = [
@@ -284,7 +317,7 @@ export const menuItems: MenuItem[] = [
     icon: Ban,
     children: [link('cancel-rate'), link('no-show-rate')],
   },
-  { id: 'unit-price', label: '객단가', href: findPage('unit-price').path, icon: BadgeDollarSign },
+  { id: 'unit-price', label: '객단가', href: findPage('unit-price').path, icon: BadgeDollarSign, status: MENU_STATUS['unit-price'] },
   {
     id: 'etc',
     label: '기타',
