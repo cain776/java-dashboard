@@ -15,10 +15,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest(properties = {
+        "app.jwt.secret=test-jwt-secret-value-for-integration-tests-123456",
         "app.seed.enabled=true",
         "app.seed.admin-login-id=admin",
         "app.seed.admin-email=admin@bviit.com",
-        "app.seed.admin-password=1234",
+        "app.seed.admin-password=StrongTestPass123!",
         "app.seed.admin-name=관리자",
         "spring.h2.console.enabled=false"
 })
@@ -38,7 +39,7 @@ class AuthSecurityIntegrationTest {
     void loginReturnsWrappedTokenAndUser() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new LoginPayload("admin", "1234"))))
+                        .content(objectMapper.writeValueAsString(new LoginPayload("admin", "StrongTestPass123!"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.token").isString())
@@ -51,7 +52,7 @@ class AuthSecurityIntegrationTest {
     void loginNormalizesLoginIdBeforeAuthentication() throws Exception {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(new LoginPayload("  ADMIN  ", "1234"))))
+                        .content(objectMapper.writeValueAsString(new LoginPayload("  ADMIN  ", "StrongTestPass123!"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.user.loginId").value("admin"));
@@ -95,6 +96,35 @@ class AuthSecurityIntegrationTest {
     void spaStatsRouteIsPublic() throws Exception {
         mockMvc.perform(get("/stats/reservation"))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    void statsApiRequiresAuthentication() throws Exception {
+        mockMvc.perform(get("/api/stats/reservation/kpi")
+                        .param("years", "2025"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.message").value("인증이 필요합니다."));
+    }
+
+    @Test
+    void statsApiAllowsAuthenticatedRequests() throws Exception {
+        mockMvc.perform(get("/api/stats/reservation/kpi")
+                        .param("years", "2025")
+                        .header("Authorization", "Bearer " + jwtUtil.generateToken("admin")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data").isArray());
+    }
+
+    @Test
+    void h2ConsoleIsNotPublicWhenDisabled() throws Exception {
+        mockMvc.perform(get("/h2-console"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.message").value("인증이 필요합니다."));
     }
 
     @Test

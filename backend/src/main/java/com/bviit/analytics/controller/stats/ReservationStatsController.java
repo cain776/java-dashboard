@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 /**
@@ -40,12 +39,7 @@ public class ReservationStatsController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
-        if (from.isAfter(to)) {
-            throw new IllegalArgumentException("from은 to보다 이전이어야 합니다.");
-        }
-        if (ChronoUnit.DAYS.between(from, to) > MAX_RANGE_DAYS) {
-            throw new IllegalArgumentException("조회 기간은 최대 " + MAX_RANGE_DAYS + "일입니다.");
-        }
+        StatsRequestValidator.validateDateRange(from, to, MAX_RANGE_DAYS);
 
         return ResponseEntity.ok(statsService.getStats(from, to));
     }
@@ -59,15 +53,7 @@ public class ReservationStatsController {
     public ResponseEntity<ApiResponse<List<ReservationMonthlyItem>>> getMonthlyStats(
             @RequestParam List<Integer> years
     ) {
-        if (years.isEmpty() || years.size() > 5) {
-            throw new IllegalArgumentException("연도는 1~5개까지 지정할 수 있습니다.");
-        }
-        int currentYear = LocalDate.now().getYear();
-        for (int y : years) {
-            if (y < 2020 || y > currentYear + 1) {
-                throw new IllegalArgumentException("유효하지 않은 연도: " + y);
-            }
-        }
+        StatsRequestValidator.validateYears(years);
 
         return ResponseEntity.ok(ApiResponse.ok(statsService.getMonthlyStats(years)));
     }

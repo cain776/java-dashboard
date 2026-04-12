@@ -2,15 +2,17 @@ package com.bviit.analytics.service.stats;
 
 import com.bviit.analytics.dto.stats.SurgeryMonthlyItem;
 import com.bviit.analytics.repository.stats.SurgeryStatsRepository;
+import com.bviit.analytics.util.MonthlyBuckets;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import static com.bviit.analytics.util.NumberUtils.toInt;
 
 @Service
 @Profile("mssql")
@@ -28,17 +30,11 @@ public class SurgeryStatsService {
         List<Map<String, Object>> visionRows = repository.findVisionMonthlyByType(years);
         List<Map<String, Object>> cataractRows = repository.findCataractMonthlyByType(years);
 
-        // 연도×12 초기화
-        Map<String, Bucket> map = new LinkedHashMap<>();
-        for (int year : years) {
-            for (int m = 1; m <= 12; m++) {
-                map.put(year + "-" + m, new Bucket(year, m));
-            }
-        }
+        Map<String, Bucket> map = MonthlyBuckets.initialize(years, Bucket::new);
 
         // 시력교정 병합
         for (Map<String, Object> row : visionRows) {
-            String key = toInt(row.get("yr")) + "-" + toInt(row.get("mo"));
+            String key = MonthlyBuckets.key(toInt(row.get("yr")), toInt(row.get("mo")));
             Bucket b = map.get(key);
             if (b == null) continue;
 
@@ -56,7 +52,7 @@ public class SurgeryStatsService {
 
         // 백내장 병합
         for (Map<String, Object> row : cataractRows) {
-            String key = toInt(row.get("yr")) + "-" + toInt(row.get("mo"));
+            String key = MonthlyBuckets.key(toInt(row.get("yr")), toInt(row.get("mo")));
             Bucket b = map.get(key);
             if (b == null) continue;
 
@@ -81,12 +77,6 @@ public class SurgeryStatsService {
         }
 
         return result;
-    }
-
-    private static int toInt(Object val) {
-        if (val == null) return 0;
-        if (val instanceof Number n) return n.intValue();
-        return Integer.parseInt(val.toString());
     }
 
     /** 시력교정 + 백내장 병합용 가변 버킷 */
