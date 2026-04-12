@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { Minus, TrendingDown, TrendingUp } from 'lucide-react'
 import {
   Bar,
   BarChart,
@@ -26,6 +25,7 @@ import {
 } from '@/components/ui/chart'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/components/filters/useFilterBar'
+import { KpiCard } from '@/components/stats/KpiCard'
 import { PanelShell } from '@/components/PanelShell'
 import { StatsGrid } from '@/components/layout/desktop/StatsGrid'
 import { StatsStack } from '@/components/layout/mobile/StatsStack'
@@ -34,8 +34,7 @@ import { useSurgeryKpi } from '@/hooks/useSurgeryKpi'
 import { useSurgeryTrend } from '@/hooks/useSurgeryTrend'
 import { useSurgeryComposition } from '@/hooks/useSurgeryComposition'
 import { CHART_COLORS, MONTHS, YEAR_STROKE_PATTERNS } from '@/constants/chart'
-import { changeRate, formatAxisNumber, periodLabel } from '@/utils/stats'
-import { type SurgeryMonthlyItem } from '@/api/stats'
+import { formatAxisNumber, periodLabel } from '@/utils/stats'
 
 /* ── 타입 ── */
 type GroupKey = 'total' | 'refractive' | 'lens' | 'cataract'
@@ -71,18 +70,6 @@ const GROUP_COLORS: Record<GroupKey, string> = {
 const EMPTY: SurgeryData = { lasek:0,lasik:0,smile:0,smilePro:0,icl:0,tIcl:0,kpl:0,tKpl:0,viva:0,catMulti:0,catMono:0,catEdof:0 }
 const gSum = (d: SurgeryData, g: typeof GROUPS[number]) => g.types.reduce((s, k) => s + d[k], 0)
 
-function toDataMap(items: SurgeryMonthlyItem[]): Record<number, SurgeryData[]> {
-  const map: Record<number, SurgeryData[]> = {}
-  for (const item of items) {
-    if (!map[item.year]) map[item.year] = Array.from({ length: 12 }, () => ({ ...EMPTY }))
-    map[item.year][item.month - 1] = {
-      lasek: item.lasek, lasik: item.lasik, smile: item.smile, smilePro: item.smilePro,
-      icl: item.icl, tIcl: item.tIcl, kpl: item.kpl, tKpl: item.tKpl, viva: item.viva,
-      catMulti: item.catMulti, catMono: item.catMono, catEdof: item.catEdof,
-    }
-  }
-  return map
-}
 
 function KpiCardsPanel({
   dataMap,
@@ -118,51 +105,16 @@ function KpiCardsPanel({
     [years, dataMap],
   )
 
+  const labels = mode === 'month' ? periods.map(periodLabel) : years.map((y) => `${y}년`)
+
   const renderCards = () => (
     <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
       {GROUPS.map((g) => {
         const values = mode === 'month'
           ? periodsData.map((d) => gSum(d, g))
           : yearTotals.map((d) => gSum(d, g))
-        const labels = mode === 'month' ? periods.map(periodLabel) : years.map((y) => `${y}년`)
-        const base = values[0]
-
         return (
-          <Card key={g.key} className="gap-2 border-border/70 shadow-sm">
-            <CardHeader className="gap-0.5 pb-0">
-              <CardTitle className="text-base font-semibold tracking-normal text-gray-900">{g.label}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2.5 pt-0">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-3 border-b border-border/60 pb-2.5">
-                <p className="text-sm text-muted-foreground">{labels[0]} (기준)</p>
-                <p className="min-w-[7ch] text-right text-3xl font-semibold tracking-tight tabular-nums text-gray-900">
-                  {base.toLocaleString()}
-                </p>
-              </div>
-              {values.slice(1).map((val, i) => {
-                const rate = changeRate(base, val)
-                const positive = rate > 0
-                const neutral = rate === 0
-                const TrendIcon = neutral ? Minus : positive ? TrendingUp : TrendingDown
-                return (
-                  <div key={labels[i + 1]} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3">
-                    <span className="text-sm text-muted-foreground">{labels[i + 1]}</span>
-                    <div className="flex items-center justify-end gap-2">
-                      <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                        neutral ? 'bg-gray-100 text-gray-600' : positive ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
-                      }`}>
-                        <TrendIcon className="h-3 w-3" />
-                        {rate > 0 ? '+' : ''}{rate.toFixed(1)}%
-                      </span>
-                      <span className="min-w-[7ch] text-right text-sm font-medium tabular-nums text-gray-700">
-                        {val.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
-            </CardContent>
-          </Card>
+          <KpiCard key={g.key} label={g.label} values={values} labels={labels} />
         )
       })}
     </section>

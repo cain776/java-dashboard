@@ -1,13 +1,14 @@
 import { useQuery } from '@tanstack/react-query'
-import { statsApi, type SurgeryMonthlyItem } from '@/api/stats'
+import { statsApi } from '@/api/stats'
 import { useDataSourceStore } from '@/stores/dataSourceStore'
 
 export function useSurgeryRatioComposition(years: number[]) {
   const source = useDataSourceStore((state) => state.source)
+  const isMock = source === 'mock'
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['surgery-ratio-composition', years, source],
-    queryFn: () => statsApi.getSurgeryRatio(years),
+    queryFn: () => statsApi.getSurgeryRatio(years, isMock),
     enabled: years.length > 0,
   })
 

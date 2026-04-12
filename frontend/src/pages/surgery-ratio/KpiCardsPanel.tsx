@@ -8,7 +8,6 @@ import {
 import { PanelShell } from '@/components/PanelShell'
 import {
   SURGERY_TYPES,
-  EMPTY_DATA,
   type MonthlyData,
 } from './surgeryRatioUtils'
 

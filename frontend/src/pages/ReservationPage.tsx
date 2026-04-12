@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { TrendingDown, TrendingUp, Minus } from 'lucide-react'
 import {
   Area, AreaChart, Bar, BarChart, Line, LineChart, ComposedChart,
   Pie, PieChart,
@@ -12,6 +11,7 @@ import {
   ChartContainer, ChartLegend, ChartLegendContent, ChartTooltip, ChartTooltipContent,
   type ChartConfig,
 } from '@/components/ui/chart'
+import { KpiCard } from '@/components/stats/KpiCard'
 import { PanelShell } from '@/components/PanelShell'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar, type FilterBarControls } from '@/components/filters/useFilterBar'
@@ -78,40 +78,17 @@ function KpiCardsPanel({ queryYears, filter }: { queryYears: number[]; filter: F
     return map
   }, [kpiData])
 
+  const labels = mode === 'month' ? periods.map(periodLabel) : years.map((y) => `${y}년`)
+
   return (
     <section className="grid grid-cols-2 gap-3 md:grid-cols-2 xl:grid-cols-4 md:gap-4">
       {METRICS.map((m) => {
         const values = mode === 'month'
           ? periods.map((p) => kpiByYear[p.year]?.[m.key] ?? 0)
           : years.map((y) => kpiByYear[y]?.[m.key] ?? 0)
-        const labels = mode === 'month' ? periods.map(periodLabel) : years.map((y) => `${y}년`)
-        const base = values[0]
         return (
           <PanelShell key={m.key} isLoading={isLoading} isError={isError} variant="kpi">
-            <Card className="gap-2 border-border/70 shadow-sm">
-              <CardHeader className="gap-0.5 pb-0"><CardTitle className="text-base font-semibold tracking-normal text-gray-900">{m.label}</CardTitle></CardHeader>
-              <CardContent className="space-y-2.5 pt-0">
-                <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-3 border-b border-border/60 pb-2.5">
-                  <p className="text-sm text-muted-foreground">{labels[0]} (기준)</p>
-                  <p className="min-w-[7ch] text-right text-3xl font-semibold tracking-tight tabular-nums text-gray-900">{base.toLocaleString()}</p>
-                </div>
-                {values.slice(1).map((val, i) => {
-                  const rate = changeRate(base, val); const positive = rate > 0; const neutral = rate === 0
-                  const TrendIcon = neutral ? Minus : positive ? TrendingUp : TrendingDown
-                  return (
-                    <div key={labels[i + 1]} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3">
-                      <span className="text-sm text-muted-foreground">{labels[i + 1]}</span>
-                      <div className="flex items-center justify-end gap-2">
-                        <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${neutral ? 'bg-gray-100 text-gray-600' : positive ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'}`}>
-                          <TrendIcon className="h-3 w-3" />{rate > 0 ? '+' : ''}{rate.toFixed(1)}%
-                        </span>
-                        <span className="min-w-[7ch] text-right text-sm font-medium tabular-nums text-gray-700">{val.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  )
-                })}
-              </CardContent>
-            </Card>
+            <KpiCard label={m.label} values={values} labels={labels} />
           </PanelShell>
         )
       })}
