@@ -2,15 +2,17 @@ package com.bviit.analytics.service.stats;
 
 import com.bviit.analytics.dto.stats.ExaminationMonthlyItem;
 import com.bviit.analytics.repository.stats.ExaminationStatsRepository;
+import com.bviit.analytics.util.MonthlyBuckets;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import static com.bviit.analytics.util.NumberUtils.toInt;
 
 @Service
 @Profile("mssql")
@@ -27,21 +29,12 @@ public class ExaminationStatsService {
     public List<ExaminationMonthlyItem> getMonthlyStats(List<Integer> years) {
         List<Map<String, Object>> rows = repository.findMonthlyByType(years);
 
-        // 연도×12개월 초기 맵 (빈 달 = 0)
-        Map<String, ExaminationMonthlyItem> map = new LinkedHashMap<>();
-        for (int year : years) {
-            for (int m = 1; m <= 12; m++) {
-                map.put(year + "-" + m, ExaminationMonthlyItem.builder()
-                        .year(year).month(m)
-                        .visionCorrection(0).cataract(0).dreamlens(0).outpatient(0).total(0)
-                        .build());
-            }
-        }
+        Map<String, ExaminationMonthlyItem> map = MonthlyBuckets.initialize(years, this::emptyMonthlyItem);
 
         for (Map<String, Object> row : rows) {
             int yr = toInt(row.get("yr"));
             int mo = toInt(row.get("mo"));
-            String key = yr + "-" + mo;
+            String key = MonthlyBuckets.key(yr, mo);
             if (!map.containsKey(key)) continue;
 
             int vision = toInt(row.get("visionCorrection"));
@@ -59,9 +52,15 @@ public class ExaminationStatsService {
         return new ArrayList<>(map.values());
     }
 
-    private static int toInt(Object val) {
-        if (val == null) return 0;
-        if (val instanceof Number n) return n.intValue();
-        return Integer.parseInt(val.toString());
+    private ExaminationMonthlyItem emptyMonthlyItem(int year, int month) {
+        return ExaminationMonthlyItem.builder()
+                .year(year)
+                .month(month)
+                .visionCorrection(0)
+                .cataract(0)
+                .dreamlens(0)
+                .outpatient(0)
+                .total(0)
+                .build();
     }
 }

@@ -2,15 +2,18 @@ package com.bviit.analytics.service.stats;
 
 import com.bviit.analytics.dto.stats.ConsultationRateItem;
 import com.bviit.analytics.repository.stats.ConsultationRateRepository;
+import com.bviit.analytics.util.MonthlyBuckets;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import static com.bviit.analytics.util.NumberUtils.roundToOneDecimal;
+import static com.bviit.analytics.util.NumberUtils.toInt;
 
 @Service
 @Profile("mssql")
@@ -29,19 +32,13 @@ public class ConsultationRateService {
         List<Map<String, Object>> visionRows = repository.findMonthlyVisionRates(fromDate, toDate);
         List<Map<String, Object>> cataractRows = repository.findMonthlyCataractRates(fromDate, toDate);
 
-        // 연도×12 초기화
-        Map<String, Builder> result = new LinkedHashMap<>();
-        for (int year : years) {
-            for (int m = 1; m <= 12; m++) {
-                result.put(year + "-" + m, new Builder(year, m));
-            }
-        }
+        Map<String, Builder> result = MonthlyBuckets.initialize(years, Builder::new);
 
         // 시력교정 병합
         for (Map<String, Object> row : visionRows) {
             int yr = toInt(row.get("yr"));
             int mo = toInt(row.get("mo"));
-            Builder b = result.get(yr + "-" + mo);
+            Builder b = result.get(MonthlyBuckets.key(yr, mo));
             if (b == null) continue;
 
             int exam = toInt(row.get("examCount"));
@@ -53,15 +50,15 @@ public class ConsultationRateService {
             b.visionCounselCount = counsel;
             b.visionSurgeryBooked = booked;
             b.visionActualSurgery = actual;
-            b.visionSurgeryRate = exam > 0 ? round(booked * 100.0 / exam) : 0;
-            b.visionCounselRate = counsel > 0 ? round(booked * 100.0 / counsel) : 0;
+            b.visionSurgeryRate = exam > 0 ? roundToOneDecimal(booked * 100.0 / exam) : 0;
+            b.visionCounselRate = counsel > 0 ? roundToOneDecimal(booked * 100.0 / counsel) : 0;
         }
 
         // 백내장 병합
         for (Map<String, Object> row : cataractRows) {
             int yr = toInt(row.get("yr"));
             int mo = toInt(row.get("mo"));
-            Builder b = result.get(yr + "-" + mo);
+            Builder b = result.get(MonthlyBuckets.key(yr, mo));
             if (b == null) continue;
 
             int exam = toInt(row.get("examCount"));
@@ -71,7 +68,7 @@ public class ConsultationRateService {
             b.cataractExamCount = exam;
             b.cataractSurgeryBooked = booked;
             b.cataractStoppedCount = stopped;
-            b.cataractSurgeryRate = exam > 0 ? round(booked * 100.0 / exam) : 0;
+            b.cataractSurgeryRate = exam > 0 ? roundToOneDecimal(booked * 100.0 / exam) : 0;
         }
 
         List<ConsultationRateItem> items = new ArrayList<>();
@@ -79,16 +76,6 @@ public class ConsultationRateService {
             items.add(b.build());
         }
         return items;
-    }
-
-    private static int toInt(Object val) {
-        if (val == null) return 0;
-        if (val instanceof Number n) return n.intValue();
-        return Integer.parseInt(val.toString());
-    }
-
-    private static double round(double val) {
-        return Math.round(val * 10.0) / 10.0;
     }
 
     /** 가변 빌더 — 시력교정/백내장 두 소스 병합용 */

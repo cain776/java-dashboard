@@ -12,13 +12,25 @@ import java.util.Date;
 @Component
 public class JwtUtil {
 
+    private static final int MIN_SECRET_LENGTH = 32;
+
     private final SecretKey key;
     private final long expirationMs;
 
     public JwtUtil(
             @Value("${app.jwt.secret}") String secret,
             @Value("${app.jwt.expiration-ms}") long expirationMs) {
-        this.key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        String normalizedSecret = secret == null ? "" : secret.trim();
+        if (normalizedSecret.length() < MIN_SECRET_LENGTH) {
+            throw new IllegalStateException(
+                    "app.jwt.secret must be configured with at least %d characters.".formatted(MIN_SECRET_LENGTH)
+            );
+        }
+        if (expirationMs <= 0) {
+            throw new IllegalStateException("app.jwt.expiration-ms must be greater than zero.");
+        }
+
+        this.key = Keys.hmacShaKeyFor(normalizedSecret.getBytes(StandardCharsets.UTF_8));
         this.expirationMs = expirationMs;
     }
 

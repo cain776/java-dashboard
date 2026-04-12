@@ -11,10 +11,11 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+
+import static com.bviit.analytics.util.NumberUtils.toInt;
 
 /**
  * 예약 패널 API — 프로파일 제한 없음.
@@ -33,22 +34,13 @@ public class ReservationPanelController {
             @RequestParam List<Integer> years,
             @RequestParam(defaultValue = "true") boolean mock
     ) {
-        validateYears(years);
-        if (!mock) {
-            if (realService.isEmpty()) {
-                return ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다."));
-            }
-            return ResponseEntity.ok(ApiResponse.ok(realService.get().getMonthlyStats(years)));
-        }
-        List<Map<String, Object>> rows = mockRepository.findKpiByYears(years);
-        var kpi = rows.stream().map(r -> new KpiRow(
-                toInt(r.get("year")),
-                toInt(r.get("surgery")),
-                toInt(r.get("outpatient")),
-                toInt(r.get("dreamlens")),
-                toInt(r.get("total"))
-        )).toList();
-        return ResponseEntity.ok(ApiResponse.ok(kpi));
+        StatsRequestValidator.validateYears(years);
+        return StatsPanelSupport.resolve(
+                mock,
+                realService,
+                service -> service.getMonthlyStats(years),
+                () -> toKpiRows(mockRepository.findKpiByYears(years))
+        );
     }
 
     @GetMapping("/trend")
@@ -56,14 +48,13 @@ public class ReservationPanelController {
             @RequestParam List<Integer> years,
             @RequestParam(defaultValue = "true") boolean mock
     ) {
-        validateYears(years);
-        if (!mock) {
-            if (realService.isEmpty()) {
-                return ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다."));
-            }
-            return ResponseEntity.ok(ApiResponse.ok(realService.get().getMonthlyStats(years)));
-        }
-        return ResponseEntity.ok(ApiResponse.ok(toMonthlyItems(years)));
+        StatsRequestValidator.validateYears(years);
+        return StatsPanelSupport.resolve(
+                mock,
+                realService,
+                service -> service.getMonthlyStats(years),
+                () -> toMonthlyItems(years)
+        );
     }
 
     @GetMapping("/composition")
@@ -71,14 +62,23 @@ public class ReservationPanelController {
             @RequestParam List<Integer> years,
             @RequestParam(defaultValue = "true") boolean mock
     ) {
-        validateYears(years);
-        if (!mock) {
-            if (realService.isEmpty()) {
-                return ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다."));
-            }
-            return ResponseEntity.ok(ApiResponse.ok(realService.get().getMonthlyStats(years)));
-        }
-        return ResponseEntity.ok(ApiResponse.ok(toMonthlyItems(years)));
+        StatsRequestValidator.validateYears(years);
+        return StatsPanelSupport.resolve(
+                mock,
+                realService,
+                service -> service.getMonthlyStats(years),
+                () -> toMonthlyItems(years)
+        );
+    }
+
+    private List<KpiRow> toKpiRows(List<Map<String, Object>> rows) {
+        return rows.stream().map(row -> new KpiRow(
+                toInt(row.get("year")),
+                toInt(row.get("surgery")),
+                toInt(row.get("outpatient")),
+                toInt(row.get("dreamlens")),
+                toInt(row.get("total"))
+        )).toList();
     }
 
     private List<ReservationMonthlyItem> toMonthlyItems(List<Integer> years) {
@@ -89,24 +89,6 @@ public class ReservationPanelController {
                         .dreamlens(toInt(r.get("dreamlens"))).total(toInt(r.get("total")))
                         .build())
                 .toList();
-    }
-
-    private void validateYears(List<Integer> years) {
-        if (years.isEmpty() || years.size() > 5) {
-            throw new IllegalArgumentException("연도는 1~5개까지 지정할 수 있습니다.");
-        }
-        int currentYear = LocalDate.now().getYear();
-        for (int y : years) {
-            if (y < 2020 || y > currentYear + 1) {
-                throw new IllegalArgumentException("유효하지 않은 연도: " + y);
-            }
-        }
-    }
-
-    private static int toInt(Object val) {
-        if (val == null) return 0;
-        if (val instanceof Number n) return n.intValue();
-        return Integer.parseInt(val.toString());
     }
 
     record KpiRow(int year, int surgery, int outpatient, int dreamlens, int total) {}

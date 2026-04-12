@@ -11,7 +11,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -30,16 +29,7 @@ public class IntakeConversionStatsController {
     public ResponseEntity<ApiResponse<List<IntakeConversionMonthlyItem>>> getMonthlyStats(
             @RequestParam List<Integer> years
     ) {
-        if (years.isEmpty() || years.size() > 5) {
-            throw new IllegalArgumentException("연도는 1~5개까지 지정할 수 있습니다.");
-        }
-
-        int currentYear = LocalDate.now().getYear();
-        for (int year : years) {
-            if (year < 2020 || year > currentYear + 1) {
-                throw new IllegalArgumentException("유효하지 않은 연도: " + year);
-            }
-        }
+        StatsRequestValidator.validateYears(years);
 
         return ResponseEntity.ok(ApiResponse.ok(service.getMonthlyStats(years)));
     }

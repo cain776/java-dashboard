@@ -55,54 +55,68 @@ const buildQueryString = (params: ReservationStatsParams) =>
     to: params.to,
   }).toString()
 
+/* ── 공통 응답 래퍼 ── */
+
+function apiResponseOf<T extends z.ZodTypeAny>(itemSchema: T) {
+  return z.object({ success: z.boolean(), data: itemSchema })
+}
+
+
 /* ── KPI (예약 KPI 카드용) ── */
 
-export interface ReservationKpiItem {
-  year: number
-  surgery: number
-  outpatient: number
-  dreamlens: number
-  total: number
-}
+const reservationKpiItemSchema = z.object({
+  year: z.number(), surgery: z.number(), outpatient: z.number(),
+  dreamlens: z.number(), total: z.number(),
+})
+export type ReservationKpiItem = z.infer<typeof reservationKpiItemSchema>
+const reservationKpiResponseSchema = apiResponseOf(z.array(reservationKpiItemSchema))
 
 /* ── Monthly (예약 건수 페이지용) ── */
 
-export interface ReservationMonthlyItem {
-  year: number
-  month: number
-  surgery: number
-  outpatient: number
-  dreamlens: number
-  total: number
-}
-
-interface ApiResponse<T> {
-  success: boolean
-  data: T
-}
+const reservationMonthlyItemSchema = z.object({
+  year: z.number(), month: z.number(), surgery: z.number(),
+  outpatient: z.number(), dreamlens: z.number(), total: z.number(),
+})
+export type ReservationMonthlyItem = z.infer<typeof reservationMonthlyItemSchema>
+const reservationMonthlyResponseSchema = apiResponseOf(z.array(reservationMonthlyItemSchema))
 
 /* ── Monthly (수술 건수 페이지용) ── */
 
-export interface SurgeryMonthlyItem {
-  year: number
-  month: number
-  lasek: number; lasik: number; smile: number; smilePro: number
-  icl: number; tIcl: number; kpl: number; tKpl: number; viva: number
-  catMulti: number; catMono: number; catEdof: number
-  total: number
-}
+const surgeryMonthlyItemSchema = z.object({
+  year: z.number(), month: z.number(),
+  lasek: z.number(), lasik: z.number(), smile: z.number(), smilePro: z.number(),
+  icl: z.number(), tIcl: z.number(), kpl: z.number(), tKpl: z.number(), viva: z.number(),
+  catMulti: z.number(), catMono: z.number(), catEdof: z.number(),
+  total: z.number(),
+})
+export type SurgeryMonthlyItem = z.infer<typeof surgeryMonthlyItemSchema>
+const surgeryMonthlyResponseSchema = apiResponseOf(z.array(surgeryMonthlyItemSchema))
+
+/* ── Monthly (B2B 매출 페이지용) ── */
+
+const b2bRevenueMonthlyItemSchema = z.object({
+  year: z.number(), month: z.number(),
+  totalRevenue: z.number(), caseCount: z.number(), avgRevenuePerCase: z.number(),
+  visionRevenue: z.number(), cataractRevenue: z.number(),
+  visionCount: z.number(), cataractCount: z.number(),
+  designatedRevenue: z.number(), nonDesignatedRevenue: z.number(),
+  designatedCount: z.number(), nonDesignatedCount: z.number(),
+  opCost: z.number(), examCost: z.number(), dnaCost: z.number(),
+  prpCost: z.number(), etcCost: z.number(),
+  presbyopiaCost: z.number(), hospitalSupplyCost: z.number(),
+})
+export type B2bRevenueMonthlyItem = z.infer<typeof b2bRevenueMonthlyItemSchema>
+const b2bRevenueResponseSchema = apiResponseOf(z.array(b2bRevenueMonthlyItemSchema))
 
 /* ── Monthly (검사 건수 페이지용) ── */
 
-export interface ExaminationMonthlyItem {
-  year: number
-  month: number
-  visionCorrection: number
-  cataract: number
-  dreamlens: number
-  outpatient: number
-  total: number
-}
+const examinationMonthlyItemSchema = z.object({
+  year: z.number(), month: z.number(),
+  visionCorrection: z.number(), cataract: z.number(),
+  dreamlens: z.number(), outpatient: z.number(), total: z.number(),
+})
+export type ExaminationMonthlyItem = z.infer<typeof examinationMonthlyItemSchema>
+const examinationResponseSchema = apiResponseOf(z.array(examinationMonthlyItemSchema))
 
 /* ── 상담 전환율 페이지용 ── */
 
@@ -138,165 +152,62 @@ export const statsApi = {
     return reservationStatsResponseSchema.parse(response)
   },
 
-  getSurgeryMonthly: async (
-    years: number[]
-  ): Promise<SurgeryMonthlyItem[]> => {
-    const res = await api.get<ApiResponse<SurgeryMonthlyItem[]>>(
-      `/stats/surgery/monthly?years=${years.join(',')}`
-    )
-    return res.data
+  getSurgeryMonthly: async (years: number[]) =>
+    surgeryMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/surgery/monthly?years=${years.join(',')}`)).data,
+
+  /** 수술별 비중 — real은 전용 API, mock은 panel composition 응답 재사용 */
+  getSurgeryRatio: async (years: number[], mock = false) => {
+    const endpoint = mock
+      ? `/stats/surgery/composition?years=${years.join(',')}&mock=true`
+      : `/stats/surgery-ratio?years=${years.join(',')}`
+    return surgeryMonthlyResponseSchema.parse(await api.get<unknown>(endpoint)).data
   },
 
-  getSurgeryRatio: async (
-    years: number[]
-  ): Promise<SurgeryMonthlyItem[]> => {
-    const res = await api.get<ApiResponse<SurgeryMonthlyItem[]>>(
-      `/stats/surgery-ratio?years=${years.join(',')}`
-    )
-    return res.data
-  },
+  getReservationMonthly: async (years: number[]) =>
+    reservationMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/reservation/monthly?years=${years.join(',')}`)).data,
 
-  getReservationMonthly: async (
-    years: number[]
-  ): Promise<ReservationMonthlyItem[]> => {
-    const res = await api.get<ApiResponse<ReservationMonthlyItem[]>>(
-      `/stats/reservation/monthly?years=${years.join(',')}`
-    )
-    return res.data
-  },
+  getReservationKpi: async (years: number[], mock = true) =>
+    reservationKpiResponseSchema.parse(await api.get<unknown>(`/stats/reservation/kpi?years=${years.join(',')}&mock=${mock}`)).data,
 
-  getReservationKpi: async (
-    years: number[], mock = true
-  ): Promise<ReservationKpiItem[]> => {
-    const res = await api.get<ApiResponse<ReservationKpiItem[]>>(
-      `/stats/reservation/kpi?years=${years.join(',')}&mock=${mock}`
-    )
-    return res.data
-  },
+  getReservationTrend: async (years: number[], mock = true) =>
+    reservationMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/reservation/trend?years=${years.join(',')}&mock=${mock}`)).data,
 
-  getReservationTrend: async (
-    years: number[], mock = true
-  ): Promise<ReservationMonthlyItem[]> => {
-    const res = await api.get<ApiResponse<ReservationMonthlyItem[]>>(
-      `/stats/reservation/trend?years=${years.join(',')}&mock=${mock}`
-    )
-    return res.data
-  },
+  getReservationComposition: async (years: number[], mock = true) =>
+    reservationMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/reservation/composition?years=${years.join(',')}&mock=${mock}`)).data,
 
-  getReservationComposition: async (
-    years: number[], mock = true
-  ): Promise<ReservationMonthlyItem[]> => {
-    const res = await api.get<ApiResponse<ReservationMonthlyItem[]>>(
-      `/stats/reservation/composition?years=${years.join(',')}&mock=${mock}`
-    )
-    return res.data
-  },
+  getExaminationMonthly: async (years: number[]) =>
+    examinationResponseSchema.parse(await api.get<unknown>(`/stats/examination/monthly?years=${years.join(',')}`)).data,
 
-  getExaminationMonthly: async (
-    years: number[]
-  ): Promise<ExaminationMonthlyItem[]> => {
-    const res = await api.get<ApiResponse<ExaminationMonthlyItem[]>>(
-      `/stats/examination/monthly?years=${years.join(',')}`
-    )
-    return res.data
-  },
+  getConsultationRate: async (years: number[]) =>
+    consultationRateResponseSchema.parse(await api.get<unknown>(`/stats/consultation-rate?years=${years.join(',')}`)).data,
 
-  getConsultationRate: async (
-    years: number[]
-  ): Promise<ConsultationRateItem[]> => {
-    const response = await api.get<unknown>(
-      `/stats/consultation-rate?years=${years.join(',')}`
-    )
-    return consultationRateResponseSchema.parse(response).data
-  },
+  getExaminationKpi: async (years: number[], mock = true) =>
+    examinationResponseSchema.parse(await api.get<unknown>(`/stats/examination/kpi?years=${years.join(',')}&mock=${mock}`)).data,
 
-  /* ── Examination KPI (검사 건수 KPI 카드용) ── */
-  getExaminationKpi: async (
-    years: number[], mock = true
-  ): Promise<ExaminationMonthlyItem[]> => {
-    const res = await api.get<ApiResponse<ExaminationMonthlyItem[]>>(
-      `/stats/examination/kpi?years=${years.join(',')}&mock=${mock}`
-    )
-    return res.data
-  },
+  getExaminationTrend: async (years: number[], mock = true) =>
+    examinationResponseSchema.parse(await api.get<unknown>(`/stats/examination/trend?years=${years.join(',')}&mock=${mock}`)).data,
 
-  /* ── Examination Trend (검사 건수 트렌드 차트용) ── */
-  getExaminationTrend: async (
-    years: number[], mock = true
-  ): Promise<ExaminationMonthlyItem[]> => {
-    const res = await api.get<ApiResponse<ExaminationMonthlyItem[]>>(
-      `/stats/examination/trend?years=${years.join(',')}&mock=${mock}`
-    )
-    return res.data
-  },
+  getExaminationComposition: async (years: number[], mock = true) =>
+    examinationResponseSchema.parse(await api.get<unknown>(`/stats/examination/composition?years=${years.join(',')}&mock=${mock}`)).data,
 
-  /* ── Examination Composition (검사 건수 구성 차트용) ── */
-  getExaminationComposition: async (
-    years: number[], mock = true
-  ): Promise<ExaminationMonthlyItem[]> => {
-    const res = await api.get<ApiResponse<ExaminationMonthlyItem[]>>(
-      `/stats/examination/composition?years=${years.join(',')}&mock=${mock}`
-    )
-    return res.data
-  },
+  getSurgeryKpi: async (years: number[], mock = true) =>
+    surgeryMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/surgery/kpi?years=${years.join(',')}&mock=${mock}`)).data,
 
-  /* ── Surgery KPI (수술 건수 KPI 카드용) ── */
-  getSurgeryKpi: async (
-    years: number[], mock = true
-  ): Promise<SurgeryMonthlyItem[]> => {
-    const res = await api.get<ApiResponse<SurgeryMonthlyItem[]>>(
-      `/stats/surgery/kpi?years=${years.join(',')}&mock=${mock}`
-    )
-    return res.data
-  },
+  getSurgeryTrend: async (years: number[], mock = true) =>
+    surgeryMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/surgery/trend?years=${years.join(',')}&mock=${mock}`)).data,
 
-  /* ── Surgery Trend (수술 건수 트렌드 차트용) ── */
-  getSurgeryTrend: async (
-    years: number[], mock = true
-  ): Promise<SurgeryMonthlyItem[]> => {
-    const res = await api.get<ApiResponse<SurgeryMonthlyItem[]>>(
-      `/stats/surgery/trend?years=${years.join(',')}&mock=${mock}`
-    )
-    return res.data
-  },
+  getSurgeryComposition: async (years: number[], mock = true) =>
+    surgeryMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/surgery/composition?years=${years.join(',')}&mock=${mock}`)).data,
 
-  /* ── Surgery Composition (수술 건수 구성 차트용) ── */
-  getSurgeryComposition: async (
-    years: number[], mock = true
-  ): Promise<SurgeryMonthlyItem[]> => {
-    const res = await api.get<ApiResponse<SurgeryMonthlyItem[]>>(
-      `/stats/surgery/composition?years=${years.join(',')}&mock=${mock}`
-    )
-    return res.data
-  },
+  getConsultationRateKpi: async (years: number[], mock = true) =>
+    consultationRateResponseSchema.parse(await api.get<unknown>(`/stats/consultation-rate/kpi?years=${years.join(',')}&mock=${mock}`)).data,
 
-  /* ── ConsultationRate KPI (상담 전환율 KPI 카드용) ── */
-  getConsultationRateKpi: async (
-    years: number[], mock = true
-  ): Promise<ConsultationRateItem[]> => {
-    const response = await api.get<unknown>(
-      `/stats/consultation-rate/kpi?years=${years.join(',')}&mock=${mock}`
-    )
-    return consultationRateResponseSchema.parse(response).data
-  },
+  getConsultationRateTrend: async (years: number[], mock = true) =>
+    consultationRateResponseSchema.parse(await api.get<unknown>(`/stats/consultation-rate/trend?years=${years.join(',')}&mock=${mock}`)).data,
 
-  /* ── ConsultationRate Trend (상담 전환율 트렌드 차트용) ── */
-  getConsultationRateTrend: async (
-    years: number[], mock = true
-  ): Promise<ConsultationRateItem[]> => {
-    const response = await api.get<unknown>(
-      `/stats/consultation-rate/trend?years=${years.join(',')}&mock=${mock}`
-    )
-    return consultationRateResponseSchema.parse(response).data
-  },
+  getConsultationRateComposition: async (years: number[], mock = true) =>
+    consultationRateResponseSchema.parse(await api.get<unknown>(`/stats/consultation-rate/composition?years=${years.join(',')}&mock=${mock}`)).data,
 
-  /* ── ConsultationRate Composition (상담 전환율 구성 차트용) ── */
-  getConsultationRateComposition: async (
-    years: number[], mock = true
-  ): Promise<ConsultationRateItem[]> => {
-    const response = await api.get<unknown>(
-      `/stats/consultation-rate/composition?years=${years.join(',')}&mock=${mock}`
-    )
-    return consultationRateResponseSchema.parse(response).data
-  },
+  getB2bRevenueMonthly: async (years: number[]) =>
+    b2bRevenueResponseSchema.parse(await api.get<unknown>(`/stats/b2b-revenue?years=${years.join(',')}`)).data,
 }

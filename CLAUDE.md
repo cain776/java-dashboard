@@ -249,13 +249,12 @@ cd frontend && npm run test              # Vitest
 ### Git
 
 - 커밋: `feat: 예약 통계 페이지 구현`, `fix: 달성률 소수점 계산 오류`
-- 브랜치: `feature-fix` (작업용), `dev` (개발), `main` (운영)
-- **배포 플로우**: `dev` → `feature-fix` → `main` (직접 push 금지, 반드시 PR 경유)
-  1. `dev`에서 로컬 작업 및 커밋
-  2. `git checkout -b feature-fix` (dev 기준으로 분기)
-  3. `git push -u origin feature-fix`
-  4. `gh pr create --base main` 로 PR 생성
-  5. PR 머지 후 로컬 동기화 (`git checkout dev && git pull origin main`)
+- 브랜치: `feature-fix` (개발, 기본), `main` (운영)
+- **배포 플로우**: `feature-fix` → PR → `main` (main에 직접 push 금지)
+  1. `feature-fix`에서 작업 및 커밋
+  2. `git push origin feature-fix`
+  3. `gh pr create --base main` 로 PR 생성
+  4. PR 머지 후 로컬 동기화 (`git pull origin main`)
 
 ### 코드 품질
 

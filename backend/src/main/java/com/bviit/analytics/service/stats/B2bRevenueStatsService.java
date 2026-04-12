@@ -2,15 +2,17 @@ package com.bviit.analytics.service.stats;
 
 import com.bviit.analytics.dto.stats.B2bRevenueMonthlyItem;
 import com.bviit.analytics.repository.stats.B2bRevenueStatsRepository;
+import com.bviit.analytics.util.MonthlyBuckets;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+
+import static com.bviit.analytics.util.NumberUtils.toInt;
 
 @Service
 @Profile("mssql")
@@ -23,17 +25,12 @@ public class B2bRevenueStatsService {
     public List<B2bRevenueMonthlyItem> getMonthlyRevenue(List<Integer> years) {
         List<Map<String, Object>> rows = repository.findMonthlyRevenue(years);
 
-        Map<String, B2bRevenueMonthlyItem> monthlyMap = new LinkedHashMap<>();
-        for (int year : years) {
-            for (int month = 1; month <= 12; month++) {
-                monthlyMap.put(year + "-" + month, emptyItem(year, month));
-            }
-        }
+        Map<String, B2bRevenueMonthlyItem> monthlyMap = MonthlyBuckets.initialize(years, this::emptyItem);
 
         for (Map<String, Object> row : rows) {
             int year = toInt(row.get("yr"));
             int month = toInt(row.get("mo"));
-            String key = year + "-" + month;
+            String key = MonthlyBuckets.key(year, month);
 
             if (!monthlyMap.containsKey(key)) {
                 continue;
@@ -91,13 +88,4 @@ public class B2bRevenueStatsService {
                 .build();
     }
 
-    private static int toInt(Object value) {
-        if (value == null) {
-            return 0;
-        }
-        if (value instanceof Number number) {
-            return number.intValue();
-        }
-        return Integer.parseInt(value.toString());
-    }
 }

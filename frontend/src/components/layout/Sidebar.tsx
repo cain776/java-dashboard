@@ -14,8 +14,13 @@ const getOpenMenus = (pathname: string) =>
       .map((item) => item.id)
   )
 
+// 운영 빌드에서 pending 메뉴 숨김
+const isProd = !import.meta.env.DEV
+const isDisabled = (status?: MenuStatus) => isProd && status === 'pending'
+
 // 구현 상태별 텍스트 색상 (활성 상태가 아닐 때만 적용)
 const statusTextClass = (status?: MenuStatus): string => {
+  if (isDisabled(status)) return 'text-gray-300 pointer-events-none cursor-default'
   if (status === 'pending') return 'text-red-500 hover:text-red-600'
   if (status === 'backend-only') return 'text-amber-600 hover:text-amber-700'
   return 'text-gray-500 hover:text-gray-900'
@@ -57,8 +62,8 @@ function SidebarChildLinks({
 export function Sidebar({ collapsed, onToggleSidebar, onNavigate }: { collapsed: boolean; onToggleSidebar: () => void; onNavigate?: () => void }) {
   const location = useLocation()
   const [openMenus, setOpenMenus] = useState<Set<string>>(() => {
-    try { const saved = localStorage.getItem('sidebar-open-menus'); return saved ? new Set(JSON.parse(saved)) : new Set(['intake']) }
-    catch { return new Set(['intake']) }
+    try { const saved = localStorage.getItem('sidebar-open-menus'); return saved ? new Set(JSON.parse(saved)) : new Set() }
+    catch { return new Set() }
   })
   const activeMenus = getOpenMenus(location.pathname)
 

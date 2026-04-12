@@ -1,6 +1,8 @@
-import { readStoredAuthSession } from '@/stores/auth-session'
+import { readStoredAuthSession, clearStoredAuthSession } from '@/stores/auth-session'
 
 const BASE_URL = '/api'
+
+const shouldHandleUnauthorized = (url: string) => !url.startsWith('/auth/login')
 
 const getErrorMessage = (body: unknown, response: Response) => {
   if (typeof body === 'string' && body.trim()) {
@@ -62,6 +64,14 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   })
 
   const body = await parseResponseBody(res)
+
+  if (res.status === 401 && shouldHandleUnauthorized(url)) {
+    clearStoredAuthSession()
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login'
+    }
+    throw new Error('세션이 만료되었습니다. 다시 로그인해주세요.')
+  }
 
   if (!res.ok) {
     throw new Error(getErrorMessage(body, res))

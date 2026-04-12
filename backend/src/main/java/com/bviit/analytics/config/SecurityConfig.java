@@ -26,12 +26,14 @@ public class SecurityConfig {
     private final JwtAuthenticationEntryPoint authenticationEntryPoint;
     private final CustomAccessDeniedHandler accessDeniedHandler;
     private final List<String> allowedOrigins;
+    private final boolean h2ConsoleEnabled;
 
     public SecurityConfig(
             JwtAuthenticationFilter jwtAuthenticationFilter,
             JwtAuthenticationEntryPoint authenticationEntryPoint,
             CustomAccessDeniedHandler accessDeniedHandler,
-            @Value("${app.cors.allowed-origins:http://localhost:5173}") String allowedOrigins
+            @Value("${app.cors.allowed-origins:http://localhost:5173}") String allowedOrigins,
+            @Value("${spring.h2.console.enabled:false}") boolean h2ConsoleEnabled
     ) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
         this.authenticationEntryPoint = authenticationEntryPoint;
@@ -40,6 +42,7 @@ public class SecurityConfig {
                 .map(String::trim)
                 .filter(origin -> !origin.isBlank())
                 .toList();
+        this.h2ConsoleEnabled = h2ConsoleEnabled;
     }
 
     @Bean
@@ -49,25 +52,28 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()))
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-            .authorizeHttpRequests(auth -> auth
-                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers(
-                    "/",
-                    "/login",
-                    "/stats/**",
-                    "/index.html",
-                    "/assets/**",
-                    "/favicon.ico",
-                    "/favicon.svg",
-                    "/robots.txt",
-                    "/manifest.webmanifest",
-                    "/site.webmanifest",
-                    "/apple-touch-icon.png",
-                    "/error"
-                ).permitAll()
-                .requestMatchers("/api/auth/**", "/api/stats/**", "/h2-console/**").permitAll()
-                .anyRequest().authenticated()
-            )
+            .authorizeHttpRequests(auth -> {
+                auth.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
+                auth.requestMatchers(
+                        "/",
+                        "/login",
+                        "/stats/**",
+                        "/index.html",
+                        "/assets/**",
+                        "/favicon.ico",
+                        "/favicon.svg",
+                        "/robots.txt",
+                        "/manifest.webmanifest",
+                        "/site.webmanifest",
+                        "/apple-touch-icon.png",
+                        "/error"
+                ).permitAll();
+                auth.requestMatchers("/api/auth/**").permitAll();
+                if (h2ConsoleEnabled) {
+                    auth.requestMatchers("/h2-console/**").permitAll();
+                }
+                auth.anyRequest().authenticated();
+            })
             .exceptionHandling(ex -> ex
                 .authenticationEntryPoint(authenticationEntryPoint)
                 .accessDeniedHandler(accessDeniedHandler)

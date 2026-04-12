@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { statsApi, type ConsultationRateItem } from '@/api/stats'
+import { statsApi } from '@/api/stats'
 import { useDataSourceStore } from '@/stores/dataSourceStore'
 
 export function useConsultationRateKpi(years: number[]) {

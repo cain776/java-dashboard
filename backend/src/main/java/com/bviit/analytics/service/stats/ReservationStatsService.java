@@ -3,6 +3,7 @@ package com.bviit.analytics.service.stats;
 import com.bviit.analytics.dto.stats.ReservationMonthlyItem;
 import com.bviit.analytics.dto.stats.ReservationStatsResponse;
 import com.bviit.analytics.repository.stats.ReservationStatsRepository;
+import com.bviit.analytics.util.MonthlyBuckets;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,9 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+
+import static com.bviit.analytics.util.NumberUtils.roundToOneDecimal;
+import static com.bviit.analytics.util.NumberUtils.toInt;
 
 @Service
 @Profile("mssql")
@@ -86,11 +90,11 @@ public class ReservationStatsService {
         int prevTotal = toInt(prev.get("totalReservations"));
 
         double changeRate = prevTotal > 0
-                ? round((total - prevTotal) * 100.0 / prevTotal)
+                ? roundToOneDecimal((total - prevTotal) * 100.0 / prevTotal)
                 : 0.0;
-        double examRate = total > 0 ? round(exams * 100.0 / total) : 0.0;
-        double cancelRate = total > 0 ? round(cancels * 100.0 / total) : 0.0;
-        double walkInRate = total > 0 ? round(walkIns * 100.0 / total) : 0.0;
+        double examRate = total > 0 ? roundToOneDecimal(exams * 100.0 / total) : 0.0;
+        double cancelRate = total > 0 ? roundToOneDecimal(cancels * 100.0 / total) : 0.0;
+        double walkInRate = total > 0 ? roundToOneDecimal(walkIns * 100.0 / total) : 0.0;
 
         return ReservationStatsResponse.Summary.builder()
                 .totalReservations(total)
@@ -133,19 +137,12 @@ public class ReservationStatsService {
     public List<ReservationMonthlyItem> getMonthlyStats(List<Integer> years) {
         List<Map<String, Object>> rows = repository.findMonthlyByType(years);
 
-        // 연도×12개월 초기 맵 (빈 달 = 0으로 채움)
-        Map<String, ReservationMonthlyItem> map = new java.util.LinkedHashMap<>();
-        for (int year : years) {
-            for (int m = 1; m <= 12; m++) {
-                map.put(year + "-" + m, ReservationMonthlyItem.builder()
-                        .year(year).month(m).surgery(0).outpatient(0).dreamlens(0).total(0).build());
-            }
-        }
+        Map<String, ReservationMonthlyItem> map = MonthlyBuckets.initialize(years, this::emptyMonthlyItem);
 
         for (Map<String, Object> row : rows) {
             int yr = toInt(row.get("yr"));
             int mo = toInt(row.get("mo"));
-            String key = yr + "-" + mo;
+            String key = MonthlyBuckets.key(yr, mo);
             if (!map.containsKey(key)) continue;
 
             int surgery = toInt(row.get("surgery"));
@@ -161,13 +158,14 @@ public class ReservationStatsService {
         return new java.util.ArrayList<>(map.values());
     }
 
-    private static int toInt(Object val) {
-        if (val == null) return 0;
-        if (val instanceof Number n) return n.intValue();
-        return Integer.parseInt(val.toString());
-    }
-
-    private static double round(double val) {
-        return Math.round(val * 10.0) / 10.0;
+    private ReservationMonthlyItem emptyMonthlyItem(int year, int month) {
+        return ReservationMonthlyItem.builder()
+                .year(year)
+                .month(month)
+                .surgery(0)
+                .outpatient(0)
+                .dreamlens(0)
+                .total(0)
+                .build();
     }
 }

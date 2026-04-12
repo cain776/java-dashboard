@@ -10,7 +10,7 @@ import { useConsultationRateComposition } from '@/hooks/useConsultationRateCompo
 import { KpiCardsPanel } from './consultation-rate/KpiCardsPanel'
 import { MonthComparePanel } from './consultation-rate/MonthComparePanel'
 import { YearTrendPanel } from './consultation-rate/YearTrendPanel'
-import { EMPTY, toDataMap } from './consultation-rate/consultationRateUtils'
+import { toDataMap } from './consultation-rate/consultationRateUtils'
 
 export function ConsultationRatePage() {
   const filter = useFilterBar()

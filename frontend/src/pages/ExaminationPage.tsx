@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { Minus, TrendingDown, TrendingUp } from 'lucide-react'
 import {
   Bar,
   BarChart,
@@ -26,6 +25,7 @@ import {
 } from '@/components/ui/chart'
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/components/filters/useFilterBar'
+import { KpiCard } from '@/components/stats/KpiCard'
 import { PanelShell } from '@/components/PanelShell'
 import { StatsGrid } from '@/components/layout/desktop/StatsGrid'
 import { StatsStack } from '@/components/layout/mobile/StatsStack'
@@ -34,7 +34,7 @@ import { useExaminationKpi } from '@/hooks/useExaminationKpi'
 import { useExaminationTrend } from '@/hooks/useExaminationTrend'
 import { useExaminationComposition } from '@/hooks/useExaminationComposition'
 import { CHART_COLORS, MONTHS, YEAR_STROKE_PATTERNS } from '@/constants/chart'
-import { changeRate, formatAxisNumber, periodLabel } from '@/utils/stats'
+import { formatAxisNumber, periodLabel } from '@/utils/stats'
 
 type MetricKey =
   | 'total'
@@ -122,59 +122,14 @@ function KpiCardsPanel({
     [years, dataMap],
   )
 
+  const labels = mode === 'month' ? periods.map(periodLabel) : years.map((year) => `${year}년`)
+
   const renderCards = () => (
     <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
       {METRICS.map((metric) => {
         const values = mode === 'month' ? periodsData.map((data) => data[metric.key]) : yearTotals.map((data) => data[metric.key])
-        const labels = mode === 'month' ? periods.map(periodLabel) : years.map((year) => `${year}년`)
-        const base = values[0]
-
         return (
-          <Card key={metric.key} className="gap-2 border-border/70 shadow-sm">
-            <CardHeader className="gap-0.5 pb-0">
-              <CardTitle className="text-base font-semibold tracking-normal text-gray-900">
-                {metric.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2.5 pt-0">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-x-3 border-b border-border/60 pb-2.5">
-                <p className="text-sm text-muted-foreground">{labels[0]} (기준)</p>
-                <p className="min-w-[7ch] text-right text-3xl font-semibold tracking-tight tabular-nums text-gray-900">
-                  {base.toLocaleString()}
-                </p>
-              </div>
-              {values.slice(1).map((value, index) => {
-                const rate = changeRate(base, value)
-                const isPositive = rate > 0
-                const isNeutral = rate === 0
-                const TrendIcon = isNeutral ? Minus : isPositive ? TrendingUp : TrendingDown
-
-                return (
-                  <div key={labels[index + 1]} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3">
-                    <span className="text-sm text-muted-foreground">{labels[index + 1]}</span>
-                    <div className="flex items-center justify-end gap-2">
-                      <span
-                        className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                          isNeutral
-                            ? 'bg-gray-100 text-gray-600'
-                            : isPositive
-                              ? 'bg-emerald-50 text-emerald-700'
-                              : 'bg-rose-50 text-rose-700'
-                        }`}
-                      >
-                        <TrendIcon className="h-3 w-3" />
-                        {rate > 0 ? '+' : ''}
-                        {rate.toFixed(1)}%
-                      </span>
-                      <span className="min-w-[7ch] text-right text-sm font-medium tabular-nums text-gray-700">
-                        {value.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                )
-              })}
-            </CardContent>
-          </Card>
+          <KpiCard key={metric.key} label={metric.label} values={values} labels={labels} />
         )
       })}
     </section>
