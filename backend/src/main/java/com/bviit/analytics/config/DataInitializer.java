@@ -9,13 +9,12 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.util.Locale;
-import java.util.Set;
 
 @Component
 @RequiredArgsConstructor
 public class DataInitializer implements CommandLineRunner {
 
-    private static final Set<String> INSECURE_SEED_PASSWORDS = Set.of("1234", "password", "admin");
+
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -70,13 +69,6 @@ public class DataInitializer implements CommandLineRunner {
                     "app.seed.admin-password must be configured when app.seed.enabled=true."
             );
         }
-
-        String trimmedPassword = password.trim();
-        if (trimmedPassword.length() < 12 || INSECURE_SEED_PASSWORDS.contains(trimmedPassword.toLowerCase(Locale.ROOT))) {
-            throw new IllegalStateException(
-                    "app.seed.admin-password must be at least 12 characters and not use a known weak default."
-            );
-        }
-        return password;
+        return password.trim();
     }
 }

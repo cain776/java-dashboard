@@ -62,8 +62,8 @@ function SidebarChildLinks({
 export function Sidebar({ collapsed, onToggleSidebar, onNavigate }: { collapsed: boolean; onToggleSidebar: () => void; onNavigate?: () => void }) {
   const location = useLocation()
   const [openMenus, setOpenMenus] = useState<Set<string>>(() => {
-    try { const saved = localStorage.getItem('sidebar-open-menus'); return saved ? new Set(JSON.parse(saved)) : new Set(['intake']) }
-    catch { return new Set(['intake']) }
+    try { const saved = localStorage.getItem('sidebar-open-menus'); return saved ? new Set(JSON.parse(saved)) : new Set() }
+    catch { return new Set() }
   })
   const activeMenus = getOpenMenus(location.pathname)
 

@@ -8,7 +8,7 @@ import { useDataSourceStore } from '@/stores/dataSourceStore'
 
 export function AppLayout() {
   const isMobile = useIsMobile()
-  const [collapsed, setCollapsed] = useState(() => localStorage.getItem('sidebar-collapsed') === 'true')
+  const [collapsed, setCollapsed] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const { source, toggle: toggleSource } = useDataSourceStore()
   const isMock = source === 'mock'

@@ -4,3 +4,4 @@ frontend/.git.frontend-backup/
 *.bundle
 frontend/.env
 *.log
+.omx/
