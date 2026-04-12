@@ -55,6 +55,16 @@ const buildQueryString = (params: ReservationStatsParams) =>
     to: params.to,
   }).toString()
 
+/* ── KPI (예약 KPI 카드용) ── */
+
+export interface ReservationKpiItem {
+  year: number
+  surgery: number
+  outpatient: number
+  dreamlens: number
+  total: number
+}
+
 /* ── Monthly (예약 건수 페이지용) ── */
 
 export interface ReservationMonthlyItem {
@@ -155,6 +165,33 @@ export const statsApi = {
     return res.data
   },
 
+  getReservationKpi: async (
+    years: number[], mock = true
+  ): Promise<ReservationKpiItem[]> => {
+    const res = await api.get<ApiResponse<ReservationKpiItem[]>>(
+      `/stats/reservation/kpi?years=${years.join(',')}&mock=${mock}`
+    )
+    return res.data
+  },
+
+  getReservationTrend: async (
+    years: number[], mock = true
+  ): Promise<ReservationMonthlyItem[]> => {
+    const res = await api.get<ApiResponse<ReservationMonthlyItem[]>>(
+      `/stats/reservation/trend?years=${years.join(',')}&mock=${mock}`
+    )
+    return res.data
+  },
+
+  getReservationComposition: async (
+    years: number[], mock = true
+  ): Promise<ReservationMonthlyItem[]> => {
+    const res = await api.get<ApiResponse<ReservationMonthlyItem[]>>(
+      `/stats/reservation/composition?years=${years.join(',')}&mock=${mock}`
+    )
+    return res.data
+  },
+
   getExaminationMonthly: async (
     years: number[]
   ): Promise<ExaminationMonthlyItem[]> => {
@@ -169,6 +206,96 @@ export const statsApi = {
   ): Promise<ConsultationRateItem[]> => {
     const response = await api.get<unknown>(
       `/stats/consultation-rate?years=${years.join(',')}`
+    )
+    return consultationRateResponseSchema.parse(response).data
+  },
+
+  /* ── Examination KPI (검사 건수 KPI 카드용) ── */
+  getExaminationKpi: async (
+    years: number[], mock = true
+  ): Promise<ExaminationMonthlyItem[]> => {
+    const res = await api.get<ApiResponse<ExaminationMonthlyItem[]>>(
+      `/stats/examination/kpi?years=${years.join(',')}&mock=${mock}`
+    )
+    return res.data
+  },
+
+  /* ── Examination Trend (검사 건수 트렌드 차트용) ── */
+  getExaminationTrend: async (
+    years: number[], mock = true
+  ): Promise<ExaminationMonthlyItem[]> => {
+    const res = await api.get<ApiResponse<ExaminationMonthlyItem[]>>(
+      `/stats/examination/trend?years=${years.join(',')}&mock=${mock}`
+    )
+    return res.data
+  },
+
+  /* ── Examination Composition (검사 건수 구성 차트용) ── */
+  getExaminationComposition: async (
+    years: number[], mock = true
+  ): Promise<ExaminationMonthlyItem[]> => {
+    const res = await api.get<ApiResponse<ExaminationMonthlyItem[]>>(
+      `/stats/examination/composition?years=${years.join(',')}&mock=${mock}`
+    )
+    return res.data
+  },
+
+  /* ── Surgery KPI (수술 건수 KPI 카드용) ── */
+  getSurgeryKpi: async (
+    years: number[], mock = true
+  ): Promise<SurgeryMonthlyItem[]> => {
+    const res = await api.get<ApiResponse<SurgeryMonthlyItem[]>>(
+      `/stats/surgery/kpi?years=${years.join(',')}&mock=${mock}`
+    )
+    return res.data
+  },
+
+  /* ── Surgery Trend (수술 건수 트렌드 차트용) ── */
+  getSurgeryTrend: async (
+    years: number[], mock = true
+  ): Promise<SurgeryMonthlyItem[]> => {
+    const res = await api.get<ApiResponse<SurgeryMonthlyItem[]>>(
+      `/stats/surgery/trend?years=${years.join(',')}&mock=${mock}`
+    )
+    return res.data
+  },
+
+  /* ── Surgery Composition (수술 건수 구성 차트용) ── */
+  getSurgeryComposition: async (
+    years: number[], mock = true
+  ): Promise<SurgeryMonthlyItem[]> => {
+    const res = await api.get<ApiResponse<SurgeryMonthlyItem[]>>(
+      `/stats/surgery/composition?years=${years.join(',')}&mock=${mock}`
+    )
+    return res.data
+  },
+
+  /* ── ConsultationRate KPI (상담 전환율 KPI 카드용) ── */
+  getConsultationRateKpi: async (
+    years: number[], mock = true
+  ): Promise<ConsultationRateItem[]> => {
+    const response = await api.get<unknown>(
+      `/stats/consultation-rate/kpi?years=${years.join(',')}&mock=${mock}`
+    )
+    return consultationRateResponseSchema.parse(response).data
+  },
+
+  /* ── ConsultationRate Trend (상담 전환율 트렌드 차트용) ── */
+  getConsultationRateTrend: async (
+    years: number[], mock = true
+  ): Promise<ConsultationRateItem[]> => {
+    const response = await api.get<unknown>(
+      `/stats/consultation-rate/trend?years=${years.join(',')}&mock=${mock}`
+    )
+    return consultationRateResponseSchema.parse(response).data
+  },
+
+  /* ── ConsultationRate Composition (상담 전환율 구성 차트용) ── */
+  getConsultationRateComposition: async (
+    years: number[], mock = true
+  ): Promise<ConsultationRateItem[]> => {
+    const response = await api.get<unknown>(
+      `/stats/consultation-rate/composition?years=${years.join(',')}&mock=${mock}`
     )
     return consultationRateResponseSchema.parse(response).data
   },

@@ -1,4 +1,4 @@
-import { http, HttpResponse } from 'msw'
+import { http, HttpResponse, delay } from 'msw'
 
 const sourceLabelMap = {
   phone: '전화',
@@ -34,6 +34,48 @@ const createDateRange = (from: string, to: string) => {
   }
 
   return dates
+}
+
+/* ── 예약 월별 목업 데이터 (공용) ── */
+const RESERVATION_MONTHLY: Record<number, { surgery: number; outpatient: number; dreamlens: number }[]> = {
+  2024: [
+    { surgery: 32, outpatient: 280, dreamlens: 28 }, { surgery: 36, outpatient: 295, dreamlens: 30 },
+    { surgery: 38, outpatient: 305, dreamlens: 32 }, { surgery: 42, outpatient: 320, dreamlens: 35 },
+    { surgery: 40, outpatient: 315, dreamlens: 33 }, { surgery: 45, outpatient: 335, dreamlens: 38 },
+    { surgery: 50, outpatient: 355, dreamlens: 40 }, { surgery: 48, outpatient: 348, dreamlens: 38 },
+    { surgery: 52, outpatient: 365, dreamlens: 42 }, { surgery: 55, outpatient: 375, dreamlens: 44 },
+    { surgery: 53, outpatient: 370, dreamlens: 42 }, { surgery: 58, outpatient: 385, dreamlens: 46 },
+  ],
+  2025: [
+    { surgery: 38, outpatient: 310, dreamlens: 32 }, { surgery: 42, outpatient: 325, dreamlens: 35 },
+    { surgery: 45, outpatient: 340, dreamlens: 38 }, { surgery: 50, outpatient: 355, dreamlens: 40 },
+    { surgery: 48, outpatient: 348, dreamlens: 37 }, { surgery: 55, outpatient: 370, dreamlens: 42 },
+    { surgery: 60, outpatient: 390, dreamlens: 45 }, { surgery: 58, outpatient: 385, dreamlens: 43 },
+    { surgery: 62, outpatient: 400, dreamlens: 48 }, { surgery: 65, outpatient: 410, dreamlens: 50 },
+    { surgery: 63, outpatient: 405, dreamlens: 47 }, { surgery: 68, outpatient: 420, dreamlens: 52 },
+  ],
+  2026: [
+    { surgery: 52, outpatient: 350, dreamlens: 40 }, { surgery: 58, outpatient: 368, dreamlens: 44 },
+    { surgery: 55, outpatient: 360, dreamlens: 42 }, { surgery: 65, outpatient: 384, dreamlens: 48 },
+    { surgery: 62, outpatient: 378, dreamlens: 46 }, { surgery: 70, outpatient: 398, dreamlens: 50 },
+    { surgery: 74, outpatient: 415, dreamlens: 54 }, { surgery: 72, outpatient: 408, dreamlens: 52 },
+    { surgery: 76, outpatient: 425, dreamlens: 56 }, { surgery: 80, outpatient: 440, dreamlens: 58 },
+    { surgery: 78, outpatient: 432, dreamlens: 56 }, { surgery: 82, outpatient: 450, dreamlens: 60 },
+  ],
+}
+
+function parseYears(request: Request): number[] {
+  const url = new URL(request.url)
+  const years = (url.searchParams.get('years') ?? '').split(',').map(Number).filter(Boolean)
+  if (!years.length) years.push(new Date().getFullYear())
+  return years
+}
+
+function getReservationMonthlyData(years: number[]) {
+  return years.flatMap((year) => {
+    const months = RESERVATION_MONTHLY[year] ?? Array.from({ length: 12 }, () => ({ surgery: 0, outpatient: 0, dreamlens: 0 }))
+    return months.map((m, i) => ({ year, month: i + 1, ...m, total: m.surgery + m.outpatient + m.dreamlens }))
+  })
 }
 
 export const handlers = [
@@ -142,40 +184,38 @@ export const handlers = [
     const yearsParam = url.searchParams.get('years') ?? ''
     const years = yearsParam.split(',').map(Number).filter(Boolean)
     if (!years.length) years.push(new Date().getFullYear())
-
-    const mockMonthly: Record<number, { surgery: number; outpatient: number; dreamlens: number }[]> = {
-      2024: [
-        { surgery: 32, outpatient: 280, dreamlens: 28 }, { surgery: 36, outpatient: 295, dreamlens: 30 },
-        { surgery: 38, outpatient: 305, dreamlens: 32 }, { surgery: 42, outpatient: 320, dreamlens: 35 },
-        { surgery: 40, outpatient: 315, dreamlens: 33 }, { surgery: 45, outpatient: 335, dreamlens: 38 },
-        { surgery: 50, outpatient: 355, dreamlens: 40 }, { surgery: 48, outpatient: 348, dreamlens: 38 },
-        { surgery: 52, outpatient: 365, dreamlens: 42 }, { surgery: 55, outpatient: 375, dreamlens: 44 },
-        { surgery: 53, outpatient: 370, dreamlens: 42 }, { surgery: 58, outpatient: 385, dreamlens: 46 },
-      ],
-      2025: [
-        { surgery: 38, outpatient: 310, dreamlens: 32 }, { surgery: 42, outpatient: 325, dreamlens: 35 },
-        { surgery: 45, outpatient: 340, dreamlens: 38 }, { surgery: 50, outpatient: 355, dreamlens: 40 },
-        { surgery: 48, outpatient: 348, dreamlens: 37 }, { surgery: 55, outpatient: 370, dreamlens: 42 },
-        { surgery: 60, outpatient: 390, dreamlens: 45 }, { surgery: 58, outpatient: 385, dreamlens: 43 },
-        { surgery: 62, outpatient: 400, dreamlens: 48 }, { surgery: 65, outpatient: 410, dreamlens: 50 },
-        { surgery: 63, outpatient: 405, dreamlens: 47 }, { surgery: 68, outpatient: 420, dreamlens: 52 },
-      ],
-      2026: [
-        { surgery: 52, outpatient: 350, dreamlens: 40 }, { surgery: 58, outpatient: 368, dreamlens: 44 },
-        { surgery: 55, outpatient: 360, dreamlens: 42 }, { surgery: 65, outpatient: 384, dreamlens: 48 },
-        { surgery: 62, outpatient: 378, dreamlens: 46 }, { surgery: 70, outpatient: 398, dreamlens: 50 },
-        { surgery: 74, outpatient: 415, dreamlens: 54 }, { surgery: 72, outpatient: 408, dreamlens: 52 },
-        { surgery: 76, outpatient: 425, dreamlens: 56 }, { surgery: 80, outpatient: 440, dreamlens: 58 },
-        { surgery: 78, outpatient: 432, dreamlens: 56 }, { surgery: 82, outpatient: 450, dreamlens: 60 },
-      ],
-    }
-
-    const data = years.flatMap((year) => {
-      const months = mockMonthly[year] ?? Array.from({ length: 12 }, () => ({ surgery: 0, outpatient: 0, dreamlens: 0 }))
-      return months.map((m, i) => ({ year, month: i + 1, ...m, total: m.surgery + m.outpatient + m.dreamlens }))
-    })
-
+    const data = getReservationMonthlyData(years)
     return HttpResponse.json({ success: true, data })
+  }),
+
+  /* ── 패널별 분리 API ── */
+  http.get('/api/stats/reservation/kpi', async ({ request }) => {
+    await delay(200)
+    const years = parseYears(request)
+    const monthly = getReservationMonthlyData(years)
+    const data = years.map((year) => {
+      const rows = monthly.filter((r) => r.year === year)
+      return {
+        year,
+        surgery: rows.reduce((s, r) => s + r.surgery, 0),
+        outpatient: rows.reduce((s, r) => s + r.outpatient, 0),
+        dreamlens: rows.reduce((s, r) => s + r.dreamlens, 0),
+        total: rows.reduce((s, r) => s + r.total, 0),
+      }
+    })
+    return HttpResponse.json({ success: true, data })
+  }),
+
+  http.get('/api/stats/reservation/trend', async ({ request }) => {
+    await delay(500)
+    const years = parseYears(request)
+    return HttpResponse.json({ success: true, data: getReservationMonthlyData(years) })
+  }),
+
+  http.get('/api/stats/reservation/composition', async ({ request }) => {
+    await delay(350)
+    const years = parseYears(request)
+    return HttpResponse.json({ success: true, data: getReservationMonthlyData(years) })
   }),
   http.get('/api/stats/surgery/monthly', ({ request }) => {
     const url = new URL(request.url)

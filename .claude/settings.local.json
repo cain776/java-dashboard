@@ -1,0 +1,6 @@
+{
+  "enabledMcpjsonServers": [
+    "analytics-mcp"
+  ],
+  "enableAllProjectMcpServers": true
+}

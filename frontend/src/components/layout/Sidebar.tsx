@@ -31,9 +31,11 @@ const childLinkClassName = (isActive: boolean, status?: MenuStatus) =>
 function SidebarChildLinks({
   children,
   pathname,
+  onNavigate,
 }: {
   children: MenuLink[]
   pathname: string
+  onNavigate?: () => void
 }) {
   return (
     <>
@@ -41,6 +43,7 @@ function SidebarChildLinks({
         <li key={child.href}>
           <Link
             to={child.href}
+            onClick={onNavigate}
             className={childLinkClassName(pathname === child.href, child.status)}
           >
             {child.label}
@@ -51,7 +54,7 @@ function SidebarChildLinks({
   )
 }
 
-export function Sidebar({ collapsed, onToggleSidebar }: { collapsed: boolean; onToggleSidebar: () => void }) {
+export function Sidebar({ collapsed, onToggleSidebar, onNavigate }: { collapsed: boolean; onToggleSidebar: () => void; onNavigate?: () => void }) {
   const location = useLocation()
   const [openMenus, setOpenMenus] = useState<Set<string>>(() => {
     try { const saved = localStorage.getItem('sidebar-open-menus'); return saved ? new Set(JSON.parse(saved)) : new Set(['intake']) }
@@ -124,6 +127,7 @@ export function Sidebar({ collapsed, onToggleSidebar }: { collapsed: boolean; on
                         <SidebarChildLinks
                           children={children}
                           pathname={location.pathname}
+                          onNavigate={onNavigate}
                         />
                       </ul>
                     )}
