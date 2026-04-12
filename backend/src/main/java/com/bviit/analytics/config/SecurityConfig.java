@@ -65,7 +65,7 @@ public class SecurityConfig {
                     "/apple-touch-icon.png",
                     "/error"
                 ).permitAll()
-                .requestMatchers("/api/auth/**", "/h2-console/**").permitAll()
+                .requestMatchers("/api/auth/**", "/api/stats/**", "/h2-console/**").permitAll()
                 .anyRequest().authenticated()
             )
             .exceptionHandling(ex -> ex

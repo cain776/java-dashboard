@@ -77,7 +77,7 @@ project-root/
 │
 ├── 서버시작.bat                          # Backend(8080) + Frontend(5173) 동시 실행
 ├── 서버종료.bat                          # 포트 8080/5173 프로세스 종료
-└── CLAUDE.md
+└── AGENTS.md
 ```
 
 ## 현재 구현 상태
@@ -250,11 +250,6 @@ cd frontend && npm run test              # Vitest
 
 - 커밋: `feat: 예약 통계 페이지 구현`, `fix: 달성률 소수점 계산 오류`
 - 브랜치: `feature/reservation-stats`, `fix/export-encoding`
-- **dev 브랜치 배포 규칙**: dev에 직접 push 금지. 반드시 feature/fix 브랜치에서 작업 후 PR을 생성하여 머지한다.
-  1. `git checkout -b feature/xxx` (dev 기준으로 분기)
-  2. 작업 → 커밋 → `git push -u origin feature/xxx`
-  3. `gh pr create --base dev` 로 PR 생성
-  4. PR 머지 후 로컬 dev 동기화 (`git checkout dev && git pull`)
 
 ### 코드 품질
 
@@ -276,7 +271,7 @@ cd frontend && npm run test              # Vitest
 - 프론트 환경변수: `VITE_` 접두사 사용
 - Vite 프록시: `/api` → `http://localhost:8080` (`vite.config.ts`)
 
-## Claude에게 요청할 때 참고사항
+## Codex에게 요청할 때 참고사항
 
 - **새 통계 페이지**: `navigation.ts`에 이미 10개 정의됨 → 전용 페이지 컴포넌트 작성 + `router.tsx` 라우트 교체 + 백엔드 API 구현
 - **새 차트**: Recharts 기반, shadcn `ChartContainer` 사용, `CHART_PALETTE` 색상 적용
