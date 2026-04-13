@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Plus } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select } from './Select'
@@ -22,12 +23,18 @@ export function FilterBar({
 
   const addPeriod = () => {
     if (mode === 'month' && periods.length < MAX_PERIODS) {
-      if (!periods.some((p) => p.year === addYear && p.month === addMonth))
-        setPeriods([...periods, { year: addYear, month: addMonth }])
+      if (periods.some((p) => p.year === addYear && p.month === addMonth)) {
+        toast.warning('이미 추가된 기간입니다', { description: `${addYear}년 ${MONTH_OPTIONS[addMonth].label}` })
+        return
+      }
+      setPeriods([...periods, { year: addYear, month: addMonth }])
     }
     if (mode === 'year' && years.length < MAX_PERIODS) {
-      if (!years.includes(addYearOnly))
-        setYears([...years, addYearOnly])
+      if (years.includes(addYearOnly)) {
+        toast.warning('이미 추가된 연도입니다', { description: `${addYearOnly}년` })
+        return
+      }
+      setYears([...years, addYearOnly])
     }
   }
 

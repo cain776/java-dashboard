@@ -129,3 +129,12 @@
     @apply font-sans;
   }
 }
+
+/* sonner close button → 우측 상단 */
+[data-sonner-toast] [data-close-button] {
+  position: absolute !important;
+  top: 4px !important;
+  right: 4px !important;
+  left: auto !important;
+  transform: none !important;
+}

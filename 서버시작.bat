@@ -1,5 +1,5 @@
 @echo off
-setlocal enabledelayedexpansion
+setlocal disabledelayedexpansion
 title BVIIT Analytics Dashboard
 
 echo ========================================
@@ -19,7 +19,7 @@ for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr :5173 ^| findstr LISTE
 set BOOT_PROFILE=
 if exist %PROJECT_DIR%backend\.env (
     for /f "usebackq tokens=1* delims==" %%a in (%PROJECT_DIR%backend\.env) do (
-        set %%a=%%b
+        set "%%a=%%b"
     )
     echo [ENV] .env loaded
     set BOOT_PROFILE=mssql
