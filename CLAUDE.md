@@ -284,3 +284,24 @@ cd frontend && npm run test              # Vitest
 - **API 연동**: `api/client.ts` HTTP 클라이언트 사용, TanStack Query `useQuery`로 캐싱
 - **DashboardPage/ReservationPage 데이터는 하드코딩 목업** — API 연동 시 교체 필요
 - **MSW 핸들러**: 새 API 개발 전 `mocks/handlers.ts`에 목 추가하면 프론트 선행 개발 가능
+
+## DB 테이블 카탈로그
+
+`docs/db/tables/`에 35개 테이블의 컬럼 정보, PK/FK, JOIN 키, 함정(Gotchas)이 정리되어 있습니다.
+이 DB는 EyeChartPro(Node.js, Java)와 공유하는 동일 MSSQL입니다.
+
+### 참조 규칙
+
+1. **SQL 쿼리 작성 전** 해당 테이블의 `docs/db/tables/{테이블명}.md`를 먼저 읽을 것
+2. **"함정(Gotchas)" 섹션은 반드시 확인** — 과거 실수와 알려진 위험이 기록되어 있음
+3. 원본은 softcrm 레포에 있으며, 갱신 시 동기화됨
+
+### 고위험 테이블 (필독)
+
+| 테이블 | 핵심 함정 |
+|--------|----------|
+| **CUSTOM** | JUMIN_NUM 복호화 비용 높음, 6개 직원필드 → EMPLOYEE.EMP_NUM |
+| **RESERVATION** | SELECT_DOC vs RESERVE_DOC 우선순위, RESERVE_STATE 4상태(Y/I/H/C) |
+| **EMPLOYEE** | EMP_STATE <> 'N' 퇴직자 필터 필수, EMP_NUM 형식 혼재 |
+| **OPERATIONDATA** | OP_EMP 순서 역전(EMP2=C, EMP3=A), 고객당 1행 |
+| **COSTPRICE** | 원데이 수술 합산 이슈, PrcItmLst JOIN 필요 |
