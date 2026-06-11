@@ -2,25 +2,27 @@ package com.bviit.analytics.dto.stats;
 
 import lombok.Builder;
 import lombok.Getter;
+import lombok.extern.jackson.Jacksonized;
 
 /**
- * 월별 검사 통계 단일 행.
- * 4개 검사 유형 + total.
+ * 월별 검사 통계 단일 행 — 시력교정/드림렌즈 + 화면 전체.
  *
- * 카운트 기준: RESERVATION 테이블에서 RESERVE_STATE IN ('I','H') (실제 내원/완료)
- *   visionCorrection = RESERVE_FLAG = 'M' (시력교정 검사)
- *   cataract         = RESERVE_FLAG = 'H' (백내장 검사)
- *   dreamlens        = RESERVE_FLAG = 'D' (상담/드림렌즈)
- *   outpatient       = RESERVE_FLAG = 'F' (외래)
+ * 카운트 기준 (확정 정의: docs/db/지표정의.md §1):
+ *   visionCorrection = 시력교정검사. 2024~2025는 레거시 확정값, 이후는 EXAM 기준
+ *   dreamlens        = EXAM 검사자 리스트 행, 사람 단위 (렌즈센터 D만 있고 검사 M이 없는 행)
+ *   examTotal        = 화면 "전체" 검사건수. visionCorrection + dreamlens
+ *
+ * 주의: 레거시 확정값은 전체가 아니라 시력교정검사에만 적용한다.
+ * total은 API 호환용이며 examTotal과 동일하다.
  */
 @Getter
 @Builder
+@Jacksonized
 public class ExaminationMonthlyItem {
     private final int year;
     private final int month;
     private final int visionCorrection;
-    private final int cataract;
     private final int dreamlens;
-    private final int outpatient;
+    private final int examTotal;
     private final int total;
 }

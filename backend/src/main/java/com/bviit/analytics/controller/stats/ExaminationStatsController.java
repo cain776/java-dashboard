@@ -29,8 +29,8 @@ public class ExaminationStatsController {
      * 연도별 월간 검사 유형별 건수 (프론트 ExaminationPage용).
      * GET /api/stats/examination/monthly?years=2025,2026
      *
-     * 응답: { success: true, data: [{year, month, visionCorrection, cataract,
-     *         dreamlens, outpatient, total}, ...] }
+     * 응답: { success: true, data: [{year, month, visionCorrection,
+     *         dreamlens, examTotal, total}, ...] }
      */
     @GetMapping("/examination/monthly")
     public ResponseEntity<ApiResponse<List<ExaminationMonthlyItem>>> getMonthlyStats(
