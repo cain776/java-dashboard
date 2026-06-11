@@ -6,18 +6,19 @@ import { useDataSourceStore } from '@/stores/dataSourceStore'
  * 백내장 검사자 리스트 조회 훅. 검사일 범위(from~to)로 서버 조회.
  * 진료구분·검색 필터는 페이지에서 클라이언트 사이드로 적용한다.
  */
-export function useCataractExamList(from: string, to: string) {
+export function useCataractExamList(from: string, to: string, enabled = true) {
   const source = useDataSourceStore((state) => state.source)
 
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isFetching, isError } = useQuery({
     queryKey: ['cataract-exam-list', from, to, source],
     queryFn: () => cataractExamListApi.getCataractExamList(from, to),
-    enabled: Boolean(from && to),
+    enabled: enabled && Boolean(from && to),
   })
 
   return {
-    rows: (data ?? []) as CataractExamListItem[],
+    rows: enabled ? (data ?? []) as CataractExamListItem[] : [],
     isLoading,
+    isFetching,
     isError,
   }
 }

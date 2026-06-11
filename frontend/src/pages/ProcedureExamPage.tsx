@@ -10,17 +10,25 @@ import {
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/components/filters/useFilterBar'
 import { PanelShell } from '@/components/PanelShell'
-import { useExaminationTrend } from '@/hooks/useExaminationTrend'
+import { useProcedureExamTrend } from '@/hooks/useProcedureExamTrend'
 import { CURRENT_YEAR, MONTHS } from '@/constants/chart'
 import { formatAxisNumber } from '@/utils/stats'
 
-type ExamTabKey = 'all' | 'visionCorrection' | 'dreamlens' | 'cataract'
+type ProcedureTabKey = 'examCount' | 'oneDayExamCount'
 
-const EXAM_TABS: { key: ExamTabKey; label: string }[] = [
-  { key: 'all', label: '전체 검사건수' },
-  { key: 'visionCorrection', label: '시력교정' },
-  { key: 'dreamlens', label: '드림렌즈' },
-  { key: 'cataract', label: '백내장' },
+const PROCEDURE_TABS: { key: ProcedureTabKey; label: string; description: string }[] = [
+  {
+    key: 'examCount',
+    label: '검사수',
+    description:
+      '검사수는 시력교정·드림렌즈 검사(EXAM)와 백내장 검사(Cataract_Exam) 건수를 합산한 전체 검사 건수입니다. 2024·2025년은 확정값, 2026년부터는 운영 DB 집계입니다.',
+  },
+  {
+    key: 'oneDayExamCount',
+    label: '원데이 검사',
+    description:
+      '원데이 검사는 EXAM 기준 같은 날 검사OP(M/5)로 내원한 검사 중 중단·취소를 제외한 건수입니다. 2024·2025년은 확정값, 2026년부터는 운영 DB 집계입니다.',
+  },
 ]
 
 // 최신 연도부터 역순: 빨강 → 진회색 → 연하늘 → 주황
@@ -31,12 +39,13 @@ const isFutureMonth = (year: number, monthIndex: number) =>
   year > now.getFullYear() ||
   (year === now.getFullYear() && monthIndex > now.getMonth())
 
-export function ExaminationPage() {
+export function ProcedureExamPage() {
   const filter = useFilterBar('year', [CURRENT_YEAR - 2, CURRENT_YEAR - 1, CURRENT_YEAR])
-  const [tab, setTab] = useState<ExamTabKey>('all')
+  const [tab, setTab] = useState<ProcedureTabKey>('examCount')
 
   const sortedYears = useMemo(() => [...filter.years].sort((a, b) => a - b), [filter.years])
-  const { dataMap, isLoading, isError } = useExaminationTrend(sortedYears)
+  const { dataMap, isLoading, isError } = useProcedureExamTrend(sortedYears)
+  const currentTab = PROCEDURE_TABS.find((item) => item.key === tab) ?? PROCEDURE_TABS[0]
 
   const series = useMemo(() => {
     const latestYear = sortedYears[sortedYears.length - 1]
@@ -63,18 +72,14 @@ export function ExaminationPage() {
     return config
   }, [series])
 
-  // 미래 월은 null → 선이 마지막 데이터 지점에서 끊김 (이미지의 당해년도 라인과 동일)
+  // 미래 월은 null → 선이 마지막 데이터 지점에서 끊김
   const chartData = useMemo(
     () =>
       MONTHS.map((month, monthIndex) => {
         const row: Record<string, string | number | null> = { month }
         sortedYears.forEach((year) => {
           const item = dataMap[year]?.[monthIndex]
-          row[`y${year}`] = isFutureMonth(year, monthIndex)
-            ? null
-            : tab === 'all'
-              ? item?.examTotal ?? 0
-              : item?.[tab] ?? 0
+          row[`y${year}`] = isFutureMonth(year, monthIndex) ? null : item?.[tab] ?? 0
         })
         return row
       }),
@@ -91,11 +96,11 @@ export function ExaminationPage() {
               <div>
                 <CardTitle>월별 추이 비교</CardTitle>
                 <CardDescription>
-                  전체는 시력교정, 드림렌즈, 백내장을 합산한 흐름으로, 탭을 선택하면 해당 검사만 표시됩니다.
+                  {currentTab.description}
                 </CardDescription>
               </div>
               <div className="flex flex-wrap gap-1 rounded-md bg-gray-100 p-1">
-                {EXAM_TABS.map((t) => (
+                {PROCEDURE_TABS.map((t) => (
                   <button
                     key={t.key}
                     type="button"

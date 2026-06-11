@@ -115,10 +115,45 @@ const examinationMonthlyItemSchema = z.object({
   year: z.number(), month: z.number(),
   visionCorrection: z.number(),
   dreamlens: z.number(),
+  cataract: z.number().optional(),
   examTotal: z.number().optional(), total: z.number(),
 })
 export type ExaminationMonthlyItem = z.infer<typeof examinationMonthlyItemSchema>
 const examinationResponseSchema = apiResponseOf(z.array(examinationMonthlyItemSchema))
+
+/* ── Monthly (시술별 검사 건수 페이지용) ── */
+
+const procedureExamMonthlyItemSchema = z.object({
+  year: z.number(), month: z.number(),
+  examCount: z.number(),
+  oneDayExamCount: z.number(),
+  total: z.number().optional(),
+})
+export type ProcedureExamMonthlyItem = z.infer<typeof procedureExamMonthlyItemSchema>
+const procedureExamResponseSchema = apiResponseOf(z.array(procedureExamMonthlyItemSchema))
+
+/* ── Monthly (외래수 페이지용) ── */
+
+const outpatientCountMonthlyItemSchema = z.object({
+  year: z.number(),
+  month: z.number(),
+  outpatientCount: z.number().nullable(),
+  total: z.number().nullable().optional(),
+})
+export type OutpatientCountMonthlyItem = z.infer<typeof outpatientCountMonthlyItemSchema>
+const outpatientCountResponseSchema = apiResponseOf(z.array(outpatientCountMonthlyItemSchema))
+
+/* ── Monthly (백내장 예약률 페이지용) ── */
+
+const cataractReservationRateItemSchema = z.object({
+  year: z.number(),
+  month: z.number(),
+  examCount: z.number(),
+  surgeryBookedCount: z.number(),
+  reservationRate: z.number(),
+})
+export type CataractReservationRateItem = z.infer<typeof cataractReservationRateItemSchema>
+const cataractReservationRateResponseSchema = apiResponseOf(z.array(cataractReservationRateItemSchema))
 
 /* ── 상담 전환율 페이지용 ── */
 
@@ -180,6 +215,12 @@ export const statsApi = {
   getExaminationMonthly: async (years: number[]) =>
     examinationResponseSchema.parse(await api.get<unknown>(`/stats/examination/monthly?years=${years.join(',')}`)).data,
 
+  getProcedureExamMonthly: async (years: number[]) =>
+    procedureExamResponseSchema.parse(await api.get<unknown>(`/stats/procedure-exam/monthly?years=${years.join(',')}`)).data,
+
+  getOutpatientCountMonthly: async (years: number[]) =>
+    outpatientCountResponseSchema.parse(await api.get<unknown>(`/stats/outpatient-count/monthly?years=${years.join(',')}`)).data,
+
   getConsultationRate: async (years: number[]) =>
     consultationRateResponseSchema.parse(await api.get<unknown>(`/stats/consultation-rate?years=${years.join(',')}`)).data,
 
@@ -191,6 +232,9 @@ export const statsApi = {
 
   getExaminationComposition: async (years: number[], mock = true) =>
     examinationResponseSchema.parse(await api.get<unknown>(`/stats/examination/composition?years=${years.join(',')}&mock=${mock}`)).data,
+
+  getCataractReservationRateTrend: async (years: number[], category: 'vision' | 'cataract' = 'cataract') =>
+    cataractReservationRateResponseSchema.parse(await api.get<unknown>(`/stats/cataract-reservation-rate/trend?years=${years.join(',')}&category=${category}`)).data,
 
   getSurgeryKpi: async (years: number[], mock = true) =>
     surgeryMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/surgery/kpi?years=${years.join(',')}&mock=${mock}`)).data,

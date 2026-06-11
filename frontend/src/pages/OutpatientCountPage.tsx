@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -10,33 +10,17 @@ import {
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/components/filters/useFilterBar'
 import { PanelShell } from '@/components/PanelShell'
-import { useExaminationTrend } from '@/hooks/useExaminationTrend'
+import { useOutpatientCountTrend } from '@/hooks/useOutpatientCountTrend'
 import { CURRENT_YEAR, MONTHS } from '@/constants/chart'
 import { formatAxisNumber } from '@/utils/stats'
 
-type ExamTabKey = 'all' | 'visionCorrection' | 'dreamlens' | 'cataract'
-
-const EXAM_TABS: { key: ExamTabKey; label: string }[] = [
-  { key: 'all', label: '전체 검사건수' },
-  { key: 'visionCorrection', label: '시력교정' },
-  { key: 'dreamlens', label: '드림렌즈' },
-  { key: 'cataract', label: '백내장' },
-]
-
-// 최신 연도부터 역순: 빨강 → 진회색 → 연하늘 → 주황
 const RECENCY_COLORS = ['#E11D2E', '#4B5563', '#A8CEDF', '#F59E0B']
 
-const now = new Date()
-const isFutureMonth = (year: number, monthIndex: number) =>
-  year > now.getFullYear() ||
-  (year === now.getFullYear() && monthIndex > now.getMonth())
-
-export function ExaminationPage() {
+export function OutpatientCountPage() {
   const filter = useFilterBar('year', [CURRENT_YEAR - 2, CURRENT_YEAR - 1, CURRENT_YEAR])
-  const [tab, setTab] = useState<ExamTabKey>('all')
 
   const sortedYears = useMemo(() => [...filter.years].sort((a, b) => a - b), [filter.years])
-  const { dataMap, isLoading, isError } = useExaminationTrend(sortedYears)
+  const { dataMap, isLoading, isError } = useOutpatientCountTrend(sortedYears)
 
   const series = useMemo(() => {
     const latestYear = sortedYears[sortedYears.length - 1]
@@ -48,7 +32,6 @@ export function ExaminationPage() {
     }))
   }, [sortedYears])
 
-  // 필터 칩 색상을 차트 라인 색상과 동일하게 매핑 (연도 → 색)
   const yearChipColors = useMemo(() => {
     const map: Record<number, string> = {}
     series.forEach((s) => { map[s.year] = s.color })
@@ -63,22 +46,17 @@ export function ExaminationPage() {
     return config
   }, [series])
 
-  // 미래 월은 null → 선이 마지막 데이터 지점에서 끊김 (이미지의 당해년도 라인과 동일)
   const chartData = useMemo(
     () =>
       MONTHS.map((month, monthIndex) => {
         const row: Record<string, string | number | null> = { month }
         sortedYears.forEach((year) => {
           const item = dataMap[year]?.[monthIndex]
-          row[`y${year}`] = isFutureMonth(year, monthIndex)
-            ? null
-            : tab === 'all'
-              ? item?.examTotal ?? 0
-              : item?.[tab] ?? 0
+          row[`y${year}`] = item?.outpatientCount ?? null
         })
         return row
       }),
-    [sortedYears, dataMap, tab],
+    [sortedYears, dataMap],
   )
 
   return (
@@ -87,29 +65,11 @@ export function ExaminationPage() {
       <PanelShell isLoading={isLoading} isError={isError} variant="line" className="flex min-h-0 flex-1 flex-col">
         <Card className="flex min-h-0 flex-1 flex-col border-border/70 shadow-sm">
           <CardHeader className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <CardTitle>월별 추이 비교</CardTitle>
-                <CardDescription>
-                  전체는 시력교정, 드림렌즈, 백내장을 합산한 흐름으로, 탭을 선택하면 해당 검사만 표시됩니다.
-                </CardDescription>
-              </div>
-              <div className="flex flex-wrap gap-1 rounded-md bg-gray-100 p-1">
-                {EXAM_TABS.map((t) => (
-                  <button
-                    key={t.key}
-                    type="button"
-                    onClick={() => setTab(t.key)}
-                    className={`h-8 rounded px-3 text-sm font-medium transition-colors ${
-                      tab === t.key
-                        ? 'bg-white text-gray-900 shadow-sm'
-                        : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
+            <div>
+              <CardTitle>월별 추이 비교</CardTitle>
+              <CardDescription>
+                외래수는 레거시 차트 확정값을 우선 표시합니다. 2026년은 현재 확인된 1~4월 값만 표시합니다.
+              </CardDescription>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-6">
               {series.map((s) => (
@@ -126,7 +86,6 @@ export function ExaminationPage() {
           </CardHeader>
           <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
             <ChartContainer config={chartConfig} className="aspect-auto min-h-0 w-full flex-1">
-              {/* left/right 여백과 YAxis 폭을 테이블 colgroup(80px)과 맞춰 월 라벨이 표 컬럼 중앙에 정렬됨 */}
               <LineChart data={chartData} margin={{ top: 24, left: 0, right: 80 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="month" scale="band" tickLine={false} axisLine={false} tickMargin={8} />
@@ -135,7 +94,7 @@ export function ExaminationPage() {
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
-                  domain={[0, 'auto']}
+                  domain={['dataMin - 200', 'dataMax + 200']}
                   tickFormatter={formatAxisNumber}
                 />
                 <ChartTooltip content={<ChartTooltipContent />} />
@@ -147,6 +106,7 @@ export function ExaminationPage() {
                     stroke={s.color}
                     strokeWidth={s.isLatest ? 3 : 2.5}
                     dot={false}
+                    connectNulls={false}
                     activeDot={{ r: 4 }}
                     label={
                       s.isLatest
@@ -194,29 +154,31 @@ export function ExaminationPage() {
                     }, 0)
 
                     return (
-                    <tr key={s.year} className="border-b border-border">
-                      <td className="py-2">
-                        <span
-                          className="flex items-center justify-center gap-1.5 font-semibold"
-                          style={{ color: s.isLatest ? s.color : undefined }}
-                        >
+                      <tr key={s.year} className="border-b border-border">
+                        <td className="py-2">
                           <span
-                            className="h-[3px] w-5 rounded-full"
-                            style={{ backgroundColor: s.color }}
-                          />
-                          {s.year}
-                        </span>
-                      </td>
-                      {MONTHS.map((_, monthIndex) => {
-                        const value = chartData[monthIndex][s.key]
-                        return (
-                          <td key={monthIndex} className="py-2 tabular-nums">
-                            {value === null ? '' : formatAxisNumber(value as number)}
-                          </td>
-                        )
-                      })}
-                      <td className="py-2 font-semibold tabular-nums">{formatAxisNumber(total)}</td>
-                    </tr>
+                            className="flex items-center justify-center gap-1.5 font-semibold"
+                            style={{ color: s.isLatest ? s.color : undefined }}
+                          >
+                            <span
+                              className="h-[3px] w-5 rounded-full"
+                              style={{ backgroundColor: s.color }}
+                            />
+                            {s.year}
+                          </span>
+                        </td>
+                        {MONTHS.map((_, monthIndex) => {
+                          const value = chartData[monthIndex][s.key]
+                          return (
+                            <td key={monthIndex} className="py-2 tabular-nums">
+                              {typeof value === 'number' ? formatAxisNumber(value) : ''}
+                            </td>
+                          )
+                        })}
+                        <td className="py-2 font-semibold tabular-nums">
+                          {total > 0 ? formatAxisNumber(total) : ''}
+                        </td>
+                      </tr>
                     )
                   })}
                 </tbody>

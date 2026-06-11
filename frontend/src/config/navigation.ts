@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   Home, CalendarCheck, Microscope, Stethoscope, Syringe,
-  Megaphone, Ban, BadgeDollarSign, MoreHorizontal,
+  Hospital, Megaphone, Ban, BadgeDollarSign, MoreHorizontal,
 } from 'lucide-react'
 
 export type MenuStatus = 'complete' | 'backend-only' | 'pending'
@@ -98,12 +98,21 @@ export const statsPages: StatsPageDefinition[] = [
   ),
   statsPage(
     'examination',
-    '검사 건수',
+    '시술별',
     '/stats/examination',
     'exam-group',
     '검사',
-    '시력교정과 드림렌즈 검사 건수를 종합 확인하는 화면입니다.',
+    '시력교정·드림렌즈·백내장 등 시술별 검사 건수를 탭으로 나눠 확인하는 화면입니다.',
     '/api/stats/examination'
+  ),
+  statsPage(
+    'procedure-exam',
+    '검사건수',
+    '/stats/procedure-exam',
+    'exam-group',
+    '검사',
+    '시력교정·드림렌즈·백내장 검사를 합산한 전체 검사수를 월별로 비교하는 화면입니다.',
+    '/api/stats/procedure-exam'
   ),
   statsPage(
     'examination-vision',
@@ -125,12 +134,21 @@ export const statsPages: StatsPageDefinition[] = [
   ),
   statsPage(
     'consultation-rate',
-    '상담 전환율',
+    '전환율',
     '/stats/consultation-rate',
     'consultation',
-    '상담 건수',
+    '전환&성공률',
     '시력교정 상담 전환율, 시력교정 수술 전환율, 백내장 수술 전환율을 함께 확인하는 화면입니다.',
     '/api/stats/consultation-rate'
+  ),
+  statsPage(
+    'cataract-reservation-rate',
+    '예약률',
+    '/stats/cataract-reservation-rate',
+    'consultation',
+    '전환&성공률',
+    '백내장 검사자 대비 수술예약건 비율을 월별로 확인하는 화면입니다.',
+    '/api/stats/cataract-reservation-rate'
   ),
   statsPage(
     'surgery-list',
@@ -158,6 +176,15 @@ export const statsPages: StatsPageDefinition[] = [
     '주요 수술별 비중',
     '주요 수술 종류별 비중과 분포를 보여주는 화면입니다.',
     '/api/stats/surgery-ratio'
+  ),
+  statsPage(
+    'outpatient-count',
+    '외래수',
+    '/stats/outpatient-count',
+    'outpatient',
+    '외래',
+    '월별 외래수 추이를 연도별로 비교하는 화면입니다.',
+    '/api/stats/outpatient-count'
   ),
   statsPage(
     'overseas',
@@ -303,12 +330,15 @@ const MENU_STATUS: Record<string, MenuStatus> = {
   'exam-list': 'complete',
   'cataract-exam-list': 'complete',
   'examination': 'complete',
+  'procedure-exam': 'complete',
   'examination-vision': 'backend-only',
   'examination-dreamlens': 'backend-only',
   'consultation-rate': 'complete',
+  'cataract-reservation-rate': 'complete',
   'surgery-list': 'complete',
   'surgery': 'complete',
   'surgery-ratio': 'complete',
+  'outpatient-count': 'complete',
   'overseas': 'pending',
   'marketing': 'pending',
   'cancel-rate': 'pending',
@@ -348,16 +378,17 @@ export const menuItems: MenuItem[] = [
       link('exam-list'),
       link('cataract-exam-list'),
       link('examination'),
+      link('procedure-exam'),
       link('examination-vision'),
       link('examination-dreamlens'),
     ],
   },
   {
     id: 'consultation',
-    label: '상담 건수',
+    label: '전환&성공률',
     href: '#',
     icon: Stethoscope,
-    children: [link('consultation-rate')],
+    children: [link('consultation-rate'), link('cataract-reservation-rate')],
   },
   {
     id: 'surgery-group',
@@ -365,6 +396,13 @@ export const menuItems: MenuItem[] = [
     href: '#',
     icon: Syringe,
     children: [link('surgery-list'), link('surgery'), link('surgery-ratio')],
+  },
+  {
+    id: 'outpatient',
+    label: '외래',
+    href: '#',
+    icon: Hospital,
+    children: [link('outpatient-count')],
   },
   {
     id: 'marketing-group',

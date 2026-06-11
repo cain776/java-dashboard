@@ -9,13 +9,22 @@ export function PeriodChip({ label, index, isBase, onRemove, colorHex }: {
   /** 지정 시 CHIP_STYLES 대신 차트 시리즈 색상과 동일한 색으로 표시 */
   colorHex?: string
 }) {
+  const style = colorHex
+    ? {
+        borderColor: colorHex,
+        color: colorHex,
+        backgroundColor: `${colorHex}1F`,
+        boxShadow: `inset 0 0 0 1px ${colorHex}33`,
+      }
+    : undefined
+
   return (
     <span
-      className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-sm font-medium ${colorHex ? '' : CHIP_STYLES[index] ?? CHIP_STYLES[0]}`}
-      style={colorHex ? { borderColor: colorHex, color: colorHex, backgroundColor: `${colorHex}14` } : undefined}
+      className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-sm font-bold ${colorHex ? '' : CHIP_STYLES[index] ?? CHIP_STYLES[0]}`}
+      style={style}
     >
       {isBase && (
-        <span className="rounded bg-current/10 px-1.5 py-0.5 text-xs opacity-70">기준</span>
+        <span className="rounded bg-current/15 px-1.5 py-0.5 text-xs font-bold opacity-90">기준</span>
       )}
       {label}
       {onRemove && (

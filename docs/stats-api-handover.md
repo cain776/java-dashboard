@@ -47,9 +47,10 @@ C:\workspace\java-dashboard\
 cd backend && gradlew.bat bootRun
 
 # MSSQL 통계 활성화
-STATS_DB_URL="jdbc:jtds:sqlserver://220.85.109.247:1433/SOFTCRM" \
-STATS_DB_USERNAME="sungmin" \
-STATS_DB_PASSWORD="0691" \
+# 운영 DB 접속정보는 backend/.env 에 보관 (gitignore). 아래는 예시 placeholder.
+STATS_DB_URL="jdbc:jtds:sqlserver://<PROD_HOST>:1433/SOFTCRM" \
+STATS_DB_USERNAME="<STATS_DB_USERNAME>" \
+STATS_DB_PASSWORD="<STATS_DB_PASSWORD>" \
 gradlew.bat bootRun --args="--spring.profiles.active=mssql"
 ```
 

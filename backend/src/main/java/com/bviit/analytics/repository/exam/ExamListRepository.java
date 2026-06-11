@@ -131,7 +131,8 @@ public class ExamListRepository {
               SELECT TOP 1 r.*
               FROM RESERVATION r WITH(NOLOCK)
               WHERE r.CUST_NUM = e.CUST_NUM
-                AND r.RESERVE_STATE <> 'C'
+                AND r.RESERVE_DATE = e.EXAM_DATE
+                AND r.RESERVE_STATE IN ('I','H')
                 AND r.RESERVE_FLAG = 'M'
               ORDER BY r.RESERVE_NUM DESC
             ) rsv

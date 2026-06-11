@@ -10,11 +10,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 검사 건수 통계 쿼리 — 시력교정 + 드림렌즈 (docs/db/지표정의.md §1).
+ * 검사 건수 통계 쿼리 — 시력교정 + 드림렌즈 + 백내장 (docs/db/지표정의.md §1).
  *
  * 카테고리별 기준:
  *   시력교정 = EXAM 검사자 리스트 행 (사람) — 드림렌즈 분류 배제
  *   드림렌즈 = EXAM 검사자 리스트 행 (사람) — 같은 날 렌즈센터(D) 예약만 있는 행
+ *   백내장 = Cataract_Exam 추천 수술방법 입력 눈 수 — 같은 날 백내장 검사(H) 내원 행만
  *
  * 시력교정 + 드림렌즈 = 검사자 리스트 월별 건수와 일치해야 한다.
  *
@@ -109,6 +110,147 @@ public class ExaminationStatsRepository {
                 AND __EXAM_MEASUREMENTS_BLANK__
               )
             GROUP BY CAST(SUBSTRING(e.EXAM_DATE, 1, 4) AS INT), CAST(SUBSTRING(e.EXAM_DATE, 6, 2) AS INT)
+            ORDER BY yr, mo
+            """.replace("__EXAM_MEASUREMENTS_BLANK__", examMeasurementsBlankPredicate("e"));
+        return jdbc.queryForList(sql, params(from, to));
+    }
+
+    /**
+     * 백내장 검사 — Cataract_Exam 기준, 눈(안) 단위.
+     * 레거시 백내장 검사건수와 맞춘 운영 기준:
+     *   1) 중단/취소/테스트 고객 제외
+     *   2) 같은 날 백내장 검사 예약(H)이 내원 상태로 존재
+     *   3) 적절한 수술방법(OPERATIONR/L)이 입력된 눈만 각각 1건
+     */
+    public List<Map<String, Object>> findCataractMonthly(String from, String to) {
+        String sql = """
+            SELECT CAST(SUBSTRING(ce.EXAM_DATE, 1, 4) AS INT) AS yr,
+                   CAST(SUBSTRING(ce.EXAM_DATE, 6, 2) AS INT) AS mo,
+                   SUM(CASE WHEN NULLIF(LTRIM(RTRIM(ISNULL(ce.OPERATIONR, ''))), '') IS NOT NULL THEN 1 ELSE 0 END)
+                 + SUM(CASE WHEN NULLIF(LTRIM(RTRIM(ISNULL(ce.OPERATIONL, ''))), '') IS NOT NULL THEN 1 ELSE 0 END) AS cnt
+            FROM Cataract_Exam ce WITH(NOLOCK)
+            JOIN CUSTOM cu WITH(NOLOCK) ON ce.CUST_NUM = cu.CUST_NUM
+            WHERE ce.EXAM_DATE >= :from AND ce.EXAM_DATE <= :to
+              AND (ce.Stop_YN IS NULL OR ce.Stop_YN <> 'Y')
+              AND (ce.Cancel_CD IS NULL OR LTRIM(RTRIM(ce.Cancel_CD)) = '')
+              AND NOT (
+                ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
+                OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
+              )
+              AND EXISTS (
+                SELECT 1
+                FROM RESERVATION r WITH(NOLOCK)
+                WHERE r.CUST_NUM = ce.CUST_NUM
+                  AND r.RESERVE_DATE = ce.EXAM_DATE
+                  AND r.RESERVE_STATE IN ('I','H')
+                  AND r.RESERVE_FLAG = 'H'
+              )
+            GROUP BY CAST(SUBSTRING(ce.EXAM_DATE, 1, 4) AS INT), CAST(SUBSTRING(ce.EXAM_DATE, 6, 2) AS INT)
+            ORDER BY yr, mo
+            """;
+        return jdbc.queryForList(sql, params(from, to));
+    }
+
+    /**
+     * 백내장 예약률 — 백내장 검사건수(Cataract_Exam 추천 눈 수) 안에서 수술예약이 있는 고객 수.
+     *
+     * 분모는 findCataractMonthly와 동일한 기준을 사용한다.
+     * RESERVATION에는 좌/우 눈 구분이 없으므로 분자는 눈 수가 아니라 검사자 리스트의
+     * 수술예약등록일 존재 여부와 같은 고객/예약 단위로 본다.
+     */
+    public List<Map<String, Object>> findCataractReservationRateMonthly(String from, String to) {
+        String sql = """
+            SELECT base.yr,
+                   base.mo,
+                   SUM(base.rightEye) + SUM(base.leftEye) AS examCount,
+                   SUM(CASE WHEN (base.rightEye = 1 OR base.leftEye = 1)
+                              AND base.hasSurgeryBooking = 1 THEN 1 ELSE 0 END) AS surgeryBookedCount
+            FROM (
+                SELECT CAST(SUBSTRING(ce.EXAM_DATE, 1, 4) AS INT) AS yr,
+                       CAST(SUBSTRING(ce.EXAM_DATE, 6, 2) AS INT) AS mo,
+                       CASE WHEN NULLIF(LTRIM(RTRIM(ISNULL(ce.OPERATIONR, ''))), '') IS NOT NULL THEN 1 ELSE 0 END AS rightEye,
+                       CASE WHEN NULLIF(LTRIM(RTRIM(ISNULL(ce.OPERATIONL, ''))), '') IS NOT NULL THEN 1 ELSE 0 END AS leftEye,
+                       CASE WHEN op.hasSurgeryBooking IS NULL THEN 0 ELSE 1 END AS hasSurgeryBooking
+                FROM Cataract_Exam ce WITH(NOLOCK)
+                JOIN CUSTOM cu WITH(NOLOCK) ON ce.CUST_NUM = cu.CUST_NUM
+                OUTER APPLY (
+                    SELECT TOP 1 1 AS hasSurgeryBooking
+                    FROM RESERVATION op WITH(NOLOCK)
+                    WHERE op.CUST_NUM = ce.CUST_NUM
+                      AND op.RESERVE_FLAG = 'O'
+                      AND op.RESERVE_STATE <> 'C'
+                ) op
+                WHERE ce.EXAM_DATE >= :from AND ce.EXAM_DATE <= :to
+                  AND (ce.Stop_YN IS NULL OR ce.Stop_YN <> 'Y')
+                  AND (ce.Cancel_CD IS NULL OR LTRIM(RTRIM(ce.Cancel_CD)) = '')
+                  AND NOT (
+                    ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
+                    OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
+                  )
+                  AND EXISTS (
+                    SELECT 1
+                    FROM RESERVATION r WITH(NOLOCK)
+                    WHERE r.CUST_NUM = ce.CUST_NUM
+                      AND r.RESERVE_DATE = ce.EXAM_DATE
+                      AND r.RESERVE_STATE IN ('I','H')
+                      AND r.RESERVE_FLAG = 'H'
+                  )
+            ) base
+            GROUP BY base.yr, base.mo
+            ORDER BY yr, mo
+            """;
+        return jdbc.queryForList(sql, params(from, to));
+    }
+
+    /**
+     * 시력교정 예약률 — 시력교정 검사건수(EXAM, 드림렌즈 제외) 안에서 수술예약이 있는 고객 수.
+     *
+     * 분모는 findVisionCorrectionMonthly와 동일한 기준을 사용한다.
+     */
+    public List<Map<String, Object>> findVisionReservationRateMonthly(String from, String to) {
+        String sql = """
+            SELECT base.yr,
+                   base.mo,
+                   COUNT(*) AS examCount,
+                   SUM(CASE WHEN base.hasSurgeryBooking = 1 THEN 1 ELSE 0 END) AS surgeryBookedCount
+            FROM (
+                SELECT CAST(SUBSTRING(e.EXAM_DATE, 1, 4) AS INT) AS yr,
+                       CAST(SUBSTRING(e.EXAM_DATE, 6, 2) AS INT) AS mo,
+                       CASE WHEN op.hasSurgeryBooking IS NULL THEN 0 ELSE 1 END AS hasSurgeryBooking
+                FROM EXAM e WITH(NOLOCK)
+                JOIN CUSTOM cu WITH(NOLOCK) ON e.CUST_NUM = cu.CUST_NUM
+                OUTER APPLY (
+                    SELECT TOP 1 1 AS hasSurgeryBooking
+                    FROM RESERVATION op WITH(NOLOCK)
+                    WHERE op.CUST_NUM = e.CUST_NUM
+                      AND op.RESERVE_FLAG = 'O'
+                      AND op.RESERVE_STATE <> 'C'
+                ) op
+                WHERE e.EXAM_DATE >= :from AND e.EXAM_DATE <= :to
+                  AND NOT (
+                    ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
+                    OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
+                  )
+                  AND NOT (
+                        EXISTS (SELECT 1 FROM RESERVATION rd WITH(NOLOCK)
+                                WHERE rd.CUST_NUM = e.CUST_NUM AND rd.RESERVE_DATE = e.EXAM_DATE
+                                  AND rd.RESERVE_STATE IN ('I','H') AND rd.RESERVE_FLAG = 'D'
+                        )
+                    AND NOT EXISTS (SELECT 1 FROM RESERVATION rm WITH(NOLOCK)
+                                WHERE rm.CUST_NUM = e.CUST_NUM AND rm.RESERVE_DATE = e.EXAM_DATE
+                                  AND rm.RESERVE_STATE IN ('I','H') AND rm.RESERVE_FLAG = 'M')
+                  )
+                  AND NOT (
+                    EXISTS (
+                      SELECT 1
+                      FROM Cataract_Exam ce WITH(NOLOCK)
+                      WHERE ce.CUST_NUM = e.CUST_NUM
+                        AND ce.EXAM_DATE = e.EXAM_DATE
+                    )
+                    AND __EXAM_MEASUREMENTS_BLANK__
+                  )
+            ) base
+            GROUP BY base.yr, base.mo
             ORDER BY yr, mo
             """.replace("__EXAM_MEASUREMENTS_BLANK__", examMeasurementsBlankPredicate("e"));
         return jdbc.queryForList(sql, params(from, to));
