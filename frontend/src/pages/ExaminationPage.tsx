@@ -47,6 +47,13 @@ export function ExaminationPage() {
     }))
   }, [sortedYears])
 
+  // 필터 칩 색상을 차트 라인 색상과 동일하게 매핑 (연도 → 색)
+  const yearChipColors = useMemo(() => {
+    const map: Record<number, string> = {}
+    series.forEach((s) => { map[s.year] = s.color })
+    return map
+  }, [series])
+
   const chartConfig = useMemo(() => {
     const config: ChartConfig = {}
     series.forEach((s) => {
@@ -75,7 +82,7 @@ export function ExaminationPage() {
 
   return (
     <div className="flex h-[calc(100vh-5rem)] min-h-[40rem] flex-col gap-6">
-      <FilterBar {...filter} yearOnly />
+      <FilterBar {...filter} yearOnly yearChipColors={yearChipColors} />
       <PanelShell isLoading={isLoading} isError={isError} variant="line" className="flex min-h-0 flex-1 flex-col">
         <Card className="flex min-h-0 flex-1 flex-col border-border/70 shadow-sm">
           <CardHeader className="space-y-3">

@@ -1,5 +1,6 @@
 import { http, HttpResponse, delay } from 'msw'
 import { EXAM_LIST_MOCK } from './examListData'
+import { CATARACT_EXAM_LIST_MOCK } from './cataractExamListData'
 
 const sourceLabelMap = {
   phone: '전화',
@@ -235,8 +236,84 @@ export const handlers = [
     const data = years.flatMap((year) =>
       Array.from({ length: 12 }, (_, i) => {
         const m = genSurgeryMonth(i, year)
-        const total = m.lasek + m.lasik + m.smile + m.smilePro + m.icl + m.tIcl + m.kpl + m.tKpl + m.viva + m.catMulti + m.catMono + m.catEdof
-        return { year, month: i + 1, ...m, total }
+        const visionPatients = m.lasek + m.lasik + m.smile + m.smilePro + m.icl + m.tIcl + m.kpl + m.tKpl + m.viva
+        const cataractPatients = m.catMulti + m.catMono + m.catEdof
+        return { year, month: i + 1, ...m, visionPatients, cataractPatients, total: visionPatients + cataractPatients }
+      }),
+    )
+
+    return HttpResponse.json({ success: true, data })
+  }),
+  http.get('/api/stats/surgery/kpi', ({ request }) => {
+    const url = new URL(request.url)
+    const years = (url.searchParams.get('years') ?? '').split(',').map(Number).filter(Boolean)
+    if (!years.length) years.push(new Date().getFullYear())
+
+    const genSurgeryMonth = (i: number, seed: number) => {
+      const base = 20 + ((i * 3 + seed) % 15)
+      return {
+        lasek: base + 2, lasik: base + 5, smile: base + 8, smilePro: base + 3,
+        icl: Math.max(3, base - 10), tIcl: Math.max(2, base - 12), kpl: 4, tKpl: 2, viva: 3,
+        catMulti: base, catMono: base + 4, catEdof: Math.max(1, base - 15),
+      }
+    }
+
+    const data = years.flatMap((year) =>
+      Array.from({ length: 12 }, (_, i) => {
+        const m = genSurgeryMonth(i, year)
+        const visionPatients = m.lasek + m.lasik + m.smile + m.smilePro + m.icl + m.tIcl + m.kpl + m.tKpl + m.viva
+        const cataractPatients = m.catMulti + m.catMono + m.catEdof
+        return { year, month: i + 1, ...m, visionPatients, cataractPatients, total: visionPatients + cataractPatients }
+      }),
+    )
+
+    return HttpResponse.json({ success: true, data })
+  }),
+  http.get('/api/stats/surgery/panel/trend', ({ request }) => {
+    const url = new URL(request.url)
+    const years = (url.searchParams.get('years') ?? '').split(',').map(Number).filter(Boolean)
+    if (!years.length) years.push(new Date().getFullYear())
+
+    const genSurgeryMonth = (i: number, seed: number) => {
+      const base = 20 + ((i * 3 + seed) % 15)
+      return {
+        lasek: base + 2, lasik: base + 5, smile: base + 8, smilePro: base + 3,
+        icl: Math.max(3, base - 10), tIcl: Math.max(2, base - 12), kpl: 4, tKpl: 2, viva: 3,
+        catMulti: base, catMono: base + 4, catEdof: Math.max(1, base - 15),
+      }
+    }
+
+    const data = years.flatMap((year) =>
+      Array.from({ length: 12 }, (_, i) => {
+        const m = genSurgeryMonth(i, year)
+        const visionPatients = m.lasek + m.lasik + m.smile + m.smilePro + m.icl + m.tIcl + m.kpl + m.tKpl + m.viva
+        const cataractPatients = m.catMulti + m.catMono + m.catEdof
+        return { year, month: i + 1, ...m, visionPatients, cataractPatients, total: visionPatients + cataractPatients }
+      }),
+    )
+
+    return HttpResponse.json({ success: true, data })
+  }),
+  http.get('/api/stats/surgery/panel/composition', ({ request }) => {
+    const url = new URL(request.url)
+    const years = (url.searchParams.get('years') ?? '').split(',').map(Number).filter(Boolean)
+    if (!years.length) years.push(new Date().getFullYear())
+
+    const genSurgeryMonth = (i: number, seed: number) => {
+      const base = 20 + ((i * 3 + seed) % 15)
+      return {
+        lasek: base + 2, lasik: base + 5, smile: base + 8, smilePro: base + 3,
+        icl: Math.max(3, base - 10), tIcl: Math.max(2, base - 12), kpl: 4, tKpl: 2, viva: 3,
+        catMulti: base, catMono: base + 4, catEdof: Math.max(1, base - 15),
+      }
+    }
+
+    const data = years.flatMap((year) =>
+      Array.from({ length: 12 }, (_, i) => {
+        const m = genSurgeryMonth(i, year)
+        const visionPatients = m.lasek + m.lasik + m.smile + m.smilePro + m.icl + m.tIcl + m.kpl + m.tKpl + m.viva
+        const cataractPatients = m.catMulti + m.catMono + m.catEdof
+        return { year, month: i + 1, ...m, visionPatients, cataractPatients, total: visionPatients + cataractPatients }
       }),
     )
 
@@ -300,6 +377,67 @@ export const handlers = [
     const from = url.searchParams.get('from') ?? '2026-04-01'
     const to = url.searchParams.get('to') ?? '2026-04-30'
     const data = EXAM_LIST_MOCK.filter((row) => row.examDate >= from && row.examDate <= to)
+    return HttpResponse.json({ success: true, data })
+  }),
+  http.get('/api/cataract-exam-list', async ({ request }) => {
+    await delay(250)
+    const url = new URL(request.url)
+    const from = url.searchParams.get('from') ?? '2026-04-01'
+    const to = url.searchParams.get('to') ?? '2026-04-30'
+    const data = CATARACT_EXAM_LIST_MOCK.filter((row) => row.examDate >= from && row.examDate <= to)
+    return HttpResponse.json({ success: true, data })
+  }),
+  http.get('/api/surgery-list', async ({ request }) => {
+    await delay(250)
+    const url = new URL(request.url)
+    const from = url.searchParams.get('from') ?? '2026-04-01'
+    const to = url.searchParams.get('to') ?? '2026-04-30'
+    const data = EXAM_LIST_MOCK
+      .filter((row) => row.surgeryDate >= from && row.surgeryDate <= to)
+      .map((row) => ({
+        chartNo: row.chartNo,
+        name: row.name,
+        nameEng: row.nameEng,
+        surgeryCategory: '시력교정',
+        surgeryDate: row.surgeryDate,
+        examDate: row.examDate,
+        patientType: row.surgeryRegDate >= from && row.surgeryRegDate <= to ? '신환' : '구환',
+        surgeryReserveDate: row.surgeryReserveDate,
+        surgeryRegDate: row.surgeryRegDate,
+        surgeryTime: row.examTime,
+        surgeryR: row.surgeryR,
+        surgeryL: row.surgeryL,
+        recommendedR: row.recommendedR,
+        recommendedL: row.recommendedL,
+        estimate: row.estimate,
+        surgeryRate: row.surgeryRate,
+        payment: row.payment,
+        surgeon: row.surgeon,
+        counselor: row.counselor,
+        doctor: row.doctor,
+        optometrist: row.optometrist,
+        birth: row.birth,
+        lunar: row.lunar,
+        phone1: row.phone1,
+        phone2: row.phone2,
+        email: row.email,
+        zip: row.zip,
+        addr1: row.addr1,
+        addr2: row.addr2,
+        memo: row.memo,
+        grade: row.grade,
+        job: row.job,
+        lastVisit: row.lastVisit,
+        route: row.route,
+        section: row.section,
+        motiveL: row.motiveL,
+        motiveM: row.motiveM,
+        motiveS: row.motiveS,
+        motiveMemo: row.motiveMemo,
+        examMemo: row.examMemo,
+        insurance: row.insurance,
+        nationality: row.nationality,
+      }))
     return HttpResponse.json({ success: true, data })
   }),
 ]

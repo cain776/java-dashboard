@@ -152,6 +152,6 @@ public class ExaminationStatsService {
     private Path cacheFile(List<Integer> years) {
         String key = String.join("_", years.stream().map(String::valueOf).toList());
         return Path.of(cacheDir).toAbsolutePath().normalize()
-                .resolve("examination-monthly-v5-" + key + ".json");
+                .resolve("examination-monthly-v6-" + key + ".json");
     }
 }

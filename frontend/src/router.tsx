@@ -13,7 +13,9 @@ import { IntakeConversionPage } from './pages/IntakeConversionPage'
 import { ReservationPage } from './pages/ReservationPage'
 import { ExaminationPage } from './pages/ExaminationPage'
 import { ExamListPage } from './pages/ExamListPage'
+import { CataractExamListPage } from './pages/CataractExamListPage'
 import { ConsultationRatePage } from './pages/ConsultationRatePage'
+import { SurgeryListPage } from './pages/SurgeryListPage'
 import { SurgeryPage } from './pages/SurgeryPage'
 import { SurgeryRatioPage } from './pages/SurgeryRatioPage'
 import { OverseasPage } from './pages/OverseasPage'
@@ -73,6 +75,12 @@ const examListRoute = createRoute({
   component: ExamListPage,
 })
 
+const cataractExamListRoute = createRoute({
+  getParentRoute: () => authLayout,
+  path: '/stats/cataract-exam-list',
+  component: CataractExamListPage,
+})
+
 const examinationRoute = createRoute({
   getParentRoute: () => authLayout,
   path: '/stats/examination',
@@ -83,6 +91,12 @@ const consultationRateRoute = createRoute({
   getParentRoute: () => authLayout,
   path: '/stats/consultation-rate',
   component: ConsultationRatePage,
+})
+
+const surgeryListRoute = createRoute({
+  getParentRoute: () => authLayout,
+  path: '/stats/surgery-list',
+  component: SurgeryListPage,
 })
 
 const surgeryRoute = createRoute({
@@ -130,7 +144,7 @@ const unitPriceRoute = createRoute({
 // 나머지는 플레이스홀더
 const statsRoutes = statsPages
   .filter((page) =>
-    !['intake-conversion', 'reservation', 'exam-list', 'examination', 'consultation-rate', 'surgery', 'surgery-ratio', 'overseas', 'marketing', 'cancel-rate', 'no-show-rate', 'unit-price'].includes(
+    !['intake-conversion', 'reservation', 'exam-list', 'cataract-exam-list', 'examination', 'consultation-rate', 'surgery-list', 'surgery', 'surgery-ratio', 'overseas', 'marketing', 'cancel-rate', 'no-show-rate', 'unit-price'].includes(
       page.id,
     ),
   )
@@ -150,8 +164,10 @@ const routeTree = rootRoute.addChildren([
     intakeConversionRoute,
     reservationRoute,
     examListRoute,
+    cataractExamListRoute,
     examinationRoute,
     consultationRateRoute,
+    surgeryListRoute,
     surgeryRoute,
     surgeryRatioRoute,
     overseasRoute,

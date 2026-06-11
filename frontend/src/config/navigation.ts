@@ -88,6 +88,15 @@ export const statsPages: StatsPageDefinition[] = [
     '/api/exam-list'
   ),
   statsPage(
+    'cataract-exam-list',
+    '백내장 검사자 리스트',
+    '/stats/cataract-exam-list',
+    'exam-group',
+    '검사',
+    '백내장 검사일자별 검사자 상세 목록(IOL·수술·상담 정보)을 표 형태로 확인하는 화면입니다.',
+    '/api/cataract-exam-list'
+  ),
+  statsPage(
     'examination',
     '검사 건수',
     '/stats/examination',
@@ -111,7 +120,7 @@ export const statsPages: StatsPageDefinition[] = [
     '/stats/examination/dreamlens',
     'exam-group',
     '검사',
-    '드림렌즈 검사(D/L 계열, 사람 단위) 건수를 확인하는 화면입니다.',
+    '드림렌즈 검사(렌즈센터 D 기준, 사람 단위) 건수를 확인하는 화면입니다.',
     '/api/stats/examination'
   ),
   statsPage(
@@ -122,6 +131,15 @@ export const statsPages: StatsPageDefinition[] = [
     '상담 건수',
     '시력교정 상담 전환율, 시력교정 수술 전환율, 백내장 수술 전환율을 함께 확인하는 화면입니다.',
     '/api/stats/consultation-rate'
+  ),
+  statsPage(
+    'surgery-list',
+    '수술자 리스트',
+    '/stats/surgery-list',
+    'surgery',
+    '수술 건수',
+    '수술일자 기준 수술자 상세 목록과 보조 검사일자를 표 형태로 확인하는 화면입니다.',
+    '/api/surgery-list'
   ),
   statsPage(
     'surgery',
@@ -283,10 +301,12 @@ const MENU_STATUS: Record<string, MenuStatus> = {
   'intake-conversion': 'pending',
   'reservation': 'complete',
   'exam-list': 'complete',
+  'cataract-exam-list': 'complete',
   'examination': 'complete',
   'examination-vision': 'backend-only',
   'examination-dreamlens': 'backend-only',
   'consultation-rate': 'complete',
+  'surgery-list': 'complete',
   'surgery': 'complete',
   'surgery-ratio': 'complete',
   'overseas': 'pending',
@@ -326,6 +346,7 @@ export const menuItems: MenuItem[] = [
     icon: Microscope,
     children: [
       link('exam-list'),
+      link('cataract-exam-list'),
       link('examination'),
       link('examination-vision'),
       link('examination-dreamlens'),
@@ -343,7 +364,7 @@ export const menuItems: MenuItem[] = [
     label: '수술',
     href: '#',
     icon: Syringe,
-    children: [link('surgery'), link('surgery-ratio')],
+    children: [link('surgery-list'), link('surgery'), link('surgery-ratio')],
   },
   {
     id: 'marketing-group',
