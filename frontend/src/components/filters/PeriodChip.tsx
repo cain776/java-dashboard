@@ -1,14 +1,19 @@
 import { X } from 'lucide-react'
 import { CHIP_STYLES } from '@/constants/chart'
 
-export function PeriodChip({ label, index, isBase, onRemove }: {
+export function PeriodChip({ label, index, isBase, onRemove, colorHex }: {
   label: string
   index: number
   isBase: boolean
   onRemove?: () => void
+  /** 지정 시 CHIP_STYLES 대신 차트 시리즈 색상과 동일한 색으로 표시 */
+  colorHex?: string
 }) {
   return (
-    <span className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-sm font-medium ${CHIP_STYLES[index] ?? CHIP_STYLES[0]}`}>
+    <span
+      className={`inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-sm font-medium ${colorHex ? '' : CHIP_STYLES[index] ?? CHIP_STYLES[0]}`}
+      style={colorHex ? { borderColor: colorHex, color: colorHex, backgroundColor: `${colorHex}14` } : undefined}
+    >
       {isBase && (
         <span className="rounded bg-current/10 px-1.5 py-0.5 text-xs opacity-70">기준</span>
       )}

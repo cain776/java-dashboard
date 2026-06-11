@@ -15,21 +15,21 @@ const currentPeriod = getCurrentPeriod()
 const defaultYears = getDefaultYears()
 
 export function FilterBar({
-  mode, setMode, periods, setPeriods, years, setYears, removePeriod, yearOnly = false,
-}: FilterBarControls & { yearOnly?: boolean }) {
+  mode, setMode, periods, setPeriods, years, setYears, removePeriod, yearOnly = false, maxPeriods = MAX_PERIODS, yearChipColors,
+}: FilterBarControls & { yearOnly?: boolean; maxPeriods?: number; yearChipColors?: Record<number, string> }) {
   const [addYear, setAddYear] = useState(currentPeriod.year)
   const [addMonth, setAddMonth] = useState(currentPeriod.month)
   const [addYearOnly, setAddYearOnly] = useState(defaultYears[1] ?? currentPeriod.year)
 
   const addPeriod = () => {
-    if (mode === 'month' && periods.length < MAX_PERIODS) {
+    if (mode === 'month' && periods.length < maxPeriods) {
       if (periods.some((p) => p.year === addYear && p.month === addMonth)) {
         toast.warning('이미 추가된 기간입니다', { description: `${addYear}년 ${MONTH_OPTIONS[addMonth].label}` })
         return
       }
       setPeriods([...periods, { year: addYear, month: addMonth }])
     }
-    if (mode === 'year' && years.length < MAX_PERIODS) {
+    if (mode === 'year' && years.length < maxPeriods) {
       if (years.includes(addYearOnly)) {
         toast.warning('이미 추가된 연도입니다', { description: `${addYearOnly}년` })
         return
@@ -82,6 +82,7 @@ export function FilterBar({
                 label={`${y}년`}
                 index={i}
                 isBase={i === 0}
+                colorHex={yearChipColors?.[y]}
                 onRemove={years.length > 1 ? () => removePeriod(i) : undefined}
               />
             ))
@@ -90,8 +91,8 @@ export function FilterBar({
         <div className="h-5 w-px bg-gray-200" />
 
         {/* 기간 추가 */}
-        {((mode === 'month' && periods.length < MAX_PERIODS) ||
-          (mode === 'year' && years.length < MAX_PERIODS)) && (
+        {((mode === 'month' && periods.length < maxPeriods) ||
+          (mode === 'year' && years.length < maxPeriods)) && (
           <div className="flex items-center gap-1.5">
             {mode === 'month' ? (
               <>
