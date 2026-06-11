@@ -87,6 +87,7 @@ const surgeryMonthlyItemSchema = z.object({
   lasek: z.number(), lasik: z.number(), smile: z.number(), smilePro: z.number(),
   icl: z.number(), tIcl: z.number(), kpl: z.number(), tKpl: z.number(), viva: z.number(),
   catMulti: z.number(), catMono: z.number(), catEdof: z.number(),
+  visionPatients: z.number().optional(), cataractPatients: z.number().optional(),
   total: z.number(),
 })
 export type SurgeryMonthlyItem = z.infer<typeof surgeryMonthlyItemSchema>
@@ -195,10 +196,10 @@ export const statsApi = {
     surgeryMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/surgery/kpi?years=${years.join(',')}&mock=${mock}`)).data,
 
   getSurgeryTrend: async (years: number[], mock = true) =>
-    surgeryMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/surgery/trend?years=${years.join(',')}&mock=${mock}`)).data,
+    surgeryMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/surgery/panel/trend?years=${years.join(',')}&mock=${mock}`)).data,
 
   getSurgeryComposition: async (years: number[], mock = true) =>
-    surgeryMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/surgery/composition?years=${years.join(',')}&mock=${mock}`)).data,
+    surgeryMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/surgery/panel/composition?years=${years.join(',')}&mock=${mock}`)).data,
 
   getConsultationRateKpi: async (years: number[], mock = true) =>
     consultationRateResponseSchema.parse(await api.get<unknown>(`/stats/consultation-rate/kpi?years=${years.join(',')}&mock=${mock}`)).data,
