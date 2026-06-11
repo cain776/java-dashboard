@@ -65,7 +65,20 @@ export function Sidebar({ collapsed, onToggleSidebar, onNavigate }: { collapsed:
     try { const saved = localStorage.getItem('sidebar-open-menus'); return saved ? new Set(JSON.parse(saved)) : new Set() }
     catch { return new Set() }
   })
-  const activeMenus = getOpenMenus(location.pathname)
+  // 경로가 바뀌면 그 페이지가 속한 그룹을 자동으로 펼친다(렌더 중 state 조정 — React 권장 패턴).
+  // isOpen이 openMenus만 보므로, 같은 경로에서 사용자가 직접 닫으면 닫힌 채 유지된다.
+  const [autoOpenedPath, setAutoOpenedPath] = useState<string | null>(null)
+  if (autoOpenedPath !== location.pathname) {
+    setAutoOpenedPath(location.pathname)
+    const activeMenus = getOpenMenus(location.pathname)
+    if (activeMenus.size > 0 && ![...activeMenus].every((id) => openMenus.has(id))) {
+      setOpenMenus((prev) => {
+        const next = new Set(prev)
+        activeMenus.forEach((id) => next.add(id))
+        return next
+      })
+    }
+  }
 
   const toggleMenu = (id: string) => {
     setOpenMenus((prev) => {
@@ -77,7 +90,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onNavigate }: { collapsed:
     })
   }
 
-  const isOpen = (id: string) => openMenus.has(id) || activeMenus.has(id)
+  const isOpen = (id: string) => openMenus.has(id)
 
   return (
     <aside

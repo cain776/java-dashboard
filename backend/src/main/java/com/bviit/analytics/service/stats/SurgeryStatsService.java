@@ -153,7 +153,7 @@ public class SurgeryStatsService {
     private Path cacheFile(List<Integer> years) {
         String key = String.join("_", years.stream().map(String::valueOf).toList());
         return Path.of(cacheDir).toAbsolutePath().normalize()
-                .resolve("surgery-monthly-v2-" + key + ".json");
+                .resolve("surgery-monthly-v3-" + key + ".json");
     }
 
     /** 시력교정 + 백내장 병합용 가변 버킷 */

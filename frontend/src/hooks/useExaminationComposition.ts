@@ -6,12 +6,14 @@ import { useDataSourceStore } from '@/stores/dataSourceStore'
 interface MonthlyData {
   visionCorrection: number
   dreamlens: number
+  cataract: number
   examTotal: number
 }
 
 const EMPTY: MonthlyData = {
   visionCorrection: 0,
   dreamlens: 0,
+  cataract: 0,
   examTotal: 0,
 }
 
@@ -19,10 +21,12 @@ function toDataMap(items: ExaminationMonthlyItem[]): Record<number, MonthlyData[
   const map: Record<number, MonthlyData[]> = {}
   for (const item of items) {
     if (!map[item.year]) map[item.year] = Array.from({ length: 12 }, () => ({ ...EMPTY }))
+    const cataract = item.cataract ?? 0
     map[item.year][item.month - 1] = {
       visionCorrection: item.visionCorrection,
       dreamlens: item.dreamlens,
-      examTotal: item.examTotal ?? item.visionCorrection + item.dreamlens,
+      cataract,
+      examTotal: item.examTotal ?? item.visionCorrection + item.dreamlens + cataract,
     }
   }
   return map

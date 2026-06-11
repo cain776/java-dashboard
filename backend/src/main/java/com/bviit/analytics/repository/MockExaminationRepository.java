@@ -22,6 +22,7 @@ public class MockExaminationRepository {
         int maxYear = years.stream().mapToInt(Integer::intValue).max().orElse(2026);
         return jdbc.queryForList("""
             SELECT year, month, vision_correction AS visionCorrection, dreamlens,
+                   0 AS cataract,
                    (vision_correction + dreamlens) AS examTotal,
                    (vision_correction + dreamlens) AS total
             FROM examination_monthly WHERE year >= :min AND year <= :max ORDER BY year, month
@@ -34,6 +35,7 @@ public class MockExaminationRepository {
         return jdbc.queryForList("""
             SELECT year, SUM(vision_correction) AS visionCorrection,
                    SUM(dreamlens) AS dreamlens,
+                   0 AS cataract,
                    SUM(vision_correction + dreamlens) AS examTotal,
                    SUM(vision_correction + dreamlens) AS total
             FROM examination_monthly WHERE year >= :min AND year <= :max GROUP BY year ORDER BY year

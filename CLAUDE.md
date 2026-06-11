@@ -56,7 +56,7 @@ project-root/
 │   │   │   │   └── Topbar.tsx           # 상단 바 (유저명, 로그아웃)
 │   │   │   └── ui/                      # shadcn 컴포넌트 (button, card, chart)
 │   │   ├── config/
-│   │   │   └── navigation.ts            # 메뉴 구조 + 통계 페이지 정의 (10개)
+│   │   │   └── navigation.ts            # 메뉴 구조 + 통계 페이지 정의 (27개)
 │   │   ├── pages/
 │   │   │   ├── LoginPage.tsx            # 로그인 (react-hook-form + Zod)
 │   │   │   ├── DashboardPage.tsx        # 메인 대시보드 (KPI 카드 + 차트, 목업 데이터)
@@ -90,25 +90,47 @@ project-root/
 - ReservationPage (월별/연도별 비교, 하드코딩 목업)
 - 인증 라우트 가드 (미인증 시 /login 리다이렉트)
 - MSW 개발 목킹
+- 통계 전용 페이지 10종 + MSSQL(prod) 연동 통계 API (검사·수술·전환율·리스트 등, 아래 표 참조)
 
 ### 미구현 (플레이스홀더)
 
-9개 통계 페이지 + 백엔드 통계 API 전체
+통계 페이지 15종은 아직 `StatsPlaceholderPage`로 렌더. 2종은 백엔드 API만 존재.
 
 ## 통계 페이지 목록
 
-| ID | 이름 | 경로 | 섹션 | 상태 |
+`navigation.ts`에 27개 정의. 상태: **완료**(전용 페이지+API) / **백엔드만**(API만, 프론트 placeholder) / **미구현**.
+
+| ID | 메뉴명 | 경로 | 그룹 | 상태 |
 |----|------|------|------|------|
-| reservation | 예약 건수 | /stats/reservation | 유입 | 구현됨 (목업) |
-| examination | 검사 건수 | /stats/examination | 유입 | 플레이스홀더 |
-| consultation-rate | 상담 전환율 | /stats/consultation-rate | 상담 | 플레이스홀더 |
-| surgery | 수술 건수 | /stats/surgery | 수술 | 플레이스홀더 |
-| surgery-ratio | 주요 수술별 비중 | /stats/surgery-ratio | 수술비중 | 플레이스홀더 |
-| overseas | 해외 환자 관련 지표 | /stats/overseas | 해외 | 플레이스홀더 |
-| marketing | 마케팅 유입 및 효율 | /stats/marketing | 마케팅 | 플레이스홀더 |
-| cancel-rate | 예약취소율 | /stats/cancel-rate | 기타 | 플레이스홀더 |
-| no-show-rate | 부도율 | /stats/no-show-rate | 기타 | 플레이스홀더 |
-| unit-price | 객단가 | /stats/unit-price | 기타 | 플레이스홀더 |
+| intake-conversion | 유입(검사예약) | /stats/intake-conversion | 예약 | 미구현 |
+| reservation | 예약 건수 | /stats/reservation | 예약 | 완료 |
+| exam-list | 검사자 리스트 | /stats/exam-list | 검사 | 완료 |
+| cataract-exam-list | 백내장 검사자 리스트 | /stats/cataract-exam-list | 검사 | 완료 |
+| examination | 시술별 | /stats/examination | 검사 | 완료 |
+| procedure-exam | 검사건수 | /stats/procedure-exam | 검사 | 완료 |
+| examination-vision | 시력교정 검사건수 | /stats/examination/vision | 검사 | 백엔드만 |
+| examination-dreamlens | 드림렌즈 검사건수 | /stats/examination/dreamlens | 검사 | 백엔드만 |
+| consultation-rate | 전환율 | /stats/consultation-rate | 전환&성공률 | 완료 |
+| cataract-reservation-rate | 예약률 | /stats/cataract-reservation-rate | 전환&성공률 | 완료 |
+| surgery-list | 수술자 리스트 | /stats/surgery-list | 수술 | 완료 |
+| surgery | 수술 건수 | /stats/surgery | 수술 | 완료 |
+| surgery-ratio | 주요 수술별 비중 | /stats/surgery-ratio | 수술 | 완료 |
+| overseas | 해외 환자 관련 지표 | /stats/overseas | 마케팅 | 미구현 |
+| marketing | 마케팅 유입 및 효율 지표 | /stats/marketing | 마케팅 | 미구현 |
+| cancel-rate | 예약취소율 | /stats/cancel-rate | 취소&부도 | 미구현 |
+| no-show-rate | 부도율 | /stats/no-show-rate | 취소&부도 | 미구현 |
+| unit-price | 객단가 | /stats/unit-price | 객단가 | 미구현 |
+| dreamlens-revenue | 드림렌즈 매출 | /stats/dreamlens-revenue | 기타 | 미구현 |
+| b2b-revenue | B2B 매출 | /stats/b2b-revenue | 기타 | 미구현 |
+| staff-point | 직원 포인트 | /stats/staff-point | 기타 | 미구현 |
+| prp-rate | PRP 시술율 | /stats/prp-rate | 기타 | 미구현 |
+| reoperation-rate | 재수술율 | /stats/reoperation-rate | 기타 | 미구현 |
+| same-day-op | 당일OP 비율 | /stats/same-day-op | 기타 | 미구현 |
+| designated-doctor | 지정의 수술 비율 | /stats/designated-doctor | 기타 | 미구현 |
+| visit-reason | 내원동기별 비중 | /stats/visit-reason | 기타 | 미구현 |
+| daily-reception | 일일 접수/응대 건수 | /stats/daily-reception | 기타 | 미구현 |
+
+> ⚠️ **메뉴명 주의**: `검사건수` 메뉴 = `procedure-exam`(전체 검사수 = EXAM 행 + Cataract_Exam 세션), `시술별` 메뉴 = `examination`(시력교정/드림렌즈/백내장 탭). id·경로와 라벨이 어긋나니 혼동 주의.
 
 ## 백엔드 컨벤션
 
@@ -278,7 +300,7 @@ cd frontend && npm run test              # Vitest
 
 ## Claude에게 요청할 때 참고사항
 
-- **새 통계 페이지**: `navigation.ts`에 이미 10개 정의됨 → 전용 페이지 컴포넌트 작성 + `router.tsx` 라우트 교체 + 백엔드 API 구현
+- **새 통계 페이지**: `navigation.ts`에 27개 정의됨 → 전용 페이지 컴포넌트 작성 + `router.tsx` 라우트 교체 + 백엔드 API 구현
 - **새 차트**: Recharts 기반, shadcn `ChartContainer` 사용, `CHART_PALETTE` 색상 적용
 - **새 UI 컴포넌트**: `npx shadcn@latest add <name>` (설정: `components.json`)
 - **API 연동**: `api/client.ts` HTTP 클라이언트 사용, TanStack Query `useQuery`로 캐싱

@@ -14,7 +14,7 @@ import java.util.Map;
  *
  * 핵심 원칙:
  *   1) 시력교정: OPERATIONDATA에서 CUST_NUM이 Cataract_Operationdata에 있으면 제외 (중복 방지)
- *   2) 시력교정은 환자 수 기준, 백내장은 수술자 리스트와 같은 CUST_NUM+OPERATION_DATE 기준
+ *   2) 시력교정은 환자 수 기준, 백내장은 눈(안) 기준(CUST_NUM+OPERATION_DATE+R/L)
  *   3) 테스트 고객 제외 (CUST_NAME LIKE '%TEST%' OR '%테스트%')
  *   4) 수술 코드 제외 (X, OP불가, 모든수술가능, op x, Strabismus, TEST-TEST)
  *
@@ -138,8 +138,8 @@ public class SurgeryStatsRepository {
     }
 
     /**
-     * 백내장 수술 월별 행 수 (Cataract_Operationdata).
-     * 수술자 리스트와 동일하게 CUST_NUM + 실제 수술일을 1건으로 센다.
+     * 백내장 수술 월별 눈(안) 수 (Cataract_Operationdata).
+     * 레거시 백내장 수술건수 기준과 동일하게 우/좌안을 각각 1건으로 센다.
      *
      * 분류:
      *   catMulti (다초점): CTR(M), CTRmulti, 3PodF, RESTOR, T-CTR, T-CATARACT, Panoptix, symfony, Lara
@@ -172,14 +172,14 @@ public class SurgeryStatsRepository {
                 SELECT
                     YEAR(e.op_date) AS yr,
                     MONTH(e.op_date) AS mo,
-                    COUNT(DISTINCT CASE WHEN e.cat_type = 'catMulti' THEN e.surgery_key END) AS catMulti,
-                    COUNT(DISTINCT CASE WHEN e.cat_type = 'catMono'  THEN e.surgery_key END) AS catMono,
-                    COUNT(DISTINCT CASE WHEN e.cat_type = 'catEdof'  THEN e.surgery_key END) AS catEdof,
-                    COUNT(DISTINCT e.surgery_key) AS cataractPatients
+                    COUNT(DISTINCT CASE WHEN e.cat_type = 'catMulti' THEN e.eye_key END) AS catMulti,
+                    COUNT(DISTINCT CASE WHEN e.cat_type = 'catMono'  THEN e.eye_key END) AS catMono,
+                    COUNT(DISTINCT CASE WHEN e.cat_type = 'catEdof'  THEN e.eye_key END) AS catEdof,
+                    COUNT(DISTINCT e.eye_key) AS cataractPatients
                 FROM (
                     SELECT c.OPERATIONR_DATE AS op_date,
                            c.CUST_NUM AS cust_num,
-                           LTRIM(RTRIM(ISNULL(c.CUST_NUM, ''))) + '|' + c.OPERATIONR_DATE AS surgery_key,
+                           LTRIM(RTRIM(ISNULL(c.CUST_NUM, ''))) + '|' + c.OPERATIONR_DATE + '|R' AS eye_key,
                 """
                 + classifyCase.replace("op_code", "c.OPERATIONR") +
                 """
@@ -196,7 +196,7 @@ public class SurgeryStatsRepository {
                     UNION ALL
                     SELECT c.OPERATIONL_DATE AS op_date,
                            c.CUST_NUM AS cust_num,
-                           LTRIM(RTRIM(ISNULL(c.CUST_NUM, ''))) + '|' + c.OPERATIONL_DATE AS surgery_key,
+                           LTRIM(RTRIM(ISNULL(c.CUST_NUM, ''))) + '|' + c.OPERATIONL_DATE + '|L' AS eye_key,
                 """
                 + classifyCase.replace("op_code", "c.OPERATIONL") +
                 """

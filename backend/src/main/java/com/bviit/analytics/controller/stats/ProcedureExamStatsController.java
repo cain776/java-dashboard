@@ -1,8 +1,8 @@
 package com.bviit.analytics.controller.stats;
 
 import com.bviit.analytics.dto.ApiResponse;
-import com.bviit.analytics.dto.stats.ExaminationMonthlyItem;
-import com.bviit.analytics.service.stats.ExaminationStatsService;
+import com.bviit.analytics.dto.stats.ProcedureExamMonthlyItem;
+import com.bviit.analytics.service.stats.ProcedureExamStatsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
@@ -14,30 +14,29 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * 검사 건수 통계 API.
+ * 시술별 검사 건수("검사수") 통계 API.
  * mssql 프로파일에서만 활성화 — H2 기본 부팅 시 등록 안 됨.
  */
 @RestController
 @Profile("mssql")
 @RequestMapping("/api/stats")
 @RequiredArgsConstructor
-public class ExaminationStatsController {
+public class ProcedureExamStatsController {
 
-    private final ExaminationStatsService examinationService;
+    private final ProcedureExamStatsService procedureExamService;
 
     /**
-     * 연도별 월간 검사 유형별 건수 (프론트 ExaminationPage용).
-     * GET /api/stats/examination/monthly?years=2025,2026
+     * 연도별 월간 검사수 (프론트 ProcedureExamPage용).
+     * GET /api/stats/procedure-exam/monthly?years=2024,2025,2026
      *
-     * 응답: { success: true, data: [{year, month, visionCorrection,
-     *         dreamlens, cataract, examTotal, total}, ...] }
+     * 응답: { success: true, data: [{year, month, examCount, total}, ...] }
      */
-    @GetMapping("/examination/monthly")
-    public ResponseEntity<ApiResponse<List<ExaminationMonthlyItem>>> getMonthlyStats(
+    @GetMapping("/procedure-exam/monthly")
+    public ResponseEntity<ApiResponse<List<ProcedureExamMonthlyItem>>> getMonthlyStats(
             @RequestParam List<Integer> years
     ) {
         StatsRequestValidator.validateYears(years);
 
-        return ResponseEntity.ok(ApiResponse.ok(examinationService.getMonthlyStats(years)));
+        return ResponseEntity.ok(ApiResponse.ok(procedureExamService.getMonthlyStats(years)));
     }
 }

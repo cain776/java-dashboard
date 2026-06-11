@@ -33,6 +33,11 @@ public class ExaminationStatsService {
             2025, new int[] {2307, 1965, 1022, 1002, 1118, 1076, 1124, 1154, 1071, 1245, 991, 1702}
     );
 
+    private static final Map<Integer, int[]> LEGACY_CATARACT = Map.of(
+            2024, new int[] {76, 64, 53, 50, 65, 43, 62, 51, 48, 73, 70, 75},
+            2025, new int[] {74, 68, 76, 59, 55, 55, 74, 78, 76, 66, 53, 96}
+    );
+
     private final ExaminationStatsRepository repository;
     private final ObjectMapper objectMapper;
 
@@ -43,7 +48,7 @@ public class ExaminationStatsService {
     private String cacheDir;
 
     /**
-     * 연도별 월간 검사 유형별 건수 (시력교정=사람, 드림렌즈=사람).
+     * 연도별 월간 검사 유형별 건수 (시력교정=사람, 드림렌즈=사람, 백내장=눈).
      * 빈 달은 0. total은 화면 전체 검사건수와 같은 값.
      */
     @Transactional(readOnly = true)
@@ -62,6 +67,7 @@ public class ExaminationStatsService {
 
         Map<String, Integer> vision = countsByMonth(repository.findVisionCorrectionMonthly(from, to));
         Map<String, Integer> dreamlens = countsByMonth(repository.findDreamlensMonthly(from, to));
+        Map<String, Integer> cataract = countsByMonth(repository.findCataractMonthly(from, to));
 
         LinkedHashMap<String, ExaminationMonthlyItem> map =
                 MonthlyBuckets.initialize(normalizedYears, this::emptyMonthlyItem);
@@ -72,12 +78,15 @@ public class ExaminationStatsService {
             int v = legacyVisionCorrection(cur.getYear(), cur.getMonth())
                     .orElse(vision.getOrDefault(key, 0));
             int d = dreamlens.getOrDefault(key, 0);
-            int examTotal = v + d;
+            int c = legacyCataract(cur.getYear(), cur.getMonth())
+                    .orElse(cataract.getOrDefault(key, 0));
+            int examTotal = v + d + c;
             entry.setValue(ExaminationMonthlyItem.builder()
                     .year(cur.getYear())
                     .month(cur.getMonth())
                     .visionCorrection(v)
                     .dreamlens(d)
+                    .cataract(c)
                     .examTotal(examTotal)
                     .total(examTotal)
                     .build());
@@ -102,6 +111,7 @@ public class ExaminationStatsService {
                 .month(month)
                 .visionCorrection(0)
                 .dreamlens(0)
+                .cataract(0)
                 .examTotal(0)
                 .total(0)
                 .build();
@@ -109,6 +119,14 @@ public class ExaminationStatsService {
 
     private Optional<Integer> legacyVisionCorrection(int year, int month) {
         int[] values = LEGACY_VISION_CORRECTION.get(year);
+        if (values == null || month < 1 || month > values.length) {
+            return Optional.empty();
+        }
+        return Optional.of(values[month - 1]);
+    }
+
+    private Optional<Integer> legacyCataract(int year, int month) {
+        int[] values = LEGACY_CATARACT.get(year);
         if (values == null || month < 1 || month > values.length) {
             return Optional.empty();
         }
@@ -152,6 +170,6 @@ public class ExaminationStatsService {
     private Path cacheFile(List<Integer> years) {
         String key = String.join("_", years.stream().map(String::valueOf).toList());
         return Path.of(cacheDir).toAbsolutePath().normalize()
-                .resolve("examination-monthly-v6-" + key + ".json");
+                .resolve("examination-monthly-v7-" + key + ".json");
     }
 }

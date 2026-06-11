@@ -387,6 +387,14 @@ export function SurgeryPage() {
   const isMobile = useIsMobile()
   const { mode, periods, years } = filter
   const sortedYears = useMemo(() => [...years].sort((a, b) => a - b).slice(-3), [years])
+  // 칩 색상을 YearTrendPanel 차트 라인 색상과 동일 공식으로 매핑 (최신 연도 index가 RECENCY_COLORS[0]).
+  const yearChipColors = useMemo(() => {
+    const map: Record<number, string> = {}
+    sortedYears.forEach((year, index) => {
+      map[year] = RECENCY_COLORS[Math.min(sortedYears.length - 1 - index, RECENCY_COLORS.length - 1)]
+    })
+    return map
+  }, [sortedYears])
 
   const queryYears = useMemo(() => {
     const set = new Set<number>()
@@ -437,7 +445,7 @@ export function SurgeryPage() {
 
   return (
     <div className="space-y-6">
-      <FilterBar {...filter} yearOnly maxPeriods={3} />
+      <FilterBar {...filter} yearOnly maxPeriods={3} yearChipColors={yearChipColors} />
       <Container>
         <KpiCardsPanel
           dataMap={kpiDataMap}
