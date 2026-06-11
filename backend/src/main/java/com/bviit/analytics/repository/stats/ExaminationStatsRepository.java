@@ -14,7 +14,7 @@ import java.util.Map;
  *
  * 카테고리별 기준:
  *   시력교정 = EXAM 검사자 리스트 행 (사람) — 드림렌즈 분류 배제
- *   드림렌즈 = EXAM 검사자 리스트 행 (사람) — 같은 날 D/L 예약만 있는 행
+ *   드림렌즈 = EXAM 검사자 리스트 행 (사람) — 같은 날 렌즈센터(D) 예약만 있는 행
  *
  * 시력교정 + 드림렌즈 = 검사자 리스트 월별 건수와 일치해야 한다.
  *
@@ -37,7 +37,7 @@ public class ExaminationStatsRepository {
      * 시력교정 검사 — EXAM(검사결과) 기준, 사람 단위.
      * 병원 "검사자 리스트" 행수 기준 → 측정값(RIGHT01/LEFT01) 필터 없음(미입력 검사도 포함).
      * EXAM에는 검사종류 구분 컬럼이 없어 드림렌즈가 월 ~2% 섞임 →
-     * 같은 날 드림렌즈(D/L) 예약만 있고 검사(M) 예약이 없는 건을 배제.
+     * 같은 날 렌즈센터(D) 예약만 있고 검사(M) 예약이 없는 건을 배제.
      * 엄격 "실시"분만 필요하면 RIGHT01/LEFT01 존재 조건 추가.
      */
     public List<Map<String, Object>> findVisionCorrectionMonthly(String from, String to) {
@@ -56,7 +56,7 @@ public class ExaminationStatsRepository {
                     EXISTS (SELECT 1 FROM RESERVATION rd WITH(NOLOCK)
                             WHERE rd.CUST_NUM = e.CUST_NUM AND rd.RESERVE_DATE = e.EXAM_DATE
                               AND rd.RESERVE_STATE IN ('I','H') AND rd.RESERVE_FLAG = 'D'
-                              AND ISNULL(rd.RESERVE_JINRYO, '') IN ('1','5','7'))
+                    )
                 AND NOT EXISTS (SELECT 1 FROM RESERVATION rm WITH(NOLOCK)
                             WHERE rm.CUST_NUM = e.CUST_NUM AND rm.RESERVE_DATE = e.EXAM_DATE
                               AND rm.RESERVE_STATE IN ('I','H') AND rm.RESERVE_FLAG = 'M')
@@ -78,8 +78,7 @@ public class ExaminationStatsRepository {
 
     /**
      * 드림렌즈 검사 — 검사자 리스트와 같은 EXAM 기준, 사람 단위.
-     * 같은 검사일에 드림렌즈(D/L) 예약이 있고 시력교정(M) 예약이 없는 EXAM 행만 집계한다.
-     * H/L, MiSight, FU, 소아검진 등 렌즈센터 비-D/L 세부구분은 제외한다.
+     * 같은 검사일에 렌즈센터(D) 예약이 있고 시력교정(M) 예약이 없는 EXAM 행만 집계한다.
      */
     public List<Map<String, Object>> findDreamlensMonthly(String from, String to) {
         String sql = """
@@ -96,7 +95,7 @@ public class ExaminationStatsRepository {
               AND EXISTS (SELECT 1 FROM RESERVATION rd WITH(NOLOCK)
                           WHERE rd.CUST_NUM = e.CUST_NUM AND rd.RESERVE_DATE = e.EXAM_DATE
                             AND rd.RESERVE_STATE IN ('I','H') AND rd.RESERVE_FLAG = 'D'
-                            AND ISNULL(rd.RESERVE_JINRYO, '') IN ('1','5','7'))
+                          )
               AND NOT EXISTS (SELECT 1 FROM RESERVATION rm WITH(NOLOCK)
                               WHERE rm.CUST_NUM = e.CUST_NUM AND rm.RESERVE_DATE = e.EXAM_DATE
                                 AND rm.RESERVE_STATE IN ('I','H') AND rm.RESERVE_FLAG = 'M')

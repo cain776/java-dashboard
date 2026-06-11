@@ -118,7 +118,6 @@ public class ExamListRepository {
                     AND rd.RESERVE_DATE = e.EXAM_DATE
                     AND rd.RESERVE_STATE IN ('I','H')
                     AND rd.RESERVE_FLAG = 'D'
-                    AND ISNULL(rd.RESERVE_JINRYO, '') IN ('1','5','7')
                 ) THEN 1 ELSE 0 END AS hasDreamlens,
                 CASE WHEN EXISTS (
                   SELECT 1 FROM RESERVATION rm WITH(NOLOCK)
