@@ -68,7 +68,7 @@ export function OutpatientCountPage() {
             <div>
               <CardTitle>월별 추이 비교</CardTitle>
               <CardDescription>
-                외래수는 레거시 차트 확정값을 우선 표시합니다. 2026년은 현재 확인된 1~4월 값만 표시합니다.
+                외래수는 외래 예약(F) 중 내원·퇴원 처리된 건수입니다. 2024·2025년은 확정값, 2026년부터는 운영 DB 집계입니다.
               </CardDescription>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-6">
