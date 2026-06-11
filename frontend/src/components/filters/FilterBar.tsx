@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { Plus } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Select } from './Select'
@@ -14,45 +15,55 @@ const currentPeriod = getCurrentPeriod()
 const defaultYears = getDefaultYears()
 
 export function FilterBar({
-  mode, setMode, periods, setPeriods, years, setYears, removePeriod,
-}: FilterBarControls) {
+  mode, setMode, periods, setPeriods, years, setYears, removePeriod, yearOnly = false,
+}: FilterBarControls & { yearOnly?: boolean }) {
   const [addYear, setAddYear] = useState(currentPeriod.year)
   const [addMonth, setAddMonth] = useState(currentPeriod.month)
   const [addYearOnly, setAddYearOnly] = useState(defaultYears[1] ?? currentPeriod.year)
 
   const addPeriod = () => {
     if (mode === 'month' && periods.length < MAX_PERIODS) {
-      if (!periods.some((p) => p.year === addYear && p.month === addMonth))
-        setPeriods([...periods, { year: addYear, month: addMonth }])
+      if (periods.some((p) => p.year === addYear && p.month === addMonth)) {
+        toast.warning('이미 추가된 기간입니다', { description: `${addYear}년 ${MONTH_OPTIONS[addMonth].label}` })
+        return
+      }
+      setPeriods([...periods, { year: addYear, month: addMonth }])
     }
     if (mode === 'year' && years.length < MAX_PERIODS) {
-      if (!years.includes(addYearOnly))
-        setYears([...years, addYearOnly])
+      if (years.includes(addYearOnly)) {
+        toast.warning('이미 추가된 연도입니다', { description: `${addYearOnly}년` })
+        return
+      }
+      setYears([...years, addYearOnly])
     }
   }
 
   return (
     <Card className="border-border/70 shadow-sm !py-0">
       <CardContent className="flex min-h-14 flex-wrap items-center gap-2 py-1.5">
-        {/* 모드 토글 */}
-        <div className="flex h-8 items-center gap-1 rounded-md bg-gray-100 p-0.5">
-          {([['month', '월별'], ['year', '연도별']] as const).map(([m, label]) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMode(m)}
-              className={`h-full rounded px-3 text-sm font-medium transition-colors ${
-                mode === m
-                  ? 'bg-white text-gray-900 shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        {/* 모드 토글 (yearOnly 페이지는 연도 비교만 지원) */}
+        {!yearOnly && (
+          <>
+            <div className="flex h-8 items-center gap-1 rounded-md bg-gray-100 p-0.5">
+              {([['month', '월별'], ['year', '연도별']] as const).map(([m, label]) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  className={`h-full rounded px-3 text-sm font-medium transition-colors ${
+                    mode === m
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
 
-        <div className="h-5 w-px bg-gray-200" />
+            <div className="h-5 w-px bg-gray-200" />
+          </>
+        )}
 
         {/* 기간 칩 */}
         {mode === 'month'

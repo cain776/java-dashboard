@@ -112,8 +112,9 @@ const b2bRevenueResponseSchema = apiResponseOf(z.array(b2bRevenueMonthlyItemSche
 
 const examinationMonthlyItemSchema = z.object({
   year: z.number(), month: z.number(),
-  visionCorrection: z.number(), cataract: z.number(),
-  dreamlens: z.number(), outpatient: z.number(), total: z.number(),
+  visionCorrection: z.number(),
+  dreamlens: z.number(),
+  examTotal: z.number().optional(), total: z.number(),
 })
 export type ExaminationMonthlyItem = z.infer<typeof examinationMonthlyItemSchema>
 const examinationResponseSchema = apiResponseOf(z.array(examinationMonthlyItemSchema))

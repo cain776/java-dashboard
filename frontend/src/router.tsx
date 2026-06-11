@@ -12,6 +12,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { IntakeConversionPage } from './pages/IntakeConversionPage'
 import { ReservationPage } from './pages/ReservationPage'
 import { ExaminationPage } from './pages/ExaminationPage'
+import { ExamListPage } from './pages/ExamListPage'
 import { ConsultationRatePage } from './pages/ConsultationRatePage'
 import { SurgeryPage } from './pages/SurgeryPage'
 import { SurgeryRatioPage } from './pages/SurgeryRatioPage'
@@ -64,6 +65,12 @@ const reservationRoute = createRoute({
   getParentRoute: () => authLayout,
   path: '/stats/reservation',
   component: ReservationPage,
+})
+
+const examListRoute = createRoute({
+  getParentRoute: () => authLayout,
+  path: '/stats/exam-list',
+  component: ExamListPage,
 })
 
 const examinationRoute = createRoute({
@@ -123,7 +130,7 @@ const unitPriceRoute = createRoute({
 // 나머지는 플레이스홀더
 const statsRoutes = statsPages
   .filter((page) =>
-    !['intake-conversion', 'reservation', 'examination', 'consultation-rate', 'surgery', 'surgery-ratio', 'overseas', 'marketing', 'cancel-rate', 'no-show-rate', 'unit-price'].includes(
+    !['intake-conversion', 'reservation', 'exam-list', 'examination', 'consultation-rate', 'surgery', 'surgery-ratio', 'overseas', 'marketing', 'cancel-rate', 'no-show-rate', 'unit-price'].includes(
       page.id,
     ),
   )
@@ -142,6 +149,7 @@ const routeTree = rootRoute.addChildren([
     dashboardRoute,
     intakeConversionRoute,
     reservationRoute,
+    examListRoute,
     examinationRoute,
     consultationRateRoute,
     surgeryRoute,

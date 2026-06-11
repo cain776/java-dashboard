@@ -1,0 +1,12 @@
+# 줄바꿈 정규화: 저장소에는 텍스트 파일을 LF로 저장, 워킹트리도 LF로 체크아웃
+# (core.autocrlf 설정과 무관하게 동작 — CRLF/LF 팬텀 변경 방지)
+* text=auto eol=lf
+
+# Windows 전용 스크립트는 CRLF 유지 (LF면 일부 환경에서 실행 오류)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 바이너리 (git 자동 감지를 명시적으로 고정)
+*.jar binary
+*.png binary
+*.db  binary

@@ -20,10 +20,13 @@ export interface FilterBarControls {
   removePeriod: (index: number) => void
 }
 
-export function useFilterBar(initialMode: CompareMode = 'month'): FilterBarControls {
+export function useFilterBar(
+  initialMode: CompareMode = 'month',
+  initialYears?: number[],
+): FilterBarControls {
   const [mode, setMode] = useState<CompareMode>(initialMode)
   const [periods, setPeriods] = useState<Period[]>(() => getDefaultPeriods())
-  const [years, setYears] = useState<number[]>(() => getDefaultYears())
+  const [years, setYears] = useState<number[]>(() => initialYears ?? getDefaultYears())
 
   const removePeriod = (index: number) => {
     if (mode === 'month' && periods.length > 1) {

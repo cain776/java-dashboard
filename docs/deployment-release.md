@@ -76,7 +76,7 @@ java -jar .\analytics-0.0.1-SNAPSHOT.jar
 
 실행 후 접속:
 
-- 대시보드: `http://localhost:8080`
+- 대시보드: `http://localhost:18080`
 - 기본 계정: `admin / 1234`
 
 ---
