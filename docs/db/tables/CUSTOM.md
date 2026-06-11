@@ -11,7 +11,7 @@
 
 | 키 | 컬럼 | 타입 | 설명 |
 |-----|------|------|------|
-| PK | `CUST_NUM` | char(23) | 고객번호 (RTRIM 필요, 실제 유효 길이 ~13자) |
+| PK | `CUST_NUM` | char(13) | 고객번호 (13자리 고정 숫자 문자열, 예: `0000006030000`) |
 | FK → | `MY_COUNSELOR` | char(6) | → `EMPLOYEE.EMP_NUM` (상담사) |
 | FK → | `MY_DOCTOR` | char(6) | → `EMPLOYEE.EMP_NUM` (강제지정 의사) |
 | FK → | `MY_optometrist` | nchar(6) | → `EMPLOYEE.EMP_NUM` (검안사) |
@@ -32,12 +32,11 @@
 
 | 컬럼 | 타입 | NULL | 설명 | 비고 |
 |------|------|------|------|------|
-| `CUST_NUM` | char(23) | N | 고객번호 | PK. `RTRIM()` 필수 |
+| `CUST_NUM` | char(13) | N | 고객번호 | PK. 13자리 고정 (예: `0000006030000`) |
 | `CUST_NAME` | nvarchar(100) | Y | 성명(한글) | 검색 시 `IX_CUSTOM_CustName_Covering` 인덱스 활용 |
 | `CUST_ENAME` | varchar(200) | Y | 성명(영문) | 해외환자 매칭에 사용 |
 | `BIRTH_DAY` | char(10) | Y | 생년월일 | `YYYY-MM-DD` 형식 |
-| `SEX` | char(1) | Y | 성별 | `M`/`F` |
-| `JUMIN_NUM` | varbinary | Y | 주민등록번호 (암호화) | `DECRYPTBYPASSPHRASE()` 복호화 필요. **고비용 — 일반 검색에서 제외** |
+| `JUMIN_NUM` | varbinary(100) | Y | 주민등록번호 (암호화) | `DECRYPTBYPASSPHRASE()` 복호화 필요. **고비용 — 일반 검색에서 제외**. 성별은 복호화 후 7번째 자리로 파생 |
 | `CALL_NUM1` | varchar(30) | Y | 전화번호 | 하이픈 없이 저장, 프론트에서 `formatPhone()` |
 | `CALL_NUM2` | varchar(30) | Y | 핸드폰 | 동일. SMS 발송 기본 번호 |
 | `EMAIL` | varchar(50) | Y | 이메일 | 프론트에서 `@` 기준 split (local/domain) |
@@ -63,7 +62,7 @@
 | `MY_MEDICDOCTOR` | char(6) | Y | 지정의 | EMPLOYEE FK |
 | `SelectDoc` | nvarchar(6) | Y | 상담의 | EMPLOYEE FK |
 | `regemp_num` | nvarchar(6) | Y | 등록자 | EMPLOYEE FK |
-| `ETC` | varchar(300) | Y | 고객정보 메모 | 플레인텍스트 (RTF 메모는 CUSTOM_MEMO 테이블) |
+| `ETC` | varchar(8000) | Y | 고객정보 메모 | 플레인텍스트 (RTF 메모는 CUSTOM_MEMO 테이블). 프론트 입력 상한은 Validation에서 별도 결정 |
 | `ADDR1` | nvarchar | Y | 주소 | |
 | `ADDR2` | nvarchar | Y | 상세주소 | |
 | `LevelLimit_Flag` | char(1) | Y | 등급연장 플래그 | 체크박스 |
@@ -73,9 +72,11 @@
 ## 함정 (Gotchas)
 
 - **`JUMIN_NUM` 복호화 비용**: `DECRYPTBYPASSPHRASE(hospitalCode, JUMIN_NUM)` 호출은 행당 암복호화 연산이 발생하여 매우 느림. 고객 검색 쿼리에서 주민번호 카테고리(`category === 'jumin'`)일 때만 복호화하고, 일반 이름/전화 검색에서는 제외해야 함. 이 최적화로 p99 10s → 1.48s 달성.
-- **`CUST_NUM` RTRIM 필수**: char(23) 타입이라 우측에 공백이 패딩됨. JOIN이나 비교 시 반드시 `RTRIM()` 적용하거나 상대 테이블도 char 타입인지 확인.
+- **`CUST_NUM`은 char(13) 고정 길이**: 13자리 숫자 문자열로 저장되며 패딩 공백이 없음. JOIN 시 RTRIM은 불필요. 단, 타 테이블에서 char(23) 컬럼과 JOIN할 경우(예: 레거시 테이블) 상대편을 확인할 것.
+- **`SEX` 컬럼은 존재하지 않음**: CUSTOM 테이블에 별도 성별 컬럼이 없다. 성별이 필요하면 `JUMIN_NUM`을 `DECRYPTBYPASSPHRASE()`로 복호화한 뒤 7번째 자리(1/3=남, 2/4=여)로 파생해야 한다. 고비용이므로 필요할 때만.
+- **법정대리인 연락처는 `CALL_NUM3` 사용 (GdnContact 미사용)**: DB 스키마에 `GdnContact`, `GdnName`, `GdnRelation`, `GdnContactMsgSend` 컬럼이 존재하지만 운영 데이터 0건. 실제 시스템은 `CALL_NUM3`(48,252건 보유)을 법정대리인 연락처로 사용하며, SELECT 시 `CALL_NUM3 AS GdnContact` 별칭으로 노출. 신규 기능에서도 동일 컨벤션 유지. (2026-04-20 Lint에서 확인)
 - **6개 직원 필드 모두 `EMPLOYEE.EMP_NUM` 참조**: `MY_COUNSELOR`, `MY_DOCTOR`, `MY_optometrist`, `MY_MEDICDOCTOR`, `SelectDoc`, `regemp_num` — 모두 char(6), `E00XXX` 형식. 타입 혼재 주의 (char/nchar/nvarchar).
-- **메모는 별도 테이블**: `CUSTOM.ETC`는 짧은 플레인텍스트 메모. 본격적인 메모 히스토리는 `CUSTOM_MEMO` 테이블이며 **RTF 형식**으로 저장됨. 프론트에서 표시 시 RTF → 플레인텍스트 변환 필요.
+- **메모는 별도 테이블**: `CUSTOM.ETC`는 varchar(8000) 플레인텍스트 메모. 본격적인 메모 히스토리는 `CUSTOM_MEMO` 테이블이며 **RTF 형식**으로 저장됨. 프론트에서 표시 시 RTF → 플레인텍스트 변환 필요.
 - **`Level` 기본값**: NULL일 수 있으므로 `ISNULL(Level, 'R')` 처리 필요. 값: `V`/`G`/`S`/`R`.
 - **`InsuranceCode` CFG 없음**: 전용 설정 테이블이 존재하지 않아 프론트에서 하드코딩. 코드값 불일치(INS00X vs 0X) 주의.
 - **`JUMIN_NUM_TEMP`**: 마스킹된 임시 주민번호. 조회 전용이며 저장에는 사용하지 않음.
