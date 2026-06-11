@@ -9,6 +9,7 @@ interface PanelShellProps {
   isError: boolean
   children: React.ReactNode
   variant?: SkeletonVariant
+  className?: string
 }
 
 function Bone({ className, style }: { className?: string; style?: React.CSSProperties }) {
@@ -109,7 +110,7 @@ const SKELETON_MAP: Record<SkeletonVariant, () => React.ReactNode> = {
   area: AreaSkeleton,
 }
 
-export function PanelShell({ isLoading, isError, children, variant = 'bar' }: PanelShellProps) {
+export function PanelShell({ isLoading, isError, children, variant = 'bar', className }: PanelShellProps) {
   const [dismissed, setDismissed] = useState(false)
 
   if (isLoading) {
@@ -118,7 +119,7 @@ export function PanelShell({ isLoading, isError, children, variant = 'bar' }: Pa
   }
 
   return (
-    <div className="relative">
+    <div className={`relative ${className ?? ''}`}>
       {children}
       {isError && !dismissed && (
         <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl bg-gray-900/40 backdrop-blur-[2px]">

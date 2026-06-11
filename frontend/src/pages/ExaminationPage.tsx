@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   ChartContainer,
   ChartTooltip,
@@ -17,7 +17,7 @@ import { formatAxisNumber } from '@/utils/stats'
 type ExamTabKey = 'all' | 'visionCorrection' | 'dreamlens'
 
 const EXAM_TABS: { key: ExamTabKey; label: string }[] = [
-  { key: 'all', label: '전체' },
+  { key: 'all', label: '전체 검사건수' },
   { key: 'visionCorrection', label: '시력교정' },
   { key: 'dreamlens', label: '드림렌즈' },
 ]
@@ -73,31 +73,36 @@ export function ExaminationPage() {
     [sortedYears, dataMap, tab],
   )
 
-  const activeLabel = EXAM_TABS.find((t) => t.key === tab)?.label ?? ''
-
   return (
-    <div className="space-y-6">
+    <div className="flex h-[calc(100vh-5rem)] min-h-[40rem] flex-col gap-6">
       <FilterBar {...filter} yearOnly />
-      <PanelShell isLoading={isLoading} isError={isError} variant="line">
-        <Card className="border-border/70 shadow-sm">
+      <PanelShell isLoading={isLoading} isError={isError} variant="line" className="flex min-h-0 flex-1 flex-col">
+        <Card className="flex min-h-0 flex-1 flex-col border-border/70 shadow-sm">
           <CardHeader className="space-y-3">
-            <div className="flex flex-wrap gap-1 self-start rounded-md bg-gray-100 p-1">
-              {EXAM_TABS.map((t) => (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => setTab(t.key)}
-                  className={`h-8 rounded px-4 text-sm font-medium transition-colors ${
-                    tab === t.key
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <CardTitle>월별 추이 비교</CardTitle>
+                <CardDescription>
+                  전체는 시력교정과 드림렌즈를 합산한 흐름으로, 탭을 선택하면 해당 검사만 표시됩니다.
+                </CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-1 rounded-md bg-gray-100 p-1">
+                {EXAM_TABS.map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setTab(t.key)}
+                    className={`h-8 rounded px-3 text-sm font-medium transition-colors ${
+                      tab === t.key
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <CardTitle className="text-center text-xl font-bold">{activeLabel} 검사</CardTitle>
             <div className="flex flex-wrap items-center justify-center gap-6">
               {series.map((s) => (
                 <span
@@ -111,8 +116,8 @@ export function ExaminationPage() {
               ))}
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <ChartContainer config={chartConfig} className="h-96 w-full">
+          <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
+            <ChartContainer config={chartConfig} className="aspect-auto min-h-0 w-full flex-1">
               {/* left/right 여백과 YAxis 폭을 테이블 colgroup(80px)과 맞춰 월 라벨이 표 컬럼 중앙에 정렬됨 */}
               <LineChart data={chartData} margin={{ top: 24, left: 0, right: 80 }}>
                 <CartesianGrid vertical={false} />
@@ -153,7 +158,7 @@ export function ExaminationPage() {
               </LineChart>
             </ChartContainer>
 
-            <div className="overflow-x-auto">
+            <div className="shrink-0 overflow-x-auto">
               <table className="w-full min-w-[840px] table-fixed border-collapse text-center text-sm">
                 <colgroup>
                   <col className="w-20" />
