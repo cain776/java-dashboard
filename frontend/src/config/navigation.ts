@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react'
 import {
-  Home, CalendarCheck, Stethoscope, Syringe,
+  Home, CalendarCheck, Microscope, Stethoscope, Syringe,
   Megaphone, Ban, BadgeDollarSign, MoreHorizontal,
 } from 'lucide-react'
 
@@ -64,8 +64,8 @@ export const statsPages: StatsPageDefinition[] = [
     'intake-conversion',
     '유입(검사예약)',
     '/stats/intake-conversion',
-    'intake',
-    '검사&예약',
+    'reservation-group',
+    '예약',
     '인콜·아웃콜·카카오톡·네이버·홈페이지 채널별 검사예약 전환을 확인하는 화면입니다.',
     '/api/stats/intake-conversion'
   ),
@@ -73,18 +73,45 @@ export const statsPages: StatsPageDefinition[] = [
     'reservation',
     '예약 건수',
     '/stats/reservation',
-    'intake',
-    '검사&예약',
+    'reservation-group',
+    '예약',
     '예약 유입 규모와 일자별 변화 추이를 확인하는 화면입니다.',
     '/api/stats/reservation'
+  ),
+  statsPage(
+    'exam-list',
+    '검사자 리스트',
+    '/stats/exam-list',
+    'exam-group',
+    '검사',
+    '검사일자별 검사자 상세 목록(고객·상담·수술·검안 정보)을 표 형태로 확인하는 화면입니다.',
+    '/api/exam-list'
   ),
   statsPage(
     'examination',
     '검사 건수',
     '/stats/examination',
-    'intake',
-    '검사&예약',
-    '시력교정, 백내장, 드림렌즈, 외래 등 실제 실시 검사 건수를 확인하는 화면입니다.',
+    'exam-group',
+    '검사',
+    '시력교정과 드림렌즈 검사 건수를 종합 확인하는 화면입니다.',
+    '/api/stats/examination'
+  ),
+  statsPage(
+    'examination-vision',
+    '시력교정 검사건수',
+    '/stats/examination/vision',
+    'exam-group',
+    '검사',
+    '시력교정 검사(EXAM 실측, 사람 단위, 드림렌즈 제외) 건수를 확인하는 화면입니다.',
+    '/api/stats/examination'
+  ),
+  statsPage(
+    'examination-dreamlens',
+    '드림렌즈 검사건수',
+    '/stats/examination/dreamlens',
+    'exam-group',
+    '검사',
+    '드림렌즈 검사(D/L 계열, 사람 단위) 건수를 확인하는 화면입니다.',
     '/api/stats/examination'
   ),
   statsPage(
@@ -255,7 +282,10 @@ const findPage = (id: string) => {
 const MENU_STATUS: Record<string, MenuStatus> = {
   'intake-conversion': 'pending',
   'reservation': 'complete',
+  'exam-list': 'complete',
   'examination': 'complete',
+  'examination-vision': 'backend-only',
+  'examination-dreamlens': 'backend-only',
   'consultation-rate': 'complete',
   'surgery': 'complete',
   'surgery-ratio': 'complete',
@@ -283,11 +313,23 @@ const link = (id: string): MenuLink => {
 export const menuItems: MenuItem[] = [
   { id: 'home', label: 'HOME', href: '/', icon: Home },
   {
-    id: 'intake',
-    label: '검사&예약',
+    id: 'reservation-group',
+    label: '예약',
     href: '#',
     icon: CalendarCheck,
-    children: [link('intake-conversion'), link('reservation'), link('examination')],
+    children: [link('intake-conversion'), link('reservation')],
+  },
+  {
+    id: 'exam-group',
+    label: '검사',
+    href: '#',
+    icon: Microscope,
+    children: [
+      link('exam-list'),
+      link('examination'),
+      link('examination-vision'),
+      link('examination-dreamlens'),
+    ],
   },
   {
     id: 'consultation',
