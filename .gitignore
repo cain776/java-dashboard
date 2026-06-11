@@ -3,5 +3,12 @@
 frontend/.git.frontend-backup/
 *.bundle
 frontend/.env
+.env
 *.log
 .omx/
+.cache/
+backend/.cache/
+
+# 로컬 데이터 파일 (Excel 원본/Office 잠금파일)
+*.xlsx
+~$*
