@@ -74,10 +74,10 @@ export function ExaminationPage() {
   )
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-[calc(100vh-5rem)] min-h-[40rem] flex-col gap-6">
       <FilterBar {...filter} yearOnly />
-      <PanelShell isLoading={isLoading} isError={isError} variant="line">
-        <Card className="border-border/70 shadow-sm">
+      <PanelShell isLoading={isLoading} isError={isError} variant="line" className="flex min-h-0 flex-1 flex-col">
+        <Card className="flex min-h-0 flex-1 flex-col border-border/70 shadow-sm">
           <CardHeader className="space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
@@ -116,8 +116,8 @@ export function ExaminationPage() {
               ))}
             </div>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <ChartContainer config={chartConfig} className="h-96 w-full">
+          <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
+            <ChartContainer config={chartConfig} className="aspect-auto min-h-0 w-full flex-1">
               {/* left/right 여백과 YAxis 폭을 테이블 colgroup(80px)과 맞춰 월 라벨이 표 컬럼 중앙에 정렬됨 */}
               <LineChart data={chartData} margin={{ top: 24, left: 0, right: 80 }}>
                 <CartesianGrid vertical={false} />
@@ -158,7 +158,7 @@ export function ExaminationPage() {
               </LineChart>
             </ChartContainer>
 
-            <div className="overflow-x-auto">
+            <div className="shrink-0 overflow-x-auto">
               <table className="w-full min-w-[840px] table-fixed border-collapse text-center text-sm">
                 <colgroup>
                   <col className="w-20" />
