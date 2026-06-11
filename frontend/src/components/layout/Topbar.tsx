@@ -1,16 +1,12 @@
 import { useAuthStore } from '../../stores/authStore'
-import { useDataSourceStore } from '../../stores/dataSourceStore'
 import { useNavigate, useLocation } from '@tanstack/react-router'
 import { statsPages } from '@/config/navigation'
-import { Database, Server } from 'lucide-react'
 
 export function Topbar() {
   const { user, logout } = useAuthStore()
-  const { source, toggle } = useDataSourceStore()
   const navigate = useNavigate()
   const location = useLocation()
   const displayName = user?.name || user?.loginId || user?.email
-  const isMock = source === 'mock'
 
   const handleLogout = () => {
     logout()
@@ -37,23 +33,6 @@ export function Topbar() {
       )}
 
       <div className="ml-auto flex items-center gap-3">
-        {/* 데이터소스 토글 — 개발 모드에서만 표시 */}
-        {import.meta.env.DEV && (
-          <button
-            type="button"
-            onClick={toggle}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-              isMock
-                ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
-                : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-            }`}
-            title={isMock ? '더미 데이터 사용 중 — 클릭하여 리얼 전환' : '리얼 데이터 사용 중 — 클릭하여 더미 전환'}
-          >
-            {isMock ? <Database className="h-3 w-3" /> : <Server className="h-3 w-3" />}
-            {isMock ? '더미' : '리얼'}
-          </button>
-        )}
-
         {displayName && <span className="text-sm text-gray-600">{displayName}</span>}
         <button
           onClick={handleLogout}

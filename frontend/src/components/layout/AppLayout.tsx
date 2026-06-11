@@ -1,17 +1,14 @@
 import { useState } from 'react'
 import { Outlet } from '@tanstack/react-router'
-import { Database, Menu, Server, X } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import { Sidebar } from './Sidebar'
 import { Topbar } from './Topbar'
 import { useIsMobile } from '@/hooks/useIsMobile'
-import { useDataSourceStore } from '@/stores/dataSourceStore'
 
 export function AppLayout() {
   const isMobile = useIsMobile()
   const [collapsed, setCollapsed] = useState(false)
   const [drawerOpen, setDrawerOpen] = useState(false)
-  const { source, toggle: toggleSource } = useDataSourceStore()
-  const isMock = source === 'mock'
 
   /* ── 모바일 ── */
   if (isMobile) {
@@ -23,20 +20,6 @@ export function AppLayout() {
             <Menu className="h-5 w-5 text-gray-700" />
           </button>
           <span className="ml-3 text-sm font-bold text-gray-900">Analytics &amp; KPI</span>
-          {import.meta.env.DEV && (
-            <button
-              type="button"
-              onClick={toggleSource}
-              className={`ml-auto inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-[11px] font-medium ${
-                isMock
-                  ? 'border-amber-200 bg-amber-50 text-amber-700'
-                  : 'border-emerald-200 bg-emerald-50 text-emerald-700'
-              }`}
-            >
-              {isMock ? <Database className="h-3 w-3" /> : <Server className="h-3 w-3" />}
-              {isMock ? '더미' : '리얼'}
-            </button>
-          )}
         </header>
 
         {/* 드로어 오버레이 */}
@@ -56,7 +39,7 @@ export function AppLayout() {
         )}
 
         {/* 컨텐츠 */}
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-4">
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-3">
           <Outlet />
         </main>
       </div>
@@ -69,7 +52,7 @@ export function AppLayout() {
       <Sidebar collapsed={collapsed} onToggleSidebar={() => setCollapsed((c) => { const next = !c; localStorage.setItem('sidebar-collapsed', String(next)); return next })} />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Topbar />
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-6">
+        <main className="flex-1 overflow-y-auto bg-gray-50 p-3">
           <Outlet />
         </main>
       </div>
