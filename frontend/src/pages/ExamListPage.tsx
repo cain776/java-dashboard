@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { ChevronDown, RotateCcw, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -286,31 +286,26 @@ export function ExamListPage() {
   }, [filtered, sortState])
 
   const pageMax = Math.max(1, Math.ceil(filtered.length / pageSize))
+  // 필터 변경 등으로 페이지 수가 줄어도 상태 변경 없이 렌더 시점에 범위로 보정
+  const safePage = Math.min(currentPage, pageMax)
   const paginationItems = useMemo(
-    () => buildPaginationItems(currentPage, pageMax),
-    [currentPage, pageMax],
+    () => buildPaginationItems(safePage, pageMax),
+    [safePage, pageMax],
   )
   const visibleRows = useMemo(() => {
-    const start = (currentPage - 1) * pageSize
+    const start = (safePage - 1) * pageSize
     return sortedRows.slice(start, start + pageSize)
-  }, [currentPage, sortedRows, pageSize])
-  const rangeStart = filtered.length === 0 ? 0 : (currentPage - 1) * pageSize + 1
-  const rangeEnd = Math.min(currentPage * pageSize, filtered.length)
+  }, [safePage, sortedRows, pageSize])
+  const rangeStart = filtered.length === 0 ? 0 : (safePage - 1) * pageSize + 1
+  const rangeEnd = Math.min(safePage * pageSize, filtered.length)
   const dateInputType = draftPeriodMode === 'monthly' ? 'month' : 'date'
   const fromInputValue = draftPeriodMode === 'monthly' ? toMonthValue(draftFrom) : draftFrom
   const toInputValue = draftPeriodMode === 'monthly' ? toMonthValue(draftTo) : draftTo
   const visibleQuickRanges = draftPeriodMode === 'daily' ? QUICK_RANGES : []
 
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [queryFrom, queryTo, queryExamCategory, queryType, queryKeyword, pageSize])
-
-  useEffect(() => {
-    if (currentPage > pageMax) setCurrentPage(pageMax)
-  }, [currentPage, pageMax])
-
   const handleSearch = () => {
     setHasSearched(true)
+    setCurrentPage(1)
     setQueryFrom(draftPeriodMode === 'monthly' ? toMonthStart(toMonthValue(draftFrom)) : draftFrom)
     setQueryTo(draftPeriodMode === 'monthly' ? toMonthEnd(toMonthValue(draftTo)) : draftTo)
     setQueryExamCategory(draftExamCategory)
@@ -332,6 +327,7 @@ export function ExamListPage() {
     setQueryType('전체')
     setQueryKeyword('')
     setPageSize(50)
+    setCurrentPage(1)
     setHasSearched(false)
   }
 
@@ -551,7 +547,7 @@ export function ExamListPage() {
                     </tr>
                   ))}
                   {!showSkeleton && visibleRows.map((row, i) => {
-                    const rowNumber = (currentPage - 1) * pageSize + i + 1
+                    const rowNumber = (safePage - 1) * pageSize + i + 1
 
                     return (
                     <tr key={`${row.chartNo}-${i}`} className="border-b border-border/40 transition-colors hover:bg-blue-50/40">
@@ -586,8 +582,8 @@ export function ExamListPage() {
                 variant="outline"
                 size="sm"
                 className="text-xs"
-                disabled={currentPage <= 1}
-                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={safePage <= 1}
+                onClick={() => handlePageChange(safePage - 1)}
               >
                 이전
               </Button>
@@ -596,10 +592,10 @@ export function ExamListPage() {
                   <Button
                     key={item}
                     type="button"
-                    variant={item === currentPage ? 'default' : 'outline'}
+                    variant={item === safePage ? 'default' : 'outline'}
                     size="icon-sm"
                     className="text-xs"
-                    aria-current={item === currentPage ? 'page' : undefined}
+                    aria-current={item === safePage ? 'page' : undefined}
                     onClick={() => handlePageChange(item)}
                   >
                     {item}
@@ -613,8 +609,8 @@ export function ExamListPage() {
                 variant="outline"
                 size="sm"
                 className="text-xs"
-                disabled={currentPage >= pageMax}
-                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={safePage >= pageMax}
+                onClick={() => handlePageChange(safePage + 1)}
               >
                 다음
               </Button>
@@ -625,7 +621,7 @@ export function ExamListPage() {
                 <select
                   id="exam-list-page-size"
                   value={pageSize}
-                  onChange={(e) => setPageSize(Number(e.target.value))}
+                  onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1) }}
                   className="h-8 w-16 appearance-none rounded-md border border-border/80 bg-white pl-2.5 pr-7 text-xs outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
                 >
                   {PAGE_SIZE_OPTIONS.map((option) => (

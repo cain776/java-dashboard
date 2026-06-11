@@ -16,6 +16,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = {
         "app.jwt.secret=test-jwt-secret-value-for-integration-tests-123456",
+        // 컨텍스트 간 인메모리 DB 공유로 인한 시드 오염 방지 — 이 테스트 전용 DB 사용
+        "spring.datasource.url=jdbc:h2:mem:auth-integration-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE",
         "app.seed.enabled=true",
         "app.seed.admin-login-id=admin",
         "app.seed.admin-email=admin@bviit.com",
