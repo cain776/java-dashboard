@@ -14,7 +14,7 @@ import java.util.Map;
  *
  * 핵심 원칙:
  *   1) 시력교정: OPERATIONDATA에서 CUST_NUM이 Cataract_Operationdata에 있으면 제외 (중복 방지)
- *   2) 환자 수 기준: COUNT(DISTINCT CUST_NUM) per type per month
+ *   2) 시력교정은 환자 수 기준, 백내장은 수술자 리스트와 같은 CUST_NUM+OPERATION_DATE 기준
  *   3) 테스트 고객 제외 (CUST_NAME LIKE '%TEST%' OR '%테스트%')
  *   4) 수술 코드 제외 (X, OP불가, 모든수술가능, op x, Strabismus, TEST-TEST)
  *
@@ -100,8 +100,15 @@ public class SurgeryStatsRepository {
                     WHERE o.OPERATION_DATE >= :from AND o.OPERATION_DATE <= :to
                       AND o.OPERATIONR IS NOT NULL AND RTRIM(o.OPERATIONR) <> ''
                       AND o.OPERATIONR NOT IN ('X','OP불가','모든수술가능','op x','Strabismus','TEST-TEST')
-                      AND o.CUST_NUM NOT IN (SELECT DISTINCT CUST_NUM FROM Cataract_Operationdata)
-                      AND (cu.CUST_NAME NOT LIKE '%TEST%' AND cu.CUST_NAME NOT LIKE '%테스트%')
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM Cataract_Operationdata co WITH(NOLOCK)
+                          WHERE co.CUST_NUM = o.CUST_NUM
+                      )
+                      AND NOT (
+                          ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
+                          OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
+                      )
                     UNION ALL
                     SELECT o.OPERATION_DATE AS op_date,
                            o.CUST_NUM AS cust_num,
@@ -114,8 +121,15 @@ public class SurgeryStatsRepository {
                     WHERE o.OPERATION_DATE >= :from AND o.OPERATION_DATE <= :to
                       AND o.OPERATIONL IS NOT NULL AND RTRIM(o.OPERATIONL) <> ''
                       AND o.OPERATIONL NOT IN ('X','OP불가','모든수술가능','op x','Strabismus','TEST-TEST')
-                      AND o.CUST_NUM NOT IN (SELECT DISTINCT CUST_NUM FROM Cataract_Operationdata)
-                      AND (cu.CUST_NAME NOT LIKE '%TEST%' AND cu.CUST_NAME NOT LIKE '%테스트%')
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM Cataract_Operationdata co WITH(NOLOCK)
+                          WHERE co.CUST_NUM = o.CUST_NUM
+                      )
+                      AND NOT (
+                          ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
+                          OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
+                      )
                 ) e
                 GROUP BY YEAR(e.op_date), MONTH(e.op_date)
                 ORDER BY YEAR(e.op_date), MONTH(e.op_date)
@@ -124,7 +138,8 @@ public class SurgeryStatsRepository {
     }
 
     /**
-     * 백내장 수술 월별 환자 수 (Cataract_Operationdata).
+     * 백내장 수술 월별 행 수 (Cataract_Operationdata).
+     * 수술자 리스트와 동일하게 CUST_NUM + 실제 수술일을 1건으로 센다.
      *
      * 분류:
      *   catMulti (다초점): CTR(M), CTRmulti, 3PodF, RESTOR, T-CTR, T-CATARACT, Panoptix, symfony, Lara
@@ -157,13 +172,14 @@ public class SurgeryStatsRepository {
                 SELECT
                     YEAR(e.op_date) AS yr,
                     MONTH(e.op_date) AS mo,
-                    COUNT(DISTINCT CASE WHEN e.cat_type = 'catMulti' THEN e.cust_num END) AS catMulti,
-                    COUNT(DISTINCT CASE WHEN e.cat_type = 'catMono'  THEN e.cust_num END) AS catMono,
-                    COUNT(DISTINCT CASE WHEN e.cat_type = 'catEdof'  THEN e.cust_num END) AS catEdof,
-                    COUNT(DISTINCT e.cust_num) AS cataractPatients
+                    COUNT(DISTINCT CASE WHEN e.cat_type = 'catMulti' THEN e.surgery_key END) AS catMulti,
+                    COUNT(DISTINCT CASE WHEN e.cat_type = 'catMono'  THEN e.surgery_key END) AS catMono,
+                    COUNT(DISTINCT CASE WHEN e.cat_type = 'catEdof'  THEN e.surgery_key END) AS catEdof,
+                    COUNT(DISTINCT e.surgery_key) AS cataractPatients
                 FROM (
                     SELECT c.OPERATIONR_DATE AS op_date,
                            c.CUST_NUM AS cust_num,
+                           LTRIM(RTRIM(ISNULL(c.CUST_NUM, ''))) + '|' + c.OPERATIONR_DATE AS surgery_key,
                 """
                 + classifyCase.replace("op_code", "c.OPERATIONR") +
                 """
@@ -173,10 +189,14 @@ public class SurgeryStatsRepository {
                     WHERE c.OPERATIONR_DATE >= :from AND c.OPERATIONR_DATE <= :to
                       AND c.OPERATIONR IS NOT NULL AND RTRIM(c.OPERATIONR) <> ''
                       AND c.OPERATIONR NOT IN ('X','OP불가','TEST-TEST')
-                      AND (cu.CUST_NAME NOT LIKE '%TEST%' AND cu.CUST_NAME NOT LIKE '%테스트%')
+                      AND NOT (
+                          ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
+                          OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
+                      )
                     UNION ALL
                     SELECT c.OPERATIONL_DATE AS op_date,
                            c.CUST_NUM AS cust_num,
+                           LTRIM(RTRIM(ISNULL(c.CUST_NUM, ''))) + '|' + c.OPERATIONL_DATE AS surgery_key,
                 """
                 + classifyCase.replace("op_code", "c.OPERATIONL") +
                 """
@@ -186,7 +206,10 @@ public class SurgeryStatsRepository {
                     WHERE c.OPERATIONL_DATE >= :from AND c.OPERATIONL_DATE <= :to
                       AND c.OPERATIONL IS NOT NULL AND RTRIM(c.OPERATIONL) <> ''
                       AND c.OPERATIONL NOT IN ('X','OP불가','TEST-TEST')
-                      AND (cu.CUST_NAME NOT LIKE '%TEST%' AND cu.CUST_NAME NOT LIKE '%테스트%')
+                      AND NOT (
+                          ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
+                          OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
+                      )
                 ) e
                 GROUP BY YEAR(e.op_date), MONTH(e.op_date)
                 ORDER BY YEAR(e.op_date), MONTH(e.op_date)

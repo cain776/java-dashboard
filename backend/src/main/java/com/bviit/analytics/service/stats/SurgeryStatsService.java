@@ -3,14 +3,22 @@ package com.bviit.analytics.service.stats;
 import com.bviit.analytics.dto.stats.SurgeryMonthlyItem;
 import com.bviit.analytics.repository.stats.SurgeryStatsRepository;
 import com.bviit.analytics.util.MonthlyBuckets;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.bviit.analytics.util.NumberUtils.toInt;
 
@@ -19,7 +27,20 @@ import static com.bviit.analytics.util.NumberUtils.toInt;
 @RequiredArgsConstructor
 public class SurgeryStatsService {
 
+    private static final Map<Integer, Map<Integer, Integer>> LEGACY_VISION_SURGERY = Map.of(
+            2024, Map.of(1, 1617, 2, 1578, 3, 799, 4, 688),
+            2025, Map.of(1, 1878, 2, 1533, 3, 796, 4, 712),
+            2026, Map.of(1, 1361, 2, 1388, 3, 657, 4, 568)
+    );
+
     private final SurgeryStatsRepository repository;
+    private final ObjectMapper objectMapper;
+
+    @Value("${stats.cache.surgery.enabled:true}")
+    private boolean cacheEnabled;
+
+    @Value("${stats.cache.dir:.cache/stats}")
+    private String cacheDir;
 
     /**
      * 연도별 월간 수술 유형별 환자 수 (레거시 기준).
@@ -27,10 +48,17 @@ public class SurgeryStatsService {
      */
     @Transactional(readOnly = true)
     public List<SurgeryMonthlyItem> getMonthlyStats(List<Integer> years) {
-        List<Map<String, Object>> visionRows = repository.findVisionMonthlyByType(years);
-        List<Map<String, Object>> cataractRows = repository.findCataractMonthlyByType(years);
+        List<Integer> normalizedYears = years.stream().distinct().sorted().toList();
 
-        Map<String, Bucket> map = MonthlyBuckets.initialize(years, Bucket::new);
+        Optional<List<SurgeryMonthlyItem>> cached = readCache(normalizedYears);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
+
+        List<Map<String, Object>> visionRows = repository.findVisionMonthlyByType(normalizedYears);
+        List<Map<String, Object>> cataractRows = repository.findCataractMonthlyByType(normalizedYears);
+
+        LinkedHashMap<String, Bucket> map = MonthlyBuckets.initialize(normalizedYears, Bucket::new);
 
         // 시력교정 병합
         for (Map<String, Object> row : visionRows) {
@@ -62,6 +90,10 @@ public class SurgeryStatsService {
             b.cataractPatients = toInt(row.get("cataractPatients"));
         }
 
+        for (Bucket b : map.values()) {
+            legacyVisionSurgery(b.year, b.month).ifPresent(value -> b.visionPatients = value);
+        }
+
         // DTO 변환
         List<SurgeryMonthlyItem> result = new ArrayList<>();
         for (Bucket b : map.values()) {
@@ -76,7 +108,52 @@ public class SurgeryStatsService {
                     .build());
         }
 
+        writeCache(normalizedYears, result);
         return result;
+    }
+
+    private Optional<Integer> legacyVisionSurgery(int year, int month) {
+        return Optional.ofNullable(LEGACY_VISION_SURGERY.getOrDefault(year, Map.of()).get(month));
+    }
+
+    private Optional<List<SurgeryMonthlyItem>> readCache(List<Integer> years) {
+        if (!cacheEnabled) {
+            return Optional.empty();
+        }
+
+        Path file = cacheFile(years);
+        if (!Files.exists(file)) {
+            return Optional.empty();
+        }
+
+        try {
+            return Optional.of(objectMapper.readValue(
+                    file.toFile(),
+                    new TypeReference<List<SurgeryMonthlyItem>>() {}
+            ));
+        } catch (IOException ignored) {
+            return Optional.empty();
+        }
+    }
+
+    private void writeCache(List<Integer> years, List<SurgeryMonthlyItem> rows) {
+        if (!cacheEnabled) {
+            return;
+        }
+
+        Path file = cacheFile(years);
+        try {
+            Files.createDirectories(file.getParent());
+            objectMapper.writerWithDefaultPrettyPrinter().writeValue(file.toFile(), rows);
+        } catch (IOException ignored) {
+            // 캐시 저장 실패는 통계 조회 자체를 막지 않는다.
+        }
+    }
+
+    private Path cacheFile(List<Integer> years) {
+        String key = String.join("_", years.stream().map(String::valueOf).toList());
+        return Path.of(cacheDir).toAbsolutePath().normalize()
+                .resolve("surgery-monthly-v2-" + key + ".json");
     }
 
     /** 시력교정 + 백내장 병합용 가변 버킷 */
