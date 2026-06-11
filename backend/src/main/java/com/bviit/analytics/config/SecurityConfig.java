@@ -32,7 +32,7 @@ public class SecurityConfig {
             JwtAuthenticationFilter jwtAuthenticationFilter,
             JwtAuthenticationEntryPoint authenticationEntryPoint,
             CustomAccessDeniedHandler accessDeniedHandler,
-            @Value("${app.cors.allowed-origins:http://localhost:5173}") String allowedOrigins,
+            @Value("${app.cors.allowed-origins:http://localhost:15173}") String allowedOrigins,
             @Value("${spring.h2.console.enabled:false}") boolean h2ConsoleEnabled
     ) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;

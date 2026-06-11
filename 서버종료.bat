@@ -6,15 +6,17 @@ echo ========================================
 echo.
 
 set FOUND=0
+set BACKEND_PORT=18080
+set FRONTEND_PORT=15173
 
-for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr :8080 ^| findstr LISTENING') do (
-    echo [Backend  :8080] PID %%a kill
+for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr :%BACKEND_PORT% ^| findstr LISTENING') do (
+    echo [Backend  :%BACKEND_PORT%] PID %%a kill
     taskkill /PID %%a /T /F >nul 2>&1
     set FOUND=1
 )
 
-for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr :5173 ^| findstr LISTENING') do (
-    echo [Frontend :5173] PID %%a kill
+for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr :%FRONTEND_PORT% ^| findstr LISTENING') do (
+    echo [Frontend :%FRONTEND_PORT%] PID %%a kill
     taskkill /PID %%a /T /F >nul 2>&1
     set FOUND=1
 )
