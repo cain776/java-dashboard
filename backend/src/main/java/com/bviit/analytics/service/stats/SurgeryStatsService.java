@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Year;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -116,8 +117,18 @@ public class SurgeryStatsService {
         return Optional.ofNullable(LEGACY_VISION_SURGERY.getOrDefault(year, Map.of()).get(month));
     }
 
+    /**
+     * 당해연도(라이브) 포함 요청은 캐시하지 않는다.
+     * OPERATIONDATA/Cataract_Operationdata는 시점마다 변동하므로 영구 파일캐시에 동결되면 안 됨.
+     * (2024~2026 1~4월 시력교정은 레거시 상수로 덮어쓰지만 그 외 월/유형은 라이브)
+     */
+    private boolean isLiveRequest(List<Integer> years) {
+        int currentYear = Year.now().getValue();
+        return years.stream().anyMatch(y -> y >= currentYear);
+    }
+
     private Optional<List<SurgeryMonthlyItem>> readCache(List<Integer> years) {
-        if (!cacheEnabled) {
+        if (!cacheEnabled || isLiveRequest(years)) {
             return Optional.empty();
         }
 
@@ -137,7 +148,7 @@ public class SurgeryStatsService {
     }
 
     private void writeCache(List<Integer> years, List<SurgeryMonthlyItem> rows) {
-        if (!cacheEnabled) {
+        if (!cacheEnabled || isLiveRequest(years)) {
             return;
         }
 

@@ -14,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Year;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -133,8 +134,18 @@ public class ExaminationStatsService {
         return Optional.of(values[month - 1]);
     }
 
+    /**
+     * 당해연도(라이브) 포함 요청은 캐시하지 않는다.
+     * 2024~2025는 레거시 상수로 덮어써 불변이지만, 2026+ 라이브값은 EXAM 덮어쓰기로 시점마다 변동하므로
+     * 영구 파일캐시에 동결되면 안 된다(ProcedureExam과 동일 정책).
+     */
+    private boolean isLiveRequest(List<Integer> years) {
+        int currentYear = Year.now().getValue();
+        return years.stream().anyMatch(y -> y >= currentYear);
+    }
+
     private Optional<List<ExaminationMonthlyItem>> readCache(List<Integer> years) {
-        if (!cacheEnabled) {
+        if (!cacheEnabled || isLiveRequest(years)) {
             return Optional.empty();
         }
 
@@ -154,7 +165,7 @@ public class ExaminationStatsService {
     }
 
     private void writeCache(List<Integer> years, List<ExaminationMonthlyItem> rows) {
-        if (!cacheEnabled) {
+        if (!cacheEnabled || isLiveRequest(years)) {
             return;
         }
 
