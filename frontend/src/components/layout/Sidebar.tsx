@@ -90,6 +90,11 @@ export function Sidebar({ collapsed, onToggleSidebar, onNavigate }: { collapsed:
     })
   }
 
+  const closeAllMenus = () => {
+    setOpenMenus(new Set())
+    localStorage.setItem('sidebar-open-menus', JSON.stringify([]))
+  }
+
   const isOpen = (id: string) => openMenus.has(id)
 
   return (
@@ -167,6 +172,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onNavigate }: { collapsed:
                   <Link
                     to={item.href}
                     title={collapsed ? item.label : undefined}
+                    onClick={item.id === 'home' ? closeAllMenus : undefined}
                     className={`flex items-center rounded-lg text-sm font-medium transition-colors
                       ${isActive
                         ? 'text-blue-600 bg-blue-50'

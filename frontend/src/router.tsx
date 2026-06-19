@@ -9,17 +9,24 @@ import { AppLayout } from './components/layout/AppLayout'
 import { statsPages } from './config/navigation'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { WeeklyReportPage } from './pages/ReportPage'
+import { MonthlyReportPage } from './pages/MonthlyReportPage'
+import { OverallExamPage } from './pages/OverallExamPage'
+import { OverallExamWeeklyPage } from './pages/OverallExamWeeklyPage'
 import { IntakeConversionPage } from './pages/IntakeConversionPage'
 import { ReservationPage } from './pages/ReservationPage'
+import { ReservationOverallPage } from './pages/ReservationOverallPage'
 import { ExaminationPage } from './pages/ExaminationPage'
 import { ProcedureExamPage } from './pages/ProcedureExamPage'
 import { ExamListPage } from './pages/ExamListPage'
 import { CataractExamListPage } from './pages/CataractExamListPage'
 import { ConsultationRatePage } from './pages/ConsultationRatePage'
 import { CataractReservationRatePage } from './pages/CataractReservationRatePage'
+import { StopReasonPage } from './pages/StopReasonPage'
 import { SurgeryListPage } from './pages/SurgeryListPage'
 import { SurgeryPage } from './pages/SurgeryPage'
 import { SurgeryRatioPage } from './pages/SurgeryRatioPage'
+import { SurgeryCompositionPage } from './pages/SurgeryCompositionPage'
 import { OutpatientCountPage } from './pages/OutpatientCountPage'
 import { OverseasPage } from './pages/OverseasPage'
 import { MarketingPage } from './pages/MarketingPage'
@@ -59,7 +66,32 @@ const dashboardRoute = createRoute({
   component: DashboardPage,
 })
 
+// Report
+const weeklyReportRoute = createRoute({
+  getParentRoute: () => authLayout,
+  path: '/report/weekly',
+  component: WeeklyReportPage,
+})
+
+const monthlyReportRoute = createRoute({
+  getParentRoute: () => authLayout,
+  path: '/report/monthly',
+  component: MonthlyReportPage,
+})
+
 // 전용 페이지가 있는 경로
+const overallExamRoute = createRoute({
+  getParentRoute: () => authLayout,
+  path: '/stats/overall-exam',
+  component: OverallExamPage,
+})
+
+const overallExamWeeklyRoute = createRoute({
+  getParentRoute: () => authLayout,
+  path: '/stats/overall-exam-weekly',
+  component: OverallExamWeeklyPage,
+})
+
 const intakeConversionRoute = createRoute({
   getParentRoute: () => authLayout,
   path: '/stats/intake-conversion',
@@ -70,6 +102,12 @@ const reservationRoute = createRoute({
   getParentRoute: () => authLayout,
   path: '/stats/reservation',
   component: ReservationPage,
+})
+
+const reservationOverallRoute = createRoute({
+  getParentRoute: () => authLayout,
+  path: '/stats/reservation-overall',
+  component: ReservationOverallPage,
 })
 
 const examListRoute = createRoute({
@@ -108,6 +146,12 @@ const cataractReservationRateRoute = createRoute({
   component: CataractReservationRatePage,
 })
 
+const stopReasonRoute = createRoute({
+  getParentRoute: () => authLayout,
+  path: '/stats/stop-reason',
+  component: StopReasonPage,
+})
+
 const surgeryListRoute = createRoute({
   getParentRoute: () => authLayout,
   path: '/stats/surgery-list',
@@ -124,6 +168,12 @@ const surgeryRatioRoute = createRoute({
   getParentRoute: () => authLayout,
   path: '/stats/surgery-ratio',
   component: SurgeryRatioPage,
+})
+
+const surgeryCompositionRoute = createRoute({
+  getParentRoute: () => authLayout,
+  path: '/stats/surgery-composition',
+  component: SurgeryCompositionPage,
 })
 
 const outpatientCountRoute = createRoute({
@@ -165,7 +215,7 @@ const unitPriceRoute = createRoute({
 // 나머지는 플레이스홀더
 const statsRoutes = statsPages
   .filter((page) =>
-    !['intake-conversion', 'reservation', 'exam-list', 'cataract-exam-list', 'examination', 'procedure-exam', 'consultation-rate', 'cataract-reservation-rate', 'surgery-list', 'surgery', 'surgery-ratio', 'outpatient-count', 'overseas', 'marketing', 'cancel-rate', 'no-show-rate', 'unit-price'].includes(
+    !['weekly-report', 'monthly-report', 'overall-exam', 'overall-exam-weekly', 'intake-conversion', 'reservation', 'reservation-overall', 'exam-list', 'cataract-exam-list', 'examination', 'procedure-exam', 'consultation-rate', 'cataract-reservation-rate', 'stop-reason', 'surgery-list', 'surgery', 'surgery-ratio', 'surgery-composition', 'outpatient-count', 'overseas', 'marketing', 'cancel-rate', 'no-show-rate', 'unit-price'].includes(
       page.id,
     ),
   )
@@ -182,17 +232,24 @@ const routeTree = rootRoute.addChildren([
   loginRoute,
   authLayout.addChildren([
     dashboardRoute,
+    weeklyReportRoute,
+    monthlyReportRoute,
+    overallExamRoute,
+    overallExamWeeklyRoute,
     intakeConversionRoute,
     reservationRoute,
+    reservationOverallRoute,
     examListRoute,
     cataractExamListRoute,
     examinationRoute,
     procedureExamRoute,
     consultationRateRoute,
     cataractReservationRateRoute,
+    stopReasonRoute,
     surgeryListRoute,
     surgeryRoute,
     surgeryRatioRoute,
+    surgeryCompositionRoute,
     outpatientCountRoute,
     overseasRoute,
     marketingRoute,

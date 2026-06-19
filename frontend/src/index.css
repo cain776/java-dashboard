@@ -166,3 +166,43 @@
   left: auto !important;
   transform: none !important;
 }
+
+/* ── 월간 레포트 PDF 인쇄 ──
+   #report-print 영역만 인쇄, 나머지(사이드바/탑바/버튼)는 숨김.
+   차트 1개당 한 페이지(page-break). */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #report-print,
+  #report-print * {
+    visibility: visible;
+  }
+  #report-print {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+  }
+  .report-no-print {
+    display: none !important;
+  }
+  .report-chart {
+    break-inside: avoid;
+    page-break-after: always;
+    border: none !important;
+    box-shadow: none !important;
+  }
+  .report-chart:last-child {
+    page-break-after: auto;
+  }
+  /* 고정폭(1040px)이라 잘림 없음 — 스크롤만 해제 */
+  .report-chart .overflow-x-auto {
+    overflow: visible !important;
+  }
+  @page {
+    size: A4 landscape;
+    margin: 6mm;
+  }
+}

@@ -104,6 +104,7 @@ project-root/
 |----|------|------|------|------|
 | intake-conversion | 유입(검사예약) | /stats/intake-conversion | 예약 | 미구현 |
 | reservation | 예약 건수 | /stats/reservation | 예약 | 완료 |
+| reservation-overall | 예약 종합 | /stats/reservation-overall | 예약 | 완료 (3탭: 종합/온라인/콜, 지표정의 §5.1) |
 | exam-list | 검사자 리스트 | /stats/exam-list | 검사 | 완료 |
 | cataract-exam-list | 백내장 검사자 리스트 | /stats/cataract-exam-list | 검사 | 완료 |
 | examination | 시술별 | /stats/examination | 검사 | 완료 |

@@ -143,6 +143,36 @@ const outpatientCountMonthlyItemSchema = z.object({
 export type OutpatientCountMonthlyItem = z.infer<typeof outpatientCountMonthlyItemSchema>
 const outpatientCountResponseSchema = apiResponseOf(z.array(outpatientCountMonthlyItemSchema))
 
+/* ── Monthly (예약 종합 페이지용) ── */
+
+const reservationOverallMonthlyItemSchema = z.object({
+  year: z.number(),
+  month: z.number(),
+  reservations: z.number().nullable(),
+  online: z.number().nullable(),
+  call: z.number().nullable(),
+  total: z.number().nullable().optional(),
+})
+export type ReservationOverallMonthlyItem = z.infer<typeof reservationOverallMonthlyItemSchema>
+const reservationOverallResponseSchema = apiResponseOf(z.array(reservationOverallMonthlyItemSchema))
+
+/* ── Monthly (검사 중단 사유 페이지용) ── */
+
+const stopReasonMonthlyItemSchema = z.object({
+  year: z.number(),
+  month: z.number(),
+  recommendX: z.number(),
+  lensImpossible: z.number(),
+  keratoconus: z.number(),
+  avellino: z.number(),
+  glaucoma: z.number(),
+  visionChange: z.number(),
+  other: z.number(),
+  total: z.number(),
+})
+export type StopReasonMonthlyItem = z.infer<typeof stopReasonMonthlyItemSchema>
+const stopReasonResponseSchema = apiResponseOf(z.array(stopReasonMonthlyItemSchema))
+
 /* ── Monthly (백내장 예약률 페이지용) ── */
 
 const cataractReservationRateItemSchema = z.object({
@@ -154,6 +184,35 @@ const cataractReservationRateItemSchema = z.object({
 })
 export type CataractReservationRateItem = z.infer<typeof cataractReservationRateItemSchema>
 const cataractReservationRateResponseSchema = apiResponseOf(z.array(cataractReservationRateItemSchema))
+
+/* ── Weekly (주간 검사자 종합지표 페이지용) ── */
+
+const overallExamWeeklyItemSchema = z.object({
+  year: z.number(),
+  month: z.number(),
+  week: z.number(),
+  partial: z.boolean(),
+  startDate: z.string(),
+  endDate: z.string(),
+  totalExam: z.number(),
+  introGeneral: z.number(),
+  introCustomer: z.number(),
+  introStaff: z.number(),
+  jobOffice: z.number(),
+  jobStudent: z.number(),
+  jobEtc: z.number(),
+  visionBooked: z.number(),
+  cataractTotal: z.number(),
+  cataractOnly: z.number(),
+  cataractBooked: z.number(),
+  stopCount: z.number(),
+  visionExam: z.number(),
+  dreamlens: z.number(),
+  oneDay: z.number(),
+  oneDayBooked: z.number(),
+})
+export type OverallExamWeeklyItem = z.infer<typeof overallExamWeeklyItemSchema>
+const overallExamWeeklyResponseSchema = apiResponseOf(z.array(overallExamWeeklyItemSchema))
 
 /* ── 상담 전환율 페이지용 ── */
 
@@ -221,8 +280,17 @@ export const statsApi = {
   getOutpatientCountMonthly: async (years: number[]) =>
     outpatientCountResponseSchema.parse(await api.get<unknown>(`/stats/outpatient-count/monthly?years=${years.join(',')}`)).data,
 
+  getReservationOverallMonthly: async (years: number[]) =>
+    reservationOverallResponseSchema.parse(await api.get<unknown>(`/stats/reservation-overall/monthly?years=${years.join(',')}`)).data,
+
+  getOverallExamWeekly: async (years: number[]) =>
+    overallExamWeeklyResponseSchema.parse(await api.get<unknown>(`/stats/overall-exam/weekly?years=${years.join(',')}`)).data,
+
   getConsultationRate: async (years: number[]) =>
     consultationRateResponseSchema.parse(await api.get<unknown>(`/stats/consultation-rate?years=${years.join(',')}`)).data,
+
+  getStopReasonMonthly: async (years: number[]) =>
+    stopReasonResponseSchema.parse(await api.get<unknown>(`/stats/stop-reason/monthly?years=${years.join(',')}`)).data,
 
   getExaminationKpi: async (years: number[], mock = true) =>
     examinationResponseSchema.parse(await api.get<unknown>(`/stats/examination/kpi?years=${years.join(',')}&mock=${mock}`)).data,
