@@ -4,7 +4,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
-final class StatsRequestValidator {
+public final class StatsRequestValidator {
 
     private static final int MIN_YEAR = 2020;
     private static final int MAX_YEAR_COUNT = 5;
@@ -12,7 +12,7 @@ final class StatsRequestValidator {
     private StatsRequestValidator() {
     }
 
-    static void validateYears(List<Integer> years) {
+    public static void validateYears(List<Integer> years) {
         if (years == null || years.isEmpty() || years.size() > MAX_YEAR_COUNT) {
             throw new IllegalArgumentException("연도는 1~5개까지 지정할 수 있습니다.");
         }
@@ -28,7 +28,7 @@ final class StatsRequestValidator {
         }
     }
 
-    static void validateDateRange(LocalDate from, LocalDate to, int maxRangeDays) {
+    public static void validateDateRange(LocalDate from, LocalDate to, int maxRangeDays) {
         if (from.isAfter(to)) {
             throw new IllegalArgumentException("from은 to보다 이전이어야 합니다.");
         }

@@ -1,43 +1,47 @@
 package com.bviit.analytics.controller.exam;
 
 import com.bviit.analytics.dto.ApiResponse;
+import com.bviit.analytics.controller.stats.StatsRequestValidator;
 import com.bviit.analytics.service.exam.CataractExamListService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Profile;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * GET /api/cataract-exam-list?from=YYYY-MM-DD&to=YYYY-MM-DD
  * 백내장 검사자 리스트 행 목록. 응답: ApiResponse&lt;List&lt;Map&gt;&gt; (camelCase 키, 검사자 리스트와 동일 계약).
+ * 실 데이터 서비스는 mssql 프로파일에서만 주입된다. 미연결 시 503으로 응답한다.
  */
 @RestController
-@Profile("mssql")
 @RequestMapping("/api/cataract-exam-list")
 @RequiredArgsConstructor
 public class CataractExamListController {
 
-    private final CataractExamListService cataractExamListService;
+    private static final int MAX_RANGE_DAYS = 366;
+
+    private final Optional<CataractExamListService> cataractExamListService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getCataractExamList(
-            @RequestParam String from,
-            @RequestParam String to
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
-        validateDate(from, "from");
-        validateDate(to, "to");
-        return ResponseEntity.ok(ApiResponse.ok(cataractExamListService.getCataractExamList(from, to)));
+        StatsRequestValidator.validateDateRange(from, to, MAX_RANGE_DAYS);
+        return cataractExamListService
+                .map(service -> ResponseEntity.ok(ApiResponse.ok(service.getCataractExamList(from.toString(), to.toString()))))
+                .orElseGet(CataractExamListController::realDataUnavailable);
     }
 
-    private void validateDate(String value, String field) {
-        if (value == null || !value.matches("\\d{4}-\\d{2}-\\d{2}")) {
-            throw new IllegalArgumentException(field + " 파라미터는 'YYYY-MM-DD' 형식이어야 합니다.");
-        }
+    private static ResponseEntity<ApiResponse<List<Map<String, Object>>>> realDataUnavailable() {
+        return ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다."));
     }
 }

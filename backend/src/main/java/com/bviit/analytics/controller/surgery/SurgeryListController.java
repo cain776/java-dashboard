@@ -1,43 +1,47 @@
 package com.bviit.analytics.controller.surgery;
 
 import com.bviit.analytics.dto.ApiResponse;
+import com.bviit.analytics.controller.stats.StatsRequestValidator;
 import com.bviit.analytics.service.surgery.SurgeryListService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Profile;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * GET /api/surgery-list?from=YYYY-MM-DD&to=YYYY-MM-DD
  * 수술자 리스트 행 목록. 기준일은 수술일자, 보조일은 검사일자.
+ * 실 데이터 서비스는 mssql 프로파일에서만 주입된다. 미연결 시 503으로 응답한다.
  */
 @RestController
-@Profile("mssql")
 @RequestMapping("/api/surgery-list")
 @RequiredArgsConstructor
 public class SurgeryListController {
 
-    private final SurgeryListService surgeryListService;
+    private static final int MAX_RANGE_DAYS = 366;
+
+    private final Optional<SurgeryListService> surgeryListService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getSurgeryList(
-            @RequestParam String from,
-            @RequestParam String to
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
-        validateDate(from, "from");
-        validateDate(to, "to");
-        return ResponseEntity.ok(ApiResponse.ok(surgeryListService.getSurgeryList(from, to)));
+        StatsRequestValidator.validateDateRange(from, to, MAX_RANGE_DAYS);
+        return surgeryListService
+                .map(service -> ResponseEntity.ok(ApiResponse.ok(service.getSurgeryList(from.toString(), to.toString()))))
+                .orElseGet(SurgeryListController::realDataUnavailable);
     }
 
-    private void validateDate(String value, String field) {
-        if (value == null || !value.matches("\\d{4}-\\d{2}-\\d{2}")) {
-            throw new IllegalArgumentException(field + " 파라미터는 'YYYY-MM-DD' 형식이어야 합니다.");
-        }
+    private static ResponseEntity<ApiResponse<List<Map<String, Object>>>> realDataUnavailable() {
+        return ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다."));
     }
 }

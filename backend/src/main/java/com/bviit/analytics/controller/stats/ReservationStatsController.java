@@ -5,7 +5,6 @@ import com.bviit.analytics.dto.stats.ReservationMonthlyItem;
 import com.bviit.analytics.dto.stats.ReservationStatsResponse;
 import com.bviit.analytics.service.stats.ReservationStatsService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Profile;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,33 +14,38 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * 예약 통계 API.
- * mssql 프로파일에서만 활성화 — H2 기본 부팅 시 등록 안 됨.
+ * 실 데이터 서비스는 mssql 프로파일에서만 주입된다. 미연결 시 503으로 응답한다.
  */
 @RestController
-@Profile("mssql")
 @RequestMapping("/api/stats")
 @RequiredArgsConstructor
 public class ReservationStatsController {
 
     private static final int MAX_RANGE_DAYS = 366;
 
-    private final ReservationStatsService statsService;
+    private final Optional<ReservationStatsService> statsService;
 
     /**
      * 기간 기반 예약 요약 (일별 추이, 채널별, 시간대별)
      * GET /api/stats/reservation?from=YYYY-MM-DD&to=YYYY-MM-DD
      */
     @GetMapping("/reservation")
-    public ResponseEntity<ReservationStatsResponse> getReservationStats(
+    public ResponseEntity<?> getReservationStats(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
         StatsRequestValidator.validateDateRange(from, to, MAX_RANGE_DAYS);
 
-        return ResponseEntity.ok(statsService.getStats(from, to));
+        if (statsService.isEmpty()) {
+            return ResponseEntity.status(503)
+                    .body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다."));
+        }
+
+        return ResponseEntity.ok(statsService.get().getStats(from, to));
     }
 
     /**
@@ -55,6 +59,12 @@ public class ReservationStatsController {
     ) {
         StatsRequestValidator.validateYears(years);
 
-        return ResponseEntity.ok(ApiResponse.ok(statsService.getMonthlyStats(years)));
+        return StatsPanelSupport.resolve(
+                false,
+                statsService,
+                service -> service.getMonthlyStats(years),
+                List::of
+        );
     }
+
 }

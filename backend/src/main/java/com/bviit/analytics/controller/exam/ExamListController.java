@@ -1,44 +1,47 @@
 package com.bviit.analytics.controller.exam;
 
 import com.bviit.analytics.dto.ApiResponse;
+import com.bviit.analytics.controller.stats.StatsRequestValidator;
 import com.bviit.analytics.service.exam.ExamListService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Profile;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * GET /api/exam-list?from=YYYY-MM-DD&to=YYYY-MM-DD
  * 검사자 리스트(상담사별) 행 목록. 응답: ApiResponse&lt;List&lt;Map&gt;&gt; (camelCase 키).
- * 개발(H2)에서는 이 프로필이 비활성 → 프론트 MSW 목업이 응답.
+ * 실 데이터 서비스는 mssql 프로파일에서만 주입된다. 미연결 시 503으로 응답한다.
  */
 @RestController
-@Profile("mssql")
 @RequestMapping("/api/exam-list")
 @RequiredArgsConstructor
 public class ExamListController {
 
-    private final ExamListService examListService;
+    private static final int MAX_RANGE_DAYS = 366;
+
+    private final Optional<ExamListService> examListService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getExamList(
-            @RequestParam String from,
-            @RequestParam String to
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
-        validateDate(from, "from");
-        validateDate(to, "to");
-        return ResponseEntity.ok(ApiResponse.ok(examListService.getExamList(from, to)));
+        StatsRequestValidator.validateDateRange(from, to, MAX_RANGE_DAYS);
+        return examListService
+                .map(service -> ResponseEntity.ok(ApiResponse.ok(service.getExamList(from.toString(), to.toString()))))
+                .orElseGet(ExamListController::realDataUnavailable);
     }
 
-    private void validateDate(String value, String field) {
-        if (value == null || !value.matches("\\d{4}-\\d{2}-\\d{2}")) {
-            throw new IllegalArgumentException(field + " 파라미터는 'YYYY-MM-DD' 형식이어야 합니다.");
-        }
+    private static ResponseEntity<ApiResponse<List<Map<String, Object>>>> realDataUnavailable() {
+        return ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다."));
     }
 }

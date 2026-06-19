@@ -4,7 +4,6 @@ import com.bviit.analytics.dto.ApiResponse;
 import com.bviit.analytics.dto.stats.B2bRevenueMonthlyItem;
 import com.bviit.analytics.service.stats.B2bRevenueStatsService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.context.annotation.Profile;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,14 +11,14 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Optional;
 
 @RestController
-@Profile("mssql")
 @RequestMapping("/api/stats")
 @RequiredArgsConstructor
 public class B2bRevenueStatsController {
 
-    private final B2bRevenueStatsService b2bRevenueStatsService;
+    private final Optional<B2bRevenueStatsService> b2bRevenueStatsService;
 
     @GetMapping("/b2b-revenue")
     public ResponseEntity<ApiResponse<List<B2bRevenueMonthlyItem>>> getMonthlyRevenue(
@@ -27,6 +26,11 @@ public class B2bRevenueStatsController {
     ) {
         StatsRequestValidator.validateYears(years);
 
-        return ResponseEntity.ok(ApiResponse.ok(b2bRevenueStatsService.getMonthlyRevenue(years)));
+        return StatsPanelSupport.resolve(
+                false,
+                b2bRevenueStatsService,
+                service -> service.getMonthlyRevenue(years),
+                List::of
+        );
     }
 }
