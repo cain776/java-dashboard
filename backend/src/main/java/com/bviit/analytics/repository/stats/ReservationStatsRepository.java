@@ -44,7 +44,7 @@ public class ReservationStatsRepository {
                 SUM(CASE WHEN RESERVE_FLAG = 'F' THEN 1 ELSE 0 END) AS completedExaminations,
                 SUM(CASE WHEN RESERVE_STATE = 'C' THEN 1 ELSE 0 END) AS cancellations,
                 SUM(CASE WHEN TODAY_FLAG = 'Y' THEN 1 ELSE 0 END) AS walkInReservations
-            FROM RESERVATION
+            FROM RESERVATION WITH(NOLOCK)
             WHERE RESERVE_DATE >= :from AND RESERVE_DATE <= :to
             """;
         return jdbc.queryForMap(sql, dateParams(from, to));
@@ -67,7 +67,7 @@ public class ReservationStatsRepository {
                 COUNT(*) AS reservations,
                 SUM(CASE WHEN RESERVE_FLAG = 'F' THEN 1 ELSE 0 END) AS examinations,
                 SUM(CASE WHEN RESERVE_STATE = 'C' THEN 1 ELSE 0 END) AS cancellations
-            FROM RESERVATION
+            FROM RESERVATION WITH(NOLOCK)
             WHERE RESERVE_DATE >= :from AND RESERVE_DATE <= :to
             GROUP BY RESERVE_DATE
             ORDER BY RESERVE_DATE
@@ -93,7 +93,7 @@ public class ReservationStatsRepository {
                     ELSE 'referral'
                 END AS source,
                 COUNT(*) AS count
-            FROM RESERVATION
+            FROM RESERVATION WITH(NOLOCK)
             WHERE RESERVE_DATE >= :from AND RESERVE_DATE <= :to
                 AND RESERVE_STATE <> 'C'
             GROUP BY
@@ -132,7 +132,7 @@ public class ReservationStatsRepository {
                 SUM(CASE WHEN r.RESERVE_FLAG = 'O' THEN 1 ELSE 0 END) AS surgery,
                 SUM(CASE WHEN r.RESERVE_JINRYO = '2' THEN 1 ELSE 0 END) AS outpatient,
                 SUM(CASE WHEN r.RESERVE_FLAG = 'D' THEN 1 ELSE 0 END) AS dreamlens
-            FROM RESERVATION r
+            FROM RESERVATION r WITH(NOLOCK)
             WHERE r.RESERVE_DATE >= :from AND r.RESERVE_DATE <= :to
                 AND r.RESERVE_STATE <> 'C'
             GROUP BY YEAR(r.RESERVE_DATE), MONTH(r.RESERVE_DATE)
@@ -150,7 +150,7 @@ public class ReservationStatsRepository {
             SELECT
                 LEFT(RTRIM(START_TIME), 2) + ':00' AS slot,
                 COUNT(*) AS count
-            FROM RESERVATION
+            FROM RESERVATION WITH(NOLOCK)
             WHERE RESERVE_DATE >= :from AND RESERVE_DATE <= :to
                 AND RESERVE_STATE <> 'C'
                 AND START_TIME IS NOT NULL

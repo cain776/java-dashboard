@@ -95,8 +95,8 @@ public class SurgeryStatsRepository {
                 + classifyCase.replace("op_code", "o.OPERATIONR") +
                 """
                          AS op_type
-                    FROM OPERATIONDATA o
-                    LEFT JOIN CUSTOM cu ON cu.CUST_NUM = o.CUST_NUM
+                    FROM OPERATIONDATA o WITH(NOLOCK)
+                    LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = o.CUST_NUM
                     WHERE o.OPERATION_DATE >= :from AND o.OPERATION_DATE <= :to
                       AND o.OPERATIONR IS NOT NULL AND RTRIM(o.OPERATIONR) <> ''
                       AND o.OPERATIONR NOT IN ('X','OP불가','모든수술가능','op x','Strabismus','TEST-TEST')
@@ -116,8 +116,8 @@ public class SurgeryStatsRepository {
                 + classifyCase.replace("op_code", "o.OPERATIONL") +
                 """
                          AS op_type
-                    FROM OPERATIONDATA o
-                    LEFT JOIN CUSTOM cu ON cu.CUST_NUM = o.CUST_NUM
+                    FROM OPERATIONDATA o WITH(NOLOCK)
+                    LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = o.CUST_NUM
                     WHERE o.OPERATION_DATE >= :from AND o.OPERATION_DATE <= :to
                       AND o.OPERATIONL IS NOT NULL AND RTRIM(o.OPERATIONL) <> ''
                       AND o.OPERATIONL NOT IN ('X','OP불가','모든수술가능','op x','Strabismus','TEST-TEST')
@@ -184,8 +184,8 @@ public class SurgeryStatsRepository {
                 + classifyCase.replace("op_code", "c.OPERATIONR") +
                 """
                          AS cat_type
-                    FROM Cataract_Operationdata c
-                    LEFT JOIN CUSTOM cu ON cu.CUST_NUM = c.CUST_NUM
+                    FROM Cataract_Operationdata c WITH(NOLOCK)
+                    LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = c.CUST_NUM
                     WHERE c.OPERATIONR_DATE >= :from AND c.OPERATIONR_DATE <= :to
                       AND c.OPERATIONR IS NOT NULL AND RTRIM(c.OPERATIONR) <> ''
                       AND c.OPERATIONR NOT IN ('X','OP불가','TEST-TEST')
@@ -201,8 +201,8 @@ public class SurgeryStatsRepository {
                 + classifyCase.replace("op_code", "c.OPERATIONL") +
                 """
                          AS cat_type
-                    FROM Cataract_Operationdata c
-                    LEFT JOIN CUSTOM cu ON cu.CUST_NUM = c.CUST_NUM
+                    FROM Cataract_Operationdata c WITH(NOLOCK)
+                    LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = c.CUST_NUM
                     WHERE c.OPERATIONL_DATE >= :from AND c.OPERATIONL_DATE <= :to
                       AND c.OPERATIONL IS NOT NULL AND RTRIM(c.OPERATIONL) <> ''
                       AND c.OPERATIONL NOT IN ('X','OP불가','TEST-TEST')

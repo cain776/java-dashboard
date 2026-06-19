@@ -8,8 +8,9 @@
 |------|------|------|
 | [prd.html](prd.html) | HTML (인터랙티브) | **PRD 통합 문서** — 상단 탭으로 `PRD · Features · User Flow · Wireframe` 전환. 브라우저로 열어서 봅니다. |
 | [dashboard-spec.md](dashboard-spec.md) | Markdown | **대시보드 기획서** — 개요·데이터 소스(MSSQL READ ONLY)·메뉴/화면·인증·통계 API·구현 현황. (노션과 동기화본) |
-| [menu-route-api-draft.md](menu-route-api-draft.md) | Markdown | 프론트–백엔드 병행 개발용 **메뉴·라우트·API 계약 초안** (원본 draft) |
-| [service-planning-team-kpi.md](service-planning-team-kpi.md) | Markdown | 서비스기획팀 **KPI 기획서** (팀 단위 KPI 체계, 별도 주제) |
+| [report-chart-status.md](report-chart-status.md) | Markdown | **월간/주간 레포트 28개 도표 현황 + 레거시 검증** (✅완료/🟡비교/🟥미완성, 1~4월 실측 차이) |
+
+> 폐기/이동: `menu-route-api-draft.md`(초안)는 dashboard-spec로 일원화되어 [`../archive/`](../archive/)로 이동됨. `report-chart-legacy-diff.md`는 report-chart-status.md에 병합됨. 서비스기획팀 KPI 기획서(대시보드와 별도 주제)는 [`../팀-kpi/`](../팀-kpi/)로 분리됨.
 
 ## prd.html 구성 (탭)
 

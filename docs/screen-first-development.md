@@ -10,6 +10,9 @@ At the current stage, the priority is:
 3. keep local execution possible without PostgreSQL
 4. connect the real database later with minimal rewrite
 
+> **Local 3-tier DB strategy**: H2 in-memory (auth/User only) · SQLite `.db` (statistics dummy data) · MSSQL (production, `@Profile("mssql")`).
+> Statistics dummy-data setup is documented in [sqlite-mock-data-guide.md](sqlite-mock-data-guide.md); local/production run steps in [deployment-local.md](deployment-local.md).
+
 ## Working Agreement
 
 - Frontend drives the first iteration.

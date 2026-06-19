@@ -16,6 +16,9 @@
 - H2는 인증(User 엔티티) 전용으로 유지
 - 통계 더미 데이터는 모두 SQLite `.db` 파일로 관리
 
+> **로컬 3계층 DB 전략**: H2(인증) · SQLite(통계 더미) · MSSQL(운영, `@Profile("mssql")`).
+> 개발 원칙은 [screen-first-development.md](screen-first-development.md), 실행 방법은 [deployment-local.md](deployment-local.md) 참조.
+
 ---
 
 ## 2. 현재 구조
