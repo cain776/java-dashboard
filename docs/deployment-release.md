@@ -1,5 +1,7 @@
 # 운영 배포 가이드
 
+> **배포 문서 3종 — 읽는 순서**: ① [전략·CI](deployment-strategy.md) → ② [로컬 개발 실행](deployment-local.md) → ③ **운영 배포(이 문서)**
+
 ## 개요
 
 이 문서는 `main` 브랜치에서 생성된 GitHub Actions 배포 아티팩트를 내부 PC에 적용하는 방법을 설명합니다.

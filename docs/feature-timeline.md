@@ -3,7 +3,7 @@
 > **문서 버전**: v1.0
 > **작성일**: 2026-04-13
 > **기준**: 12주(W) 스프린트
-> **상태**: 초안 (Draft)
+> **상태**: 초안 (Draft) — ⚠️ 2026-04 기준 계획표로, 이후 다수 통계 API가 구현됨. **현재 실제 구현 현황은 [기획/report-chart-status.md](기획/report-chart-status.md)와 `frontend/src/config/navigation.ts` 상태 맵을 기준**으로 확인할 것.
 
 ---
 
