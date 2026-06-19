@@ -222,6 +222,17 @@ export function CataractExamListPage() {
     })
   }, [rows, queryType, queryKeyword])
 
+  // 적절IOL(R/L) 추천 입력 건수 — 검사건수(눈 단위)와 동일 기준. 리스트 행수(사람)와 헷갈림 방지용.
+  const iolCounts = useMemo(() => {
+    let r = 0
+    let l = 0
+    for (const row of filtered) {
+      if (row.recommendedR && row.recommendedR.trim()) r += 1
+      if (row.recommendedL && row.recommendedL.trim()) l += 1
+    }
+    return { r, l, total: r + l }
+  }, [filtered])
+
   const sortedRows = useMemo(() => {
     if (!sortState) return filtered
     return filtered
@@ -410,6 +421,17 @@ export function CataractExamListPage() {
         <div className="flex h-8 items-center gap-2 rounded-md border border-border/80 bg-white px-3 text-xs" aria-live="polite">
           <span className="text-muted-foreground">조회건수</span>
           <strong className="tabular-nums text-gray-900">{formatCount(filtered.length)}건</strong>
+        </div>
+        <div
+          className="flex h-8 items-center gap-2.5 rounded-md border border-amber-300 bg-amber-100 px-3 text-xs"
+          aria-live="polite"
+          title="적절IOL(R/L)이 입력된 검사건수 — 검사건수(눈 단위) 기준. 리스트 행수(사람)와 다릅니다."
+        >
+          <span className="font-medium text-amber-700">검사건수(IOL)</span>
+          <span className="text-amber-800">R <strong className="tabular-nums text-amber-900">{formatCount(iolCounts.r)}</strong></span>
+          <span className="text-amber-800">L <strong className="tabular-nums text-amber-900">{formatCount(iolCounts.l)}</strong></span>
+          <span className="h-3.5 w-px bg-amber-300" />
+          <span className="text-amber-800">합계 <strong className="tabular-nums text-amber-900">{formatCount(iolCounts.total)}건</strong></span>
         </div>
         <div className="ml-auto flex items-center gap-1.5">
           <Button type="button" variant="outline" size="sm" className="text-xs" onClick={handleReset}>

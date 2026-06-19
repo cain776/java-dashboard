@@ -1,7 +1,7 @@
 import type { LucideIcon } from 'lucide-react'
 import {
-  Home, CalendarCheck, Microscope, Stethoscope, Syringe,
-  Hospital, Megaphone, Ban, BadgeDollarSign, MoreHorizontal,
+  Home, Table2, CalendarCheck, Microscope, Stethoscope, Syringe,
+  Hospital, Megaphone, Ban, BadgeDollarSign, MoreHorizontal, FileText,
 } from 'lucide-react'
 
 export type MenuStatus = 'complete' | 'backend-only' | 'pending'
@@ -61,6 +61,42 @@ export const getStatsPageById = (id: string): StatsPageDefinition => {
 
 export const statsPages: StatsPageDefinition[] = [
   statsPage(
+    'weekly-report',
+    '주간 레포트',
+    '/report/weekly',
+    'report-group',
+    'Report',
+    '한 주간의 핵심 KPI(예약·검사·수술·전환율 등)를 요약한 주간 리포트입니다.',
+    '/api/report/weekly'
+  ),
+  statsPage(
+    'monthly-report',
+    '월간 레포트',
+    '/report/monthly',
+    'report-group',
+    'Report',
+    '한 달간의 핵심 KPI(예약·검사·수술·전환율 등)를 요약한 월간 리포트입니다.',
+    '/api/report/monthly'
+  ),
+  statsPage(
+    'overall-exam',
+    '월별 검사자 종합지표',
+    '/stats/overall-exam',
+    'overall-group',
+    '전체지표',
+    '총검사자와 소개유형·직업 구성을 월별로 정리한 종합표입니다. 2024·2025년 확정값, 2026년부터 운영 DB 집계 예정.',
+    '/api/stats/overall-exam'
+  ),
+  statsPage(
+    'overall-exam-weekly',
+    '주간 검사자 종합지표',
+    '/stats/overall-exam-weekly',
+    'overall-group',
+    '전체지표',
+    '월별 종합표와 동일한 35칼럼을 주(월~일, 월 경계 클립) 단위로 운영 DB에서 라이브 집계한 종합표입니다.',
+    '/api/stats/overall-exam/weekly'
+  ),
+  statsPage(
     'intake-conversion',
     '유입(검사예약)',
     '/stats/intake-conversion',
@@ -77,6 +113,15 @@ export const statsPages: StatsPageDefinition[] = [
     '예약',
     '예약 유입 규모와 일자별 변화 추이를 확인하는 화면입니다.',
     '/api/stats/reservation'
+  ),
+  statsPage(
+    'reservation-overall',
+    '예약 종합',
+    '/stats/reservation-overall',
+    'reservation-group',
+    '예약',
+    '콜·온라인 채널을 합산한 검사예약 종합 건수를 월별·연도별로 비교하는 화면입니다.',
+    '/api/stats/reservation-overall'
   ),
   statsPage(
     'exam-list',
@@ -151,6 +196,15 @@ export const statsPages: StatsPageDefinition[] = [
     '/api/stats/cataract-reservation-rate'
   ),
   statsPage(
+    'stop-reason',
+    '중단 사유',
+    '/stats/stop-reason',
+    'consultation',
+    '전환&성공률',
+    '검사 중단(STOP_YN) 건을 사유별로 분류해 연·월별로 확인하는 화면입니다. 검사메모의 공백·약어·표기 차이를 보정한 키워드 자동분류 기준.',
+    '/api/stats/stop-reason'
+  ),
+  statsPage(
     'surgery-list',
     '수술자 리스트',
     '/stats/surgery-list',
@@ -175,6 +229,15 @@ export const statsPages: StatsPageDefinition[] = [
     'surgery-ratio',
     '주요 수술별 비중',
     '주요 수술 종류별 비중과 분포를 보여주는 화면입니다.',
+    '/api/stats/surgery-ratio'
+  ),
+  statsPage(
+    'surgery-composition',
+    '수술별 비중',
+    '/stats/surgery-composition',
+    'surgery',
+    '수술',
+    '시술별(라섹·라식·스마일·ICL·백내장 등) 월별 수술 건수와 그룹 내 비중을 표로 보는 화면입니다.',
     '/api/stats/surgery-ratio'
   ),
   statsPage(
@@ -325,8 +388,13 @@ const findPage = (id: string) => {
  *   pending      — 백엔드·프론트 모두 미착수 (빨강)
  */
 const MENU_STATUS: Record<string, MenuStatus> = {
+  'weekly-report': 'complete',
+  'monthly-report': 'complete',
+  'overall-exam': 'complete',
+  'overall-exam-weekly': 'complete',
   'intake-conversion': 'pending',
   'reservation': 'complete',
+  'reservation-overall': 'complete',
   'exam-list': 'complete',
   'cataract-exam-list': 'complete',
   'examination': 'complete',
@@ -335,9 +403,11 @@ const MENU_STATUS: Record<string, MenuStatus> = {
   'examination-dreamlens': 'backend-only',
   'consultation-rate': 'complete',
   'cataract-reservation-rate': 'complete',
+  'stop-reason': 'complete',
   'surgery-list': 'complete',
   'surgery': 'complete',
   'surgery-ratio': 'complete',
+  'surgery-composition': 'complete',
   'outpatient-count': 'complete',
   'overseas': 'pending',
   'marketing': 'pending',
@@ -363,11 +433,25 @@ const link = (id: string): MenuLink => {
 export const menuItems: MenuItem[] = [
   { id: 'home', label: 'HOME', href: '/', icon: Home },
   {
+    id: 'report-group',
+    label: 'Report',
+    href: '#',
+    icon: FileText,
+    children: [link('weekly-report'), link('monthly-report')],
+  },
+  {
+    id: 'overall-group',
+    label: '전체지표',
+    href: '#',
+    icon: Table2,
+    children: [link('overall-exam'), link('overall-exam-weekly')],
+  },
+  {
     id: 'reservation-group',
     label: '예약',
     href: '#',
     icon: CalendarCheck,
-    children: [link('intake-conversion'), link('reservation')],
+    children: [link('intake-conversion'), link('reservation'), link('reservation-overall')],
   },
   {
     id: 'exam-group',
@@ -388,14 +472,14 @@ export const menuItems: MenuItem[] = [
     label: '전환&성공률',
     href: '#',
     icon: Stethoscope,
-    children: [link('consultation-rate'), link('cataract-reservation-rate')],
+    children: [link('consultation-rate'), link('cataract-reservation-rate'), link('stop-reason')],
   },
   {
     id: 'surgery-group',
     label: '수술',
     href: '#',
     icon: Syringe,
-    children: [link('surgery-list'), link('surgery'), link('surgery-ratio')],
+    children: [link('surgery-list'), link('surgery'), link('surgery-ratio'), link('surgery-composition')],
   },
   {
     id: 'outpatient',
