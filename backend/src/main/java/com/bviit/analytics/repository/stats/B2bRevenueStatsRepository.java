@@ -134,9 +134,9 @@ public class B2bRevenueStatsRepository {
                 __COST_SELECT__,
                         c.CUST_NUM,
                         mo.recommender01
-                    FROM OPERATIONDATA op
-                    LEFT JOIN Cataract_Operationdata co ON op.CUST_NUM = co.CUST_NUM
-                    JOIN CUSTOM c ON c.CUST_NUM = op.CUST_NUM
+                    FROM OPERATIONDATA op WITH(NOLOCK)
+                    LEFT JOIN Cataract_Operationdata co WITH(NOLOCK) ON op.CUST_NUM = co.CUST_NUM
+                    JOIN CUSTOM c WITH(NOLOCK) ON c.CUST_NUM = op.CUST_NUM
                     LEFT JOIN (
                 __MOTIVE_SUBQUERY__
                     ) mo ON mo.cust_num = op.CUST_NUM
@@ -181,13 +181,13 @@ public class B2bRevenueStatsRepository {
                         c.CUST_NUM,
                         mo.recommender01
                     FROM (
-                        SELECT OPERATIONL_DATE AS OPERATION_DATE, * FROM Cataract_Operationdata
+                        SELECT OPERATIONL_DATE AS OPERATION_DATE, * FROM Cataract_Operationdata WITH(NOLOCK)
                         WHERE ISNULL(OPERATIONL_DATE, '') <> ''
                         UNION ALL
-                        SELECT OPERATIONR_DATE AS OPERATION_DATE, * FROM Cataract_Operationdata
+                        SELECT OPERATIONR_DATE AS OPERATION_DATE, * FROM Cataract_Operationdata WITH(NOLOCK)
                         WHERE ISNULL(OPERATIONR_DATE, '') <> ''
                     ) op
-                    JOIN CUSTOM c ON c.CUST_NUM = op.CUST_NUM
+                    JOIN CUSTOM c WITH(NOLOCK) ON c.CUST_NUM = op.CUST_NUM
                     LEFT JOIN (
                 __MOTIVE_SUBQUERY__
                     ) mo ON mo.cust_num = op.CUST_NUM
@@ -230,9 +230,9 @@ public class B2bRevenueStatsRepository {
                 __COST_SELECT__,
                         c.CUST_NUM,
                         mo.recommender01
-                    FROM Cataract_Exam ex
-                    JOIN CUSTOM c ON c.CUST_NUM = ex.CUST_NUM
-                    JOIN MOTIVE_NEW01 mo ON mo.cust_num = ex.CUST_NUM
+                    FROM Cataract_Exam ex WITH(NOLOCK)
+                    JOIN CUSTOM c WITH(NOLOCK) ON c.CUST_NUM = ex.CUST_NUM
+                    JOIN MOTIVE_NEW01 mo WITH(NOLOCK) ON mo.cust_num = ex.CUST_NUM
                     WHERE ex.EXAM_DATE >= :from AND ex.EXAM_DATE <= :to
                       AND (
                           mo.motive01 LIKE '%B2B(기업)%'
@@ -262,8 +262,8 @@ public class B2bRevenueStatsRepository {
                     END AS motive02,
                     a.recommender01,
                     a.cust_num
-                FROM MOTIVE_NEW01 a
-                JOIN MOTIVE_NEW02 b ON a.cust_num = b.cust_num
+                FROM MOTIVE_NEW01 a WITH(NOLOCK)
+                JOIN MOTIVE_NEW02 b WITH(NOLOCK) ON a.cust_num = b.cust_num
                 """;
     }
 
@@ -322,14 +322,14 @@ public class B2bRevenueStatsRepository {
                 """
                 ISNULL((
                     SELECT SUM(pr.PrcItmQty * pr.PrcItmPrc)
-                    FROM COSTPRICE aa
-                    LEFT JOIN PrcItmLst pr ON aa.CUST_NUM = pr.PrcCusNum AND aa.SEQ = pr.prcseq
+                    FROM COSTPRICE aa WITH(NOLOCK)
+                    LEFT JOIN PrcItmLst pr WITH(NOLOCK) ON aa.CUST_NUM = pr.PrcCusNum AND aa.SEQ = pr.prcseq
                     WHERE aa.CUST_NUM = __CUSTOMER_EXPRESSION__
                       AND aa.PayStt <> 'a'
                       AND aa.COST_DATE = (
                           SELECT MAX(y.COST_DATE)
-                          FROM COSTPRICE y
-                          LEFT JOIN PrcItmLst z ON y.CUST_NUM = z.PrcCusNum AND y.SEQ = z.prcseq
+                          FROM COSTPRICE y WITH(NOLOCK)
+                          LEFT JOIN PrcItmLst z WITH(NOLOCK) ON y.CUST_NUM = z.PrcCusNum AND y.SEQ = z.prcseq
                           WHERE y.CUST_NUM = __CUSTOMER_EXPRESSION__
                             AND y.PayStt <> 'a'
                             AND z.PrcCod = pr.PrcCod
@@ -352,8 +352,8 @@ public class B2bRevenueStatsRepository {
                 """
                 ISNULL((
                     SELECT SUM(pr.PrcItmQty * pr.PrcItmPrc)
-                    FROM COSTPRICE aa
-                    LEFT JOIN PrcItmLst pr ON aa.CUST_NUM = pr.PrcCusNum AND aa.SEQ = pr.prcseq
+                    FROM COSTPRICE aa WITH(NOLOCK)
+                    LEFT JOIN PrcItmLst pr WITH(NOLOCK) ON aa.CUST_NUM = pr.PrcCusNum AND aa.SEQ = pr.prcseq
                     WHERE aa.CUST_NUM = __CUSTOMER_EXPRESSION__
                       AND aa.PayStt <> 'a'
                       AND pr.PrcCod IN (__PRC_CODES__)

@@ -50,16 +50,16 @@ public class ConsultationRateRepository {
                      THEN 1 ELSE 0 END) AS counselCount,
                 SUM(CASE WHEN rs.MIN_RSV_DATE IS NOT NULL THEN 1 ELSE 0 END) AS surgeryBookedCount,
                 SUM(CASE WHEN mo.MIN_OP_DATE IS NOT NULL THEN 1 ELSE 0 END) AS actualSurgeryCount
-            FROM EXAM E
+            FROM EXAM E WITH(NOLOCK)
             LEFT JOIN (
                 SELECT CUST_NUM, MIN(RESERVE_DATE) AS MIN_RSV_DATE
-                  FROM RESERVATION
+                  FROM RESERVATION WITH(NOLOCK)
                  WHERE RESERVE_FLAG = 'O' AND RESERVE_STATE <> 'C'
                  GROUP BY CUST_NUM
             ) rs ON rs.CUST_NUM = E.CUST_NUM
             LEFT JOIN (
                 SELECT CUST_NUM, MIN(OPERATION_DATE) AS MIN_OP_DATE
-                  FROM OPERATIONDATA
+                  FROM OPERATIONDATA WITH(NOLOCK)
                  GROUP BY CUST_NUM
             ) mo ON mo.CUST_NUM = E.CUST_NUM
             WHERE E.EXAM_DATE >= :from AND E.EXAM_DATE <= :to
@@ -85,11 +85,11 @@ public class ConsultationRateRepository {
                 COUNT(DISTINCT CASE WHEN B.MY_optometrist IS NOT NULL
                                      AND B.MY_optometrist <> ''
                                      AND B.MY_COUNSELOR = 'BS0808' THEN D.CUST_NUM END) AS stoppedCount
-            FROM RESERVATION D
-            INNER JOIN CUSTOM B ON B.CUST_NUM = D.CUST_NUM
+            FROM RESERVATION D WITH(NOLOCK)
+            INNER JOIN CUSTOM B WITH(NOLOCK) ON B.CUST_NUM = D.CUST_NUM
             LEFT JOIN (
                 SELECT CUST_NUM, MIN(RESERVE_DATE) AS MIN_OP_RSV
-                  FROM RESERVATION
+                  FROM RESERVATION WITH(NOLOCK)
                  WHERE RESERVE_FLAG = 'O' AND RESERVE_JINRYO = '4' AND RESERVE_STATE <> 'C'
                  GROUP BY CUST_NUM
             ) op ON op.CUST_NUM = D.CUST_NUM

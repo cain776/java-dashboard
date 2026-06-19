@@ -51,7 +51,7 @@ public class IntakeConversionStatsRepository {
                 SUM(CASE WHEN RTRIM(ISNULL(r.RESERVE_PATH, '')) = 'KAKAO' THEN 1 ELSE 0 END) AS kakao,
                 SUM(CASE WHEN RTRIM(ISNULL(r.RESERVE_PATH, '')) = 'NAVER' THEN 1 ELSE 0 END) AS naver,
                 SUM(CASE WHEN RTRIM(ISNULL(r.RESERVE_PATH, '')) IN ('ONLINE', 'APP') THEN 1 ELSE 0 END) AS homepage
-            FROM RESERVATION r
+            FROM RESERVATION r WITH(NOLOCK)
             WHERE r.RESERVE_DATE >= :from AND r.RESERVE_DATE <= :to
                 AND r.RESERVE_STATE <> 'C'
                 AND r.RESERVE_FLAG IN ('M', 'H', 'D', 'F')
