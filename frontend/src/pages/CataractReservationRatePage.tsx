@@ -27,8 +27,8 @@ const RATE_TABS: { key: RateTabKey; label: string; title: string; description: s
   {
     key: 'cataract',
     label: '백내장 예약률',
-    title: '백내장 예약률 (수술예약건/검사자)',
-    description: '백내장 검사자 대비 수술예약건 비율입니다.',
+    title: '백내장 예약률 (수술예약건/백내장 진단자)',
+    description: '백내장 검사 결과 좌·우 중 한쪽 이상 백내장으로 진단된 사람 대비 수술예약자 비율입니다.',
   },
 ]
 
