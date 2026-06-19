@@ -10,14 +10,14 @@ import {
 import { MONTHS } from '@/constants/chart'
 import { formatAxisNumber } from '@/utils/stats'
 
-/** 월간보고 PDF 색상: 2024 연파랑 · 2025 진회색 · 2026 빨강 */
-const YEAR_COLORS: Record<number, string> = {
-  2024: '#9CC3D5',
-  2025: '#595959',
-  2026: '#E11D2E',
-}
+/**
+ * 월간보고 PDF 색상 — 절대연도가 아닌 '당해연도 대비 위치'로 매핑(연도가 넘어가도 자동 유지).
+ * 당해연도(기준) = 빨강 · 전년도 = 진회색 · 전전년도 = 연파랑
+ */
+const REPORT_YEAR_COLORS = ['#E11D2E', '#595959', '#9CC3D5']
 
-const colorOf = (year: number) => YEAR_COLORS[year] ?? '#6B7280'
+/** latest = 당해연도(기준). latest-year(0=당해·1=전년·2=전전년)로 색을 고른다. */
+const colorOf = (year: number, latest: number) => REPORT_YEAR_COLORS[latest - year] ?? '#6B7280'
 
 export interface ReportLineChartProps {
   title: string
@@ -46,10 +46,10 @@ export function ReportLineChart({ title, suffix, years, data, format = 'number' 
   const chartConfig = useMemo<ChartConfig>(() => {
     const config: ChartConfig = {}
     sorted.forEach((y) => {
-      config[`y${y}`] = { label: `${y}`, color: colorOf(y) }
+      config[`y${y}`] = { label: `${y}`, color: colorOf(y, latest) }
     })
     return config
-  }, [sorted])
+  }, [sorted, latest])
 
   const chartData = useMemo(
     () =>
@@ -75,9 +75,9 @@ export function ReportLineChart({ title, suffix, years, data, format = 'number' 
             <span
               key={y}
               className="flex items-center gap-1.5 text-sm font-bold"
-              style={{ color: y === latest ? colorOf(y) : '#374151' }}
+              style={{ color: y === latest ? colorOf(y, latest) : '#374151' }}
             >
-              <span className="h-[3px] w-7 rounded-full" style={{ backgroundColor: colorOf(y) }} />
+              <span className="h-[3px] w-7 rounded-full" style={{ backgroundColor: colorOf(y, latest) }} />
               {y}
             </span>
           ))}
@@ -107,7 +107,7 @@ export function ReportLineChart({ title, suffix, years, data, format = 'number' 
                 key={y}
                 type="monotone"
                 dataKey={`y${y}`}
-                stroke={colorOf(y)}
+                stroke={colorOf(y, latest)}
                 strokeWidth={y === latest ? 3 : 2.5}
                 dot={false}
                 connectNulls={false}
@@ -117,7 +117,7 @@ export function ReportLineChart({ title, suffix, years, data, format = 'number' 
                     ? {
                         position: 'bottom',
                         offset: 16,
-                        fill: colorOf(y),
+                        fill: colorOf(y, latest),
                         fontSize: 14,
                         fontWeight: 700,
                         formatter: (value: unknown) =>
@@ -157,7 +157,7 @@ export function ReportLineChart({ title, suffix, years, data, format = 'number' 
                 const summary = summarize(y)
                 return (
                   <tr key={y} className="border-b border-border">
-                    <td className="py-1.5 font-semibold" style={{ color: y === latest ? colorOf(y) : undefined }}>
+                    <td className="py-1.5 font-semibold" style={{ color: y === latest ? colorOf(y, latest) : undefined }}>
                       {y}
                     </td>
                     {MONTHS.map((_, i) => {

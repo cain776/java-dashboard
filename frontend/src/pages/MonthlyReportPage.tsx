@@ -21,6 +21,7 @@ import { MONTHLY_LEGACY_CHARTS } from '@/data/monthlyReportLegacy'
 import { CURRENT_YEAR, MONTHS } from '@/constants/chart'
 import { formatAxisNumber } from '@/utils/stats'
 
+// 월간 레포트는 항상 3개년 비교: 전전년도 · 전년도 · 당해연도(=기준연도)
 const YEARS = [CURRENT_YEAR - 2, CURRENT_YEAR - 1, CURRENT_YEAR]
 
 const now = new Date()
@@ -321,7 +322,9 @@ export function MonthlyReportPage() {
           <div>
             <h1 className="text-xl font-bold text-foreground">월간 레포트</h1>
             <p className="text-sm text-muted-foreground">
-              {periodLabel} 기준 · 2024·2025 확정값 + 2026 운영 DB 라이브
+              {periodLabel} 기준 · 당해연도({CURRENT_YEAR})·전년도({CURRENT_YEAR - 1})·전전년도({CURRENT_YEAR - 2}) 3개년 비교
+              {' · '}
+              {CURRENT_YEAR - 2}·{CURRENT_YEAR - 1} 확정값 + {CURRENT_YEAR} 운영 DB 라이브
             </p>
           </div>
           <button
