@@ -53,13 +53,20 @@ public class ProcedureExamStatsService {
     public List<ProcedureExamMonthlyItem> getMonthlyStats(List<Integer> years) {
         List<Integer> normalizedYears = years.stream().distinct().sorted().toList();
 
-        int minYear = normalizedYears.stream().mapToInt(Integer::intValue).min().orElse(2025);
-        int maxYear = normalizedYears.stream().mapToInt(Integer::intValue).max().orElse(2026);
-        String from = minYear + "-01-01";
-        String to = maxYear + "-12-31";
+        // 2024·2025는 레거시 확정값으로 덮어쓰므로(아래 legacy*Count) DB는 레거시 미보유 연도만 조회한다.
+        // 두 레거시 맵의 키가 동일(2024·2025)하므로 한쪽 기준으로 필터해도 안전. 전 구간 풀스캔 회피.
+        List<Integer> dbYears = normalizedYears.stream()
+                .filter(y -> !LEGACY_EXAM_COUNT.containsKey(y))
+                .toList();
 
-        Map<String, Integer> dbCounts = countsByMonth(repository.findTotalExamCountMonthly(from, to));
-        Map<String, Integer> dbOneDayCounts = countsByMonth(repository.findOneDayExamCountMonthly(from, to));
+        Map<String, Integer> dbCounts = Map.of();
+        Map<String, Integer> dbOneDayCounts = Map.of();
+        if (!dbYears.isEmpty()) {
+            String from = dbYears.get(0) + "-01-01";
+            String to = dbYears.get(dbYears.size() - 1) + "-12-31";
+            dbCounts = countsByMonth(repository.findTotalExamCountMonthly(from, to));
+            dbOneDayCounts = countsByMonth(repository.findOneDayExamCountMonthly(from, to));
+        }
 
         LinkedHashMap<String, ProcedureExamMonthlyItem> map =
                 MonthlyBuckets.initialize(normalizedYears, this::emptyMonthlyItem);
