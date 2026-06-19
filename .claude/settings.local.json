@@ -15,7 +15,11 @@
       "mcp__plugin_figma_figma__get_screenshot",
       "PowerShell(curl -o \"$env:TEMP\\\\figma_capture_check.png\" \"https://www.figma.com/api/mcp/asset/5bc6792e-8ba2-4b02-8dc4-8758c51935a2\" 2>$null; \"saved to $env:TEMP\\\\figma_capture_check.png\")",
       "mcp__plugin_figma_figma__get_libraries",
-      "mcp__plugin_figma_figma__search_design_system"
+      "mcp__plugin_figma_figma__search_design_system",
+      "Skill(run)",
+      "Skill(run:*)",
+      "PowerShell(node --version; New-Item -ItemType Directory -Force -Path c:\\\\tmp\\\\pwverify | Out-Null; cd c:\\\\tmp\\\\pwverify; if \\(-not \\(Test-Path package.json\\)\\) { npm init -y | Out-Null }; npm i playwright-core 2>&1 | Select-Object -Last 5)",
+      "PowerShell($env:VITE_BACKEND_URL = 'http://localhost:18080'; $env:VITE_FRONTEND_PORT = '15173'; cd c:\\\\workspace\\\\java_dashboard\\\\frontend; npm run dev 2>&1 | Tee-Object -FilePath c:\\\\tmp\\\\frontend2.log)"
     ]
   },
   "enableAllProjectMcpServers": true,

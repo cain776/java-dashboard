@@ -3,9 +3,14 @@ import { ChevronDown, RotateCcw, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useSurgeryList } from '@/hooks/useSurgeryList'
+import { useWeeklyApproval } from '@/hooks/useWeeklyApproval'
+import { WeeklyApprovalPanel } from '@/components/stats/WeeklyApprovalPanel'
 import type { SurgeryListItem } from '@/api/surgeryList'
 
 const dash = (v: string) => (v && v.trim() ? v : '—')
+
+/** 주별 승인 패널의 주차 버킷 기준일 = 수술일 */
+const surgeryDateOf = (r: SurgeryListItem) => r.surgeryDate
 
 const calcAge = (birth: string) => {
   if (!/^\d{4}-\d{2}-\d{2}/.test(birth)) return '—'
@@ -209,9 +214,16 @@ export function SurgeryListPage() {
     })
   }, [rows, queryCategory, queryKeyword])
 
+  // 주별 승인(주차 버킷 + 승인/선택) — 수술일 기준. 같은 달 조회일 때만 패널 노출(weeksInRange 제약).
+  const approval = useWeeklyApproval(filtered, surgeryDateOf, queryFrom, queryTo)
+  const sameMonth = queryFrom.slice(0, 7) === queryTo.slice(0, 7)
+  const showApproval = hasSearched && !isError && !showSkeleton && sameMonth
+  // 선택 주차로 거른 행이 표/페이지네이션 소스(미선택 시 filtered 그대로)
+  const tableRows = approval.selectedRows
+
   const sortedRows = useMemo(() => {
-    if (!sortState) return filtered
-    return filtered
+    if (!sortState) return tableRows
+    return tableRows
       .map((row, index) => ({ row, index }))
       .sort((a, b) => {
         const compared = compareSortValue(
@@ -222,25 +234,23 @@ export function SurgeryListPage() {
         return a.index - b.index
       })
       .map(({ row }) => row)
-  }, [filtered, sortState])
+  }, [tableRows, sortState])
 
-  const pageMax = Math.max(1, Math.ceil(filtered.length / pageSize))
+  const pageMax = Math.max(1, Math.ceil(tableRows.length / pageSize))
   const safePage = Math.min(currentPage, pageMax)
   const paginationItems = useMemo(() => buildPaginationItems(safePage, pageMax), [safePage, pageMax])
   const visibleRows = useMemo(() => {
     const start = (safePage - 1) * pageSize
     return sortedRows.slice(start, start + pageSize)
   }, [safePage, sortedRows, pageSize])
-  const rangeStart = filtered.length === 0 ? 0 : (safePage - 1) * pageSize + 1
-  const rangeEnd = Math.min(safePage * pageSize, filtered.length)
-  const dateInputType = draftPeriodMode === 'monthly' ? 'month' : 'date'
-  const fromInputValue = draftPeriodMode === 'monthly' ? toMonthValue(draftFrom) : draftFrom
-  const toInputValue = draftPeriodMode === 'monthly' ? toMonthValue(draftTo) : draftTo
+  const rangeStart = tableRows.length === 0 ? 0 : (safePage - 1) * pageSize + 1
+  const rangeEnd = Math.min(safePage * pageSize, tableRows.length)
   const visibleQuickRanges = draftPeriodMode === 'daily' ? QUICK_RANGES : []
 
   const handleSearch = () => {
     setHasSearched(true)
     setCurrentPage(1)
+    approval.clearSelection()
     setQueryFrom(draftPeriodMode === 'monthly' ? toMonthStart(toMonthValue(draftFrom)) : draftFrom)
     setQueryTo(draftPeriodMode === 'monthly' ? toMonthEnd(toMonthValue(draftTo)) : draftTo)
     setQueryCategory(draftCategory)
@@ -260,6 +270,7 @@ export function SurgeryListPage() {
     setQueryKeyword('')
     setPageSize(50)
     setCurrentPage(1)
+    approval.reset()
     setHasSearched(false)
   }
 
@@ -317,27 +328,44 @@ export function SurgeryListPage() {
             </select>
             <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-500" />
           </div>
-          <input
-            aria-label="수술 시작일"
-            type={dateInputType}
-            value={fromInputValue}
-            onChange={(e) => {
-              setActiveQuickRange(null)
-              setDraftFrom(draftPeriodMode === 'monthly' ? toMonthStart(e.target.value) : e.target.value)
-            }}
-            className="h-8 w-[8.2rem] rounded-md border border-border/80 bg-white px-2 text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-          />
-          <span className="text-gray-400">~</span>
-          <input
-            aria-label="수술 종료일"
-            type={dateInputType}
-            value={toInputValue}
-            onChange={(e) => {
-              setActiveQuickRange(null)
-              setDraftTo(draftPeriodMode === 'monthly' ? toMonthEnd(e.target.value) : e.target.value)
-            }}
-            className="h-8 w-[8.2rem] rounded-md border border-border/80 bg-white px-2 text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
-          />
+          {draftPeriodMode === 'monthly' ? (
+            <input
+              aria-label="수술 기준 월"
+              type="month"
+              value={toMonthValue(draftFrom)}
+              onChange={(e) => {
+                if (!e.target.value) return
+                setActiveQuickRange(null)
+                setDraftFrom(toMonthStart(e.target.value))
+                setDraftTo(toMonthEnd(e.target.value))
+              }}
+              className="h-8 w-[8.2rem] rounded-md border border-border/80 bg-white px-2 text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+            />
+          ) : (
+            <>
+              <input
+                aria-label="수술 시작일"
+                type="date"
+                value={draftFrom}
+                onChange={(e) => {
+                  setActiveQuickRange(null)
+                  setDraftFrom(e.target.value)
+                }}
+                className="h-8 w-[8.2rem] rounded-md border border-border/80 bg-white px-2 text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              />
+              <span className="text-gray-400">~</span>
+              <input
+                aria-label="수술 종료일"
+                type="date"
+                value={draftTo}
+                onChange={(e) => {
+                  setActiveQuickRange(null)
+                  setDraftTo(e.target.value)
+                }}
+                className="h-8 w-[8.2rem] rounded-md border border-border/80 bg-white px-2 text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+              />
+            </>
+          )}
         </div>
         {visibleQuickRanges.length > 0 && (
           <div className="flex h-8 overflow-hidden rounded-md border border-border/80 bg-white">
@@ -382,7 +410,7 @@ export function SurgeryListPage() {
         </div>
         <div className="flex h-8 items-center gap-2 rounded-md border border-border/80 bg-white px-3 text-xs" aria-live="polite">
           <span className="text-muted-foreground">조회건수</span>
-          <strong className="tabular-nums text-gray-900">{formatCount(filtered.length)}건</strong>
+          <strong className="tabular-nums text-gray-900">{formatCount(tableRows.length)}건</strong>
         </div>
         <div className="ml-auto flex items-center gap-1.5">
           <Button type="button" variant="outline" size="sm" className="text-xs" onClick={handleReset}>
@@ -401,6 +429,18 @@ export function SurgeryListPage() {
           </Button>
         </div>
       </div>
+
+      {showApproval && (
+        <WeeklyApprovalPanel
+          weeks={approval.weeks}
+          approved={approval.approved}
+          selectedWeek={approval.selectedWeek}
+          onToggleApprove={approval.toggleApprove}
+          onSelectWeek={approval.selectWeek}
+          subtitle={`수술자 · ${queryCategory} (수술일 기준)`}
+          totalLabel="월 합계"
+        />
+      )}
 
       <Card className="min-h-0 flex-1 border-border/70 py-0 shadow-sm">
         <CardContent className="flex h-full min-h-0 flex-col px-0">
@@ -462,7 +502,7 @@ export function SurgeryListPage() {
                       </tr>
                     )
                   })}
-                  {!showSkeleton && filtered.length === 0 && (
+                  {!showSkeleton && tableRows.length === 0 && (
                     <tr>
                       <td colSpan={COLUMNS.length} className="px-3 py-12 text-center text-sm text-muted-foreground">
                         {hasSearched ? '검색 결과가 없습니다.' : '조회 조건을 선택한 뒤 조회 버튼을 눌러주세요.'}
@@ -475,7 +515,7 @@ export function SurgeryListPage() {
           )}
           <div className="flex flex-wrap items-center gap-2 rounded-b-lg bg-white px-2 py-1.5 text-xs">
             <span className="min-w-[8rem] font-semibold text-gray-800" aria-live="polite">
-              {formatCount(filtered.length)}건 중 {formatCount(rangeStart)}-{formatCount(rangeEnd)}
+              {formatCount(tableRows.length)}건 중 {formatCount(rangeStart)}-{formatCount(rangeEnd)}
             </span>
             <nav className="flex flex-1 items-center justify-center gap-1" aria-label="페이지 네비게이션">
               <Button type="button" variant="outline" size="sm" className="text-xs" disabled={safePage <= 1} onClick={() => handlePageChange(safePage - 1)}>

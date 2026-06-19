@@ -16,7 +16,10 @@ import { OverallExamWeeklyPage } from './pages/OverallExamWeeklyPage'
 import { IntakeConversionPage } from './pages/IntakeConversionPage'
 import { ReservationPage } from './pages/ReservationPage'
 import { ReservationOverallPage } from './pages/ReservationOverallPage'
+import { ReservationListPage } from './pages/ReservationListPage'
 import { ExaminationPage } from './pages/ExaminationPage'
+import { ExaminationVisionPage } from './pages/ExaminationVisionPage'
+import { ExaminationDreamlensPage } from './pages/ExaminationDreamlensPage'
 import { ProcedureExamPage } from './pages/ProcedureExamPage'
 import { ExamListPage } from './pages/ExamListPage'
 import { CataractExamListPage } from './pages/CataractExamListPage'
@@ -110,6 +113,12 @@ const reservationOverallRoute = createRoute({
   component: ReservationOverallPage,
 })
 
+const reservationListRoute = createRoute({
+  getParentRoute: () => authLayout,
+  path: '/stats/reservation-list',
+  component: ReservationListPage,
+})
+
 const examListRoute = createRoute({
   getParentRoute: () => authLayout,
   path: '/stats/exam-list',
@@ -126,6 +135,18 @@ const examinationRoute = createRoute({
   getParentRoute: () => authLayout,
   path: '/stats/examination',
   component: ExaminationPage,
+})
+
+const examinationVisionRoute = createRoute({
+  getParentRoute: () => authLayout,
+  path: '/stats/examination/vision',
+  component: ExaminationVisionPage,
+})
+
+const examinationDreamlensRoute = createRoute({
+  getParentRoute: () => authLayout,
+  path: '/stats/examination/dreamlens',
+  component: ExaminationDreamlensPage,
 })
 
 const procedureExamRoute = createRoute({
@@ -215,7 +236,7 @@ const unitPriceRoute = createRoute({
 // 나머지는 플레이스홀더
 const statsRoutes = statsPages
   .filter((page) =>
-    !['weekly-report', 'monthly-report', 'overall-exam', 'overall-exam-weekly', 'intake-conversion', 'reservation', 'reservation-overall', 'exam-list', 'cataract-exam-list', 'examination', 'procedure-exam', 'consultation-rate', 'cataract-reservation-rate', 'stop-reason', 'surgery-list', 'surgery', 'surgery-ratio', 'surgery-composition', 'outpatient-count', 'overseas', 'marketing', 'cancel-rate', 'no-show-rate', 'unit-price'].includes(
+    !['weekly-report', 'monthly-report', 'overall-exam', 'overall-exam-weekly', 'intake-conversion', 'reservation', 'reservation-overall', 'reservation-list', 'exam-list', 'cataract-exam-list', 'examination', 'examination-vision', 'examination-dreamlens', 'procedure-exam', 'consultation-rate', 'cataract-reservation-rate', 'stop-reason', 'surgery-list', 'surgery', 'surgery-ratio', 'surgery-composition', 'outpatient-count', 'overseas', 'marketing', 'cancel-rate', 'no-show-rate', 'unit-price'].includes(
       page.id,
     ),
   )
@@ -239,9 +260,12 @@ const routeTree = rootRoute.addChildren([
     intakeConversionRoute,
     reservationRoute,
     reservationOverallRoute,
+    reservationListRoute,
     examListRoute,
     cataractExamListRoute,
     examinationRoute,
+    examinationVisionRoute,
+    examinationDreamlensRoute,
     procedureExamRoute,
     consultationRateRoute,
     cataractReservationRateRoute,

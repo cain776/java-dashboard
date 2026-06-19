@@ -75,7 +75,7 @@ export const statsPages: StatsPageDefinition[] = [
     '/report/monthly',
     'report-group',
     'Report',
-    '한 달간의 핵심 KPI(예약·검사·수술·전환율 등)를 요약한 월간 리포트입니다.',
+    '한 달간의 핵심 KPI(예약·검사·수술·전환율 등)를 당해연도·전년도·전전년도 3개년으로 비교한 월간 리포트입니다.',
     '/api/report/monthly'
   ),
   statsPage(
@@ -122,6 +122,15 @@ export const statsPages: StatsPageDefinition[] = [
     '예약',
     '콜·온라인 채널을 합산한 검사예약 종합 건수를 월별·연도별로 비교하는 화면입니다.',
     '/api/stats/reservation-overall'
+  ),
+  statsPage(
+    'reservation-list',
+    '예약자 리스트',
+    '/stats/reservation-list',
+    'reservation-group',
+    '예약',
+    '예약 종합(콜·온라인) 건수를 구성하는 검사예약 인원 명단입니다. 등록일 기준 월 단위 조회 + 주별 승인 → 월별 체크(마감) 워크플로우.',
+    '/api/reservation-list'
   ),
   statsPage(
     'exam-list',
@@ -395,12 +404,13 @@ const MENU_STATUS: Record<string, MenuStatus> = {
   'intake-conversion': 'pending',
   'reservation': 'complete',
   'reservation-overall': 'complete',
+  'reservation-list': 'complete',
   'exam-list': 'complete',
   'cataract-exam-list': 'complete',
   'examination': 'complete',
   'procedure-exam': 'complete',
-  'examination-vision': 'backend-only',
-  'examination-dreamlens': 'backend-only',
+  'examination-vision': 'complete',
+  'examination-dreamlens': 'complete',
   'consultation-rate': 'complete',
   'cataract-reservation-rate': 'complete',
   'stop-reason': 'complete',
@@ -451,7 +461,7 @@ export const menuItems: MenuItem[] = [
     label: '예약',
     href: '#',
     icon: CalendarCheck,
-    children: [link('intake-conversion'), link('reservation'), link('reservation-overall')],
+    children: [link('intake-conversion'), link('reservation'), link('reservation-overall'), link('reservation-list')],
   },
   {
     id: 'exam-group',

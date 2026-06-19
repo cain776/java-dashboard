@@ -3,6 +3,7 @@
 > 대상 화면: `/report/weekly`, `/report/monthly` ([ReportPage.tsx](../../frontend/src/pages/ReportPage.tsx))
 > 원본(레거시): `◆월간보고◆_2026년_4월.pdf` (수기 엑셀 월간보고, 28개 도표)
 > 데이터: 운영 MSSQL(`SOFTCRM`) 연동 API · 포트 `18080`
+> 표시 연도: **당해연도·전년도·전전년도 3개년 비교** — `YEARS = [기준연도-2, 기준연도-1, 기준연도]` (현재 기준 2024·2025·2026, 매년 자동 이동). 전전년도·전년도는 레거시 확정값, 당해연도는 운영 DB 라이브. 색상은 절대연도가 아닌 위치 매핑(당해=빨강·전년=진회색·전전년=연파랑)이라 연도가 넘어가도 유지됨 ([MonthlyReportPage.tsx](../../frontend/src/pages/MonthlyReportPage.tsx) · [ReportLineChart.tsx](../../frontend/src/components/report/ReportLineChart.tsx)).
 > 작성/갱신: 2026-06-19 · 브랜치: `dev`
 > 목적: 월간보고 28개 도표를 **우리 대시보드 API 기준**으로 ① 상태 분류(완료/비교/미완성) ② **레거시 대비 월별 평균 차이** 산출.
 > 갱신(2026-06-19): **`overall-exam/weekly` 라이브 API 추가** — 소개유형·직업·중단·원데이/일반검사 분모분자를 운영 DB에서 일자별로 집계(월 합산 시 월값 재현). 검사유입·세그먼트 비율 도표의 데이터 근거가 생겨 🟥 9종 → 🟥 1종으로 감소.
