@@ -152,19 +152,22 @@ public class ExaminationStatsRepository {
     }
 
     /**
-     * 백내장 예약률 — 백내장 검사건수(Cataract_Exam 추천 눈 수) 안에서 수술예약이 있는 고객 수.
+     * 백내장 예약률 — 백내장 검사를 받고 좌/우 어느 한쪽이라도 백내장 진단이 있는 사람 수 대비
+     * 수술예약이 있는 사람 수.
      *
-     * 분모는 findCataractMonthly와 동일한 기준을 사용한다.
-     * RESERVATION에는 좌/우 눈 구분이 없으므로 분자는 눈 수가 아니라 검사자 리스트의
-     * 수술예약등록일 존재 여부와 같은 고객/예약 단위로 본다.
+     * 분모·분자 모두 사람(검사 1건) 단위. 양안 진단이라도 1로 카운트한다 — Excel "백내장 만(M)"
+     * 컬럼과 동일한 기준이며, 분모를 눈 수(좌+우)로 카운트하던 이전 로직은 분자(사람 단위)와
+     * 단위가 어긋나 예약률이 항상 실제보다 낮게 나오던 버그가 있었다.
      */
     public List<Map<String, Object>> findCataractReservationRateMonthly(String from, String to) {
         String sql = """
             SELECT base.yr,
                    base.mo,
-                   SUM(base.rightEye) + SUM(base.leftEye) AS examCount,
+                   SUM(CASE WHEN base.rightEye = 1 OR base.leftEye = 1
+                            THEN 1 ELSE 0 END) AS examCount,
                    SUM(CASE WHEN (base.rightEye = 1 OR base.leftEye = 1)
-                              AND base.hasSurgeryBooking = 1 THEN 1 ELSE 0 END) AS surgeryBookedCount
+                              AND base.hasSurgeryBooking = 1
+                            THEN 1 ELSE 0 END) AS surgeryBookedCount
             FROM (
                 SELECT CAST(SUBSTRING(ce.EXAM_DATE, 1, 4) AS INT) AS yr,
                        CAST(SUBSTRING(ce.EXAM_DATE, 6, 2) AS INT) AS mo,
