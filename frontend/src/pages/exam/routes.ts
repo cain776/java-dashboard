@@ -1,0 +1,17 @@
+import type { FC } from 'react'
+import { ExamListPage } from './ExamListPage'
+import { CataractExamListPage } from './CataractExamListPage'
+import { ExaminationPage } from './ExaminationPage'
+import { ProcedureExamPage } from './ProcedureExamPage'
+import { ExaminationVisionPage } from './ExaminationVisionPage'
+import { ExaminationDreamlensPage } from './ExaminationDreamlensPage'
+
+/** 검사(exam) 도메인 페이지 레지스트리 */
+export const examPageRoutes: Record<string, FC> = {
+  'exam-list': ExamListPage,
+  'cataract-exam-list': CataractExamListPage,
+  'examination': ExaminationPage,
+  'procedure-exam': ProcedureExamPage,
+  'examination-vision': ExaminationVisionPage,
+  'examination-dreamlens': ExaminationDreamlensPage,
+}

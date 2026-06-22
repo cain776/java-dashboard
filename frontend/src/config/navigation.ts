@@ -425,7 +425,7 @@ const MENU_STATUS: Record<string, MenuStatus> = {
   'no-show-rate': 'pending',
   'unit-price': 'pending',
   'dreamlens-revenue': 'pending',
-  'b2b-revenue': 'pending',
+  'b2b-revenue': 'complete',
   'staff-point': 'pending',
   'prp-rate': 'pending',
   'reoperation-rate': 'pending',
@@ -434,6 +434,9 @@ const MENU_STATUS: Record<string, MenuStatus> = {
   'visit-reason': 'pending',
   'daily-reception': 'pending',
 }
+
+/** 메뉴 구현 상태 조회 (router의 운영 빌드 pending 라우트 차단 등에 사용). */
+export const getMenuStatus = (id: string): MenuStatus => MENU_STATUS[id] ?? 'pending'
 
 const link = (id: string): MenuLink => {
   const page = findPage(id)

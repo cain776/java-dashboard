@@ -10,7 +10,7 @@ import {
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/components/filters/useFilterBar'
 import { PanelShell } from '@/components/PanelShell'
-import { useExaminationTrend } from '@/hooks/useExaminationTrend'
+import { useExaminationTrend } from '@/hooks/exam/useExaminationTrend'
 import { CURRENT_YEAR, MONTHS } from '@/constants/chart'
 import { formatAxisNumber } from '@/utils/stats'
 

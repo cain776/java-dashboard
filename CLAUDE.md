@@ -20,21 +20,24 @@
 project-root/
 ├── backend/
 │   ├── src/main/java/com/bviit/analytics/
-│   │   ├── config/
-│   │   │   ├── SecurityConfig.java      # Spring Security + CORS (localhost:5173 허용)
-│   │   │   ├── JwtUtil.java             # JWT 생성/검증 (HMAC-SHA256)
-│   │   │   └── DataInitializer.java     # 초기 admin 계정 시딩
+│   │   │                                # 레이어(controller/service/repository/dto) → 도메인 하위패키지 구조
+│   │   ├── config/                      # SecurityConfig·JwtUtil·DataInitializer·*DataSourceConfig
 │   │   ├── controller/
-│   │   │   └── AuthController.java      # POST /api/auth/login
-│   │   ├── service/
-│   │   │   └── AuthService.java         # 인증 로직
-│   │   ├── entity/
-│   │   │   └── User.java               # id, email, password, name
-│   │   ├── repository/
-│   │   │   └── UserRepository.java      # findByEmail()
-│   │   └── dto/
-│   │       ├── LoginRequest.java        # @Email, @NotBlank
-│   │       └── LoginResponse.java       # token + UserDto
+│   │   │   ├── AuthController.java       # POST /api/auth/login
+│   │   │   ├── reservation/            # 예약·예약종합·유입(intake) 통계 컨트롤러
+│   │   │   ├── exam/                   # 검사리스트·시술별·검사건수 컨트롤러
+│   │   │   ├── surgery/               # 수술·수술비중 컨트롤러
+│   │   │   ├── consultation/          # 전환율·예약률·중단사유 컨트롤러
+│   │   │   ├── outpatient/            # 외래수 컨트롤러
+│   │   │   ├── overall/               # 주간 종합지표 컨트롤러
+│   │   │   ├── etc/                   # B2B 매출 등 기타 컨트롤러
+│   │   │   └── stats/                 # 공용 유틸(StatsPanelSupport·StatsRequestValidator)
+│   │   ├── service/                     # controller와 동일한 도메인 분할
+│   │   ├── repository/                  # 도메인별 + UserRepository (Mock*Repository는 도메인 귀속)
+│   │   ├── dto/                         # ApiResponse·ErrorResponse·Login* + 도메인별 응답 DTO
+│   │   ├── entity/                      # User
+│   │   ├── exception/                   # @RestControllerAdvice + 커스텀 예외
+│   │   └── util/                        # MonthlyBuckets·NumberUtils 등 공용
 │   ├── src/main/resources/
 │   │   ├── application.properties           # H2 인메모리 (개발 기본)
 │   │   └── application-postgres.properties  # PostgreSQL (운영)
@@ -44,33 +47,50 @@ project-root/
 │   ├── src/
 │   │   ├── main.tsx                     # 진입점 (MSW 초기화 → React 렌더)
 │   │   ├── App.tsx                      # QueryClientProvider + RouterProvider
-│   │   ├── router.tsx                   # TanStack Router (인증 가드 포함)
+│   │   ├── router.tsx                   # TanStack Router (인증 가드 + 도메인별 페이지 라우트)
 │   │   ├── index.css                    # Tailwind 4 + OKLCH 테마 변수
-│   │   ├── api/
-│   │   │   ├── client.ts               # HTTP 클라이언트 (Bearer 토큰 자동 주입)
-│   │   │   └── auth.ts                 # 로그인 API
+│   │   ├── api/                         # 도메인별 API 폴더 (각 index.ts가 도메인 객체 export)
+│   │   │   ├── client.ts               # HTTP 클라이언트 (Bearer 토큰 자동 주입) — 공용
+│   │   │   ├── _shared.ts              # apiResponseOf() 등 공통 응답 래퍼 — 공용
+│   │   │   ├── auth.ts                 # 로그인 API — 공용
+│   │   │   ├── reservation/            # index.ts(reservationApi) + reservationList.ts
+│   │   │   ├── exam/                   # index.ts(examApi) + examList.ts · cataractExamList.ts
+│   │   │   ├── surgery/                # index.ts(surgeryApi) + surgeryList.ts
+│   │   │   ├── consultation/           # index.ts(consultationApi)
+│   │   │   ├── outpatient/             # index.ts(outpatientApi)
+│   │   │   ├── overall/                # index.ts(overallApi)
+│   │   │   └── etc/                    # index.ts(b2bApi · B2B 매출)
+│   │   ├── hooks/                       # 도메인별 TanStack Query 훅
+│   │   │   ├── reservation/            # useReservationKpi/Trend/Composition/List/OverallTrend …
+│   │   │   ├── exam/                   # useExamination*·useProcedureExamTrend·useExamList·useCataractExamList
+│   │   │   ├── consultation/           # useConsultationRate*·useCataractReservationRateTrend·useStopReasonMonthly
+│   │   │   ├── surgery/                # useSurgery*·useSurgeryRatio*
+│   │   │   ├── overall/                # useOverallExamWeekly
+│   │   │   ├── outpatient/             # useOutpatientCountTrend
+│   │   │   ├── useIsMobile.ts          # (공용) 반응형 분기
+│   │   │   └── useWeeklyApproval.ts    # (공용) 리스트 주별 승인 워크플로우
 │   │   ├── components/
-│   │   │   ├── layout/
-│   │   │   │   ├── AppLayout.tsx        # 인증 레이아웃 (Topbar + Sidebar + Outlet)
-│   │   │   │   ├── Sidebar.tsx          # 접이식 네비게이션 (navigation.ts 기반)
-│   │   │   │   └── Topbar.tsx           # 상단 바 (유저명, 로그아웃)
+│   │   │   ├── layout/                  # AppLayout·Sidebar·Topbar + desktop/·mobile/
+│   │   │   ├── filters/                 # FilterBar·PeriodChip·Select
+│   │   │   ├── stats/                   # KpiCard·StatsPrimitives·WeeklyApprovalPanel (공용)
+│   │   │   ├── report/                  # ReportLineChart
 │   │   │   └── ui/                      # shadcn 컴포넌트 (button, card, chart)
 │   │   ├── config/
-│   │   │   └── navigation.ts            # 메뉴 구조 + 통계 페이지 정의 (27개)
-│   │   ├── pages/
-│   │   │   ├── LoginPage.tsx            # 로그인 (react-hook-form + Zod)
-│   │   │   ├── DashboardPage.tsx        # 메인 대시보드 (KPI 카드 + 차트, 목업 데이터)
-│   │   │   ├── ReservationPage.tsx      # 예약 비교 (월별/연도별 토글, 목업 데이터)
+│   │   │   └── navigation.ts            # 메뉴 구조 + 통계 페이지 정의 (sectionId = 도메인 그룹)
+│   │   ├── pages/                       # 도메인별 폴더 (Login·Dashboard·StatsPlaceholder만 root)
+│   │   │   ├── reservation/            # IntakeConversion·Reservation·ReservationOverall·ReservationList
+│   │   │   ├── exam/                   # ExamList·CataractExamList·Examination(±Vision/Dreamlens)·ProcedureExam
+│   │   │   ├── consultation/           # ConsultationRate(+consultation-rate/)·CataractReservationRate·StopReason
+│   │   │   ├── surgery/                # SurgeryList·Surgery·SurgeryRatio(+surgery-ratio/)·SurgeryComposition
+│   │   │   ├── report/                 # ReportPage(주간)·MonthlyReportPage
+│   │   │   ├── overall/ · outpatient/ · marketing/ · cancel-noshow/ · unit-price/ · etc/
+│   │   │   ├── LoginPage.tsx           # 로그인 (react-hook-form + Zod)
+│   │   │   ├── DashboardPage.tsx       # 메인 대시보드 (KPI 카드 + 차트, 목업 데이터)
 │   │   │   └── StatsPlaceholderPage.tsx # 미구현 통계 페이지 템플릿
-│   │   ├── stores/
-│   │   │   └── authStore.ts             # Zustand 인증 (token + user, localStorage 연동)
-│   │   ├── mocks/
-│   │   │   ├── browser.ts              # MSW 워커
-│   │   │   └── handlers.ts             # POST /api/auth/login 목 핸들러
-│   │   ├── lib/
-│   │   │   └── utils.ts                # cn() (clsx + tailwind-merge)
-│   │   └── test/
-│   │       └── setup.ts                # Vitest + @testing-library/jest-dom
+│   │   ├── stores/                      # authStore (Zustand: token+user, localStorage 연동)
+│   │   ├── mocks/                       # MSW (browser.ts·handlers.ts)
+│   │   ├── constants/ · data/ · lib/ · utils/   # chart 상수·레거시 데이터·cn()·stats 포맷터
+│   │   └── test/                        # Vitest + @testing-library/jest-dom
 │   ├── components.json                  # shadcn CLI 설정
 │   ├── vite.config.ts                   # 프록시: /api → localhost:8080
 │   └── package.json
@@ -79,6 +99,16 @@ project-root/
 ├── 서버종료.bat                          # 포트 8080/5173 프로세스 종료
 └── CLAUDE.md
 ```
+
+### 도메인별 코드 구성 (레이어 → 도메인)
+
+백엔드·프론트 모두 **레이어 우선 + 도메인 하위 분할** 구조를 따른다. 도메인 = `navigation.ts`의 메뉴 그룹(`sectionId`): `reservation`(예약) / `exam`(검사) / `surgery`(수술) / `consultation`(전환&성공률) / `report` / `overall`(전체지표) / `outpatient`(외래) / `marketing` / `cancel-noshow` / `unit-price` / `etc`.
+
+- **백엔드**: `controller/`·`service/`·`repository/`·`dto/` 각 레이어 안에 도메인 하위패키지(`controller/reservation/` …). `stats/`에는 도메인에 속하지 않는 **공용 유틸만** 남긴다(`StatsPanelSupport`, `StatsRequestValidator`). `Mock*Repository`는 해당 도메인 `repository/<domain>/`에 둔다.
+- **프론트**: `api/<domain>.ts`(도메인 API 객체 + 타입) · `hooks/<domain>/` · `pages/<domain>/`. 여러 도메인이 공유하는 것만 root(`api/_shared.ts`, `api/client.ts`, `hooks/useIsMobile.ts`, `hooks/useWeeklyApproval.ts`, `pages/{Login,Dashboard,StatsPlaceholder}Page.tsx`)에 둔다. 페이지 전용 하위 컴포넌트는 페이지 폴더 안에(`pages/consultation/consultation-rate/`, `pages/surgery/surgery-ratio/`).
+- **신규 추가**: 새 통계 기능은 해당 도메인 폴더/패키지에 파일을 추가한다(새 레이어 루트에 흩뿌리지 말 것). 도메인이 없으면 메뉴 그룹 기준으로 새 폴더를 만든다.
+
+> ✅ **이관 완료**: 프론트(api·hooks·pages)와 백엔드(controller·service·repository·dto) 모두 도메인 패키지로 이관 완료. 백엔드 `*/stats/`에는 공용 유틸(`StatsPanelSupport`·`StatsRequestValidator`)만 남는다. (frontend: tsc·lint·test green / backend: gradle build SUCCESSFUL)
 
 ## 현재 구현 상태
 
@@ -122,7 +152,7 @@ project-root/
 | no-show-rate | 부도율 | /stats/no-show-rate | 취소&부도 | 미구현 |
 | unit-price | 객단가 | /stats/unit-price | 객단가 | 미구현 |
 | dreamlens-revenue | 드림렌즈 매출 | /stats/dreamlens-revenue | 기타 | 미구현 |
-| b2b-revenue | B2B 매출 | /stats/b2b-revenue | 기타 | 미구현 |
+| b2b-revenue | B2B 매출 | /stats/b2b-revenue | 기타 | 완료 |
 | staff-point | 직원 포인트 | /stats/staff-point | 기타 | 미구현 |
 | prp-rate | PRP 시술율 | /stats/prp-rate | 기타 | 미구현 |
 | reoperation-rate | 재수술율 | /stats/reoperation-rate | 기타 | 미구현 |
@@ -178,20 +208,23 @@ GET    /api/stats/{pageId}/compare?compareTo=PREVIOUS_PERIOD
 
 ### 신규 통계 API 추가 순서
 
-1. Entity/DTO 정의 (`entity/`, `dto/request/`, `dto/response/`)
-2. Repository 작성 (`repository/`)
-3. Service 비즈니스 로직 (`service/`)
-4. Controller 엔드포인트 (`controller/`)
-5. 프론트 API 함수 + 페이지 연결
+> 도메인 = `<domain>` (reservation/exam/surgery/consultation/…). 모든 파일을 해당 도메인 하위패키지에 둔다.
+
+1. DTO 정의 (`dto/<domain>/`)
+2. Repository 작성 (`repository/<domain>/`)
+3. Service 비즈니스 로직 (`service/<domain>/`)
+4. Controller 엔드포인트 (`controller/<domain>/`)
+5. 프론트 API 함수(`api/<domain>.ts`) + 훅(`hooks/<domain>/`) + 페이지(`pages/<domain>/`) 연결
 
 ## 프론트엔드 컨벤션
 
 ### 라우팅 패턴
 
 - 인증 필요 페이지는 `authLayout` 하위에 등록 (`router.tsx`)
-- 새 통계 페이지: `config/navigation.ts`에 정의 → `router.tsx`에 전용 라우트 등록
-- 미구현 페이지는 `StatsPlaceholderPage`로 자동 렌더링
-- 새 페이지 추가 시 `filter` 제거: `router.tsx`에서 해당 ID의 플레이스홀더를 전용 컴포넌트로 교체
+- 라우트는 `router.tsx`가 `navigation.ts`의 `statsPages` + 도메인 레지스트리(`pages/<domain>/routes.ts`, `pageId → 컴포넌트`)를 합쳐 **자동 생성**한다. 레지스트리에 컴포넌트가 있으면 전용 페이지, 없으면 `StatsPlaceholderPage`로 렌더 (하드코딩 목록 없음)
+- 새 통계 페이지 연결: `navigation.ts`에 정의 → `pages/<domain>/`에 컴포넌트 작성 → `pages/<domain>/routes.ts`에 `'<id>': Component` 한 줄 추가 (**`router.tsx` 수정 불필요**)
+- 훅은 `@/hooks/<domain>/useXxx`, API는 `@/api/<domain>`(리스트는 `@/api/<domain>/xxxList`)에서 import
+- **pending(미완성) 메뉴 정책**: 운영 빌드(PROD)에서는 사이드바에서 **숨김** + 라우트 **차단**(직접 URL도 `StatsPlaceholderPage`). 개발 빌드에서는 미리보기 가능(사이드바 빨강 표시). 상태는 `MENU_STATUS`, 조회는 `getMenuStatus()`.
 
 ### 차트 (Recharts)
 
