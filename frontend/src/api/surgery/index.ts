@@ -9,6 +9,8 @@ const surgeryMonthlyItemSchema = z.object({
   lasek: z.number(), lasik: z.number(), smile: z.number(), smilePro: z.number(),
   icl: z.number(), tIcl: z.number(), kpl: z.number(), tKpl: z.number(), viva: z.number(),
   catMulti: z.number(), catMono: z.number(), catEdof: z.number(),
+  xtra: z.number().optional(), waveVision: z.number().optional(), monoVision: z.number().optional(),
+  reoperation: z.number().optional(),
   visionPatients: z.number().optional(), cataractPatients: z.number().optional(),
   total: z.number(),
 })

@@ -11,12 +11,15 @@ interface Cell {
   lasek: number; lasik: number; smile: number; smilePro: number
   icl: number; tIcl: number; kpl: number; tKpl: number; viva: number
   catMulti: number; catMono: number; catEdof: number
+  xtra: number; waveVision: number; monoVision: number; reoperation: number
   visionPatients: number; cataractPatients: number; total: number
 }
 
 const EMPTY: Cell = {
   lasek: 0, lasik: 0, smile: 0, smilePro: 0, icl: 0, tIcl: 0, kpl: 0, tKpl: 0, viva: 0,
-  catMulti: 0, catMono: 0, catEdof: 0, visionPatients: 0, cataractPatients: 0, total: 0,
+  catMulti: 0, catMono: 0, catEdof: 0,
+  xtra: 0, waveVision: 0, monoVision: 0, reoperation: 0,
+  visionPatients: 0, cataractPatients: 0, total: 0,
 }
 
 const piolSum = (d: Cell) => d.icl + d.tIcl + d.kpl + d.tKpl + d.viva
@@ -44,14 +47,14 @@ const COLS: ColDef[] = [
   { render: (d) => vp(d.lasek, d.visionPatients), border: true, strong: true },           // 라섹계 합계
   { render: () => '' },                                                                   // 라섹계 EX
   { render: () => '' },                                                                   // 라섹계 Red
-  { render: () => '', border: true, strong: true },                                       // 재수술 합계
+  { render: (d) => vc(d.reoperation), border: true, strong: true },                       // 재수술 합계
   { render: () => '' },                                                                   // 재수술 레이저
   { render: () => '' },                                                                   // 재수술 렌즈
-  { render: () => '', border: true },                                                     // 엑스트라
+  { render: (d) => vc(d.xtra), border: true },                                            // 엑스트라
   { render: () => '' },                                                                   // 퍼스널
   { render: () => '' },                                                                   // 콘트라
-  { render: () => '' },                                                                   // 웨이브비전
-  { render: () => '' },                                                                   // 모노비전
+  { render: (d) => vc(d.waveVision) },                                                    // 웨이브비전
+  { render: (d) => vc(d.monoVision) },                                                    // 모노비전
   { render: (d) => vc(d.cataractPatients), border: true, strong: true, tone: 'violet' },  // 백내장 수술수
   { render: (d) => vp(d.catMulti, d.cataractPatients) },                                  // 다초점
   { render: (d) => vp(d.catEdof, d.cataractPatients) },                                   // 프리미엄
@@ -178,8 +181,10 @@ export function SurgeryCompositionPage() {
             </div>
           )}
           <p className="mt-3 text-[11px] text-muted-foreground">
-            ※ 운영 DB 라이브(surgery API). <strong>라섹계 EX/Red · 재수술(합계/레이저/렌즈) · 엑스트라 · 퍼스널/콘트라/웨이브비전/모노비전</strong>은
-            현재 API에 별도 필드가 없어 빈칸입니다(백엔드 필드 추가 시 채워짐).
+            ※ 운영 DB 라이브(surgery API). <strong>엑스트라·웨이브비전·모노비전</strong>은 시력교정 부가시술(환자 수),
+            <strong>재수술 합계</strong>는 RE_OPERATION 안(眼) 단위입니다.
+            <strong>라섹계 EX/Red · 재수술 레이저/렌즈 · 퍼스널/콘트라</strong>는 아직 별도 필드가 없어 빈칸입니다.
+            재수술 분류 기준은 팀장 검증 예정(Phase 2).
           </p>
         </CardContent>
       </Card>

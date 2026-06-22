@@ -50,6 +50,14 @@ public class SurgeryMonthlyItem {
     private final int catMono;
     private final int catEdof;
 
+    // 시력교정 부가시술 (add-on, 환자 수 DISTINCT) — #27 상세표
+    private final int xtra;        // 엑스트라 (OPERATIONR/L LIKE '%+X%')
+    private final int waveVision;  // 웨이브비전 (LIKE '%W.V%')
+    private final int monoVision;  // 모노비전 (LIKE 'MONO%')
+
+    // 시력교정 재수술 (RE_OPERATION, 안 단위) — #27 상세표 / Phase 2
+    private final int reoperation;
+
     // 그룹별 환자 수 (DISTINCT)
     private final int visionPatients;
     private final int cataractPatients;

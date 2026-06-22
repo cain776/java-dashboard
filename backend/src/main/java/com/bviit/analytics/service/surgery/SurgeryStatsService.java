@@ -58,6 +58,7 @@ public class SurgeryStatsService {
 
         List<Map<String, Object>> visionRows = repository.findVisionMonthlyByType(normalizedYears);
         List<Map<String, Object>> cataractRows = repository.findCataractMonthlyByType(normalizedYears);
+        List<Map<String, Object>> reopRows = repository.findReoperationMonthly(normalizedYears);
 
         LinkedHashMap<String, Bucket> map = MonthlyBuckets.initialize(normalizedYears, Bucket::new);
 
@@ -76,7 +77,18 @@ public class SurgeryStatsService {
             b.kpl = toInt(row.get("kpl"));
             b.tKpl = toInt(row.get("tKpl"));
             b.viva = toInt(row.get("viva"));
+            b.xtra = toInt(row.get("xtra"));
+            b.waveVision = toInt(row.get("waveVision"));
+            b.monoVision = toInt(row.get("monoVision"));
             b.visionPatients = toInt(row.get("visionPatients"));
+        }
+
+        // 재수술 병합 (RE_OPERATION, 안 단위)
+        for (Map<String, Object> row : reopRows) {
+            String key = MonthlyBuckets.key(toInt(row.get("yr")), toInt(row.get("mo")));
+            Bucket b = map.get(key);
+            if (b == null) continue;
+            b.reoperation = toInt(row.get("reoperation"));
         }
 
         // 백내장 병합
@@ -103,6 +115,8 @@ public class SurgeryStatsService {
                     .lasek(b.lasek).lasik(b.lasik).smile(b.smile).smilePro(b.smilePro)
                     .icl(b.icl).tIcl(b.tIcl).kpl(b.kpl).tKpl(b.tKpl).viva(b.viva)
                     .catMulti(b.catMulti).catMono(b.catMono).catEdof(b.catEdof)
+                    .xtra(b.xtra).waveVision(b.waveVision).monoVision(b.monoVision)
+                    .reoperation(b.reoperation)
                     .visionPatients(b.visionPatients)
                     .cataractPatients(b.cataractPatients)
                     .total(b.visionPatients + b.cataractPatients)
@@ -174,6 +188,8 @@ public class SurgeryStatsService {
         int lasek, lasik, smile, smilePro;
         int icl, tIcl, kpl, tKpl, viva;
         int catMulti, catMono, catEdof;
+        int xtra, waveVision, monoVision;
+        int reoperation;
         int visionPatients;
         int cataractPatients;
 

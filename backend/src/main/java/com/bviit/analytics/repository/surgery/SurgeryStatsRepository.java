@@ -87,10 +87,14 @@ public class SurgeryStatsRepository {
                     COUNT(DISTINCT CASE WHEN e.op_type = 'kpl'      THEN e.cust_num END) AS kpl,
                     COUNT(DISTINCT CASE WHEN e.op_type = 'tKpl'     THEN e.cust_num END) AS tKpl,
                     COUNT(DISTINCT CASE WHEN e.op_type = 'viva'     THEN e.cust_num END) AS viva,
+                    COUNT(DISTINCT CASE WHEN e.raw LIKE '%+X%'  THEN e.cust_num END) AS xtra,
+                    COUNT(DISTINCT CASE WHEN e.raw LIKE '%W.V%' THEN e.cust_num END) AS waveVision,
+                    COUNT(DISTINCT CASE WHEN e.raw LIKE 'MONO%' THEN e.cust_num END) AS monoVision,
                     COUNT(DISTINCT e.cust_num) AS visionPatients
                 FROM (
                     SELECT o.OPERATION_DATE AS op_date,
                            o.CUST_NUM AS cust_num,
+                           o.OPERATIONR AS raw,
                 """
                 + classifyCase.replace("op_code", "o.OPERATIONR") +
                 """
@@ -112,6 +116,7 @@ public class SurgeryStatsRepository {
                     UNION ALL
                     SELECT o.OPERATION_DATE AS op_date,
                            o.CUST_NUM AS cust_num,
+                           o.OPERATIONL AS raw,
                 """
                 + classifyCase.replace("op_code", "o.OPERATIONL") +
                 """
@@ -213,6 +218,80 @@ public class SurgeryStatsRepository {
                 ) e
                 GROUP BY YEAR(e.op_date), MONTH(e.op_date)
                 ORDER BY YEAR(e.op_date), MONTH(e.op_date)
+                """;
+        return jdbc.queryForList(sql, params);
+    }
+
+    /**
+     * 시력교정 재수술 월별 건수 (RE_OPERATION, 눈(안) 단위).
+     *
+     * AGAIN_R / AGAIN_L 각각을 1건(=재수술 1안)으로 센다. 다음은 시력교정 재수술이 아니므로 제외:
+     *   - Irrigation / repo* / *reposition* : 세척·정복술(재수술 아님)
+     *   - Clareon / T-Clareon / Tecnis / LAL / ELANA : 백내장 IOL 명칭(렌즈 교체이나 시력교정 재수술 집계 대상 외)
+     *
+     * 포함되는 시력교정 재수술: 익스체인지(exch/encla/Bio…), 리무벌(remo…), 재교정(EN/ENHANCE/Re-en…) 등.
+     * ⚠ Phase 2 — 분류 기준(특히 EN/enhancement 포함, 백내장 IOL 제외)은 팀장 검증 필요.
+     *
+     * REOP_DATE는 char 'YYYY-MM-DD' → 문자열 비교/추출로 연·월 도출 (MSSQL 2014 호환).
+     * READ-ONLY — SELECT만 실행.
+     */
+    public List<Map<String, Object>> findReoperationMonthly(List<Integer> years) {
+        int minYear = years.stream().mapToInt(Integer::intValue).min().orElse(2025);
+        int maxYear = years.stream().mapToInt(Integer::intValue).max().orElse(2026);
+
+        MapSqlParameterSource params = new MapSqlParameterSource()
+                .addValue("from", minYear + "-01-01")
+                .addValue("to", maxYear + "-12-31");
+
+        // 재수술 제외 패턴 (op_col 자리에 AGAIN_R/AGAIN_L 치환)
+        String qualify = """
+                    op_col IS NOT NULL AND RTRIM(op_col) <> ''
+                    AND op_col NOT LIKE 'Irrigation%'
+                    AND op_col NOT LIKE 'repo%'
+                    AND op_col NOT LIKE '%reposition%'
+                    AND op_col NOT LIKE 'Clareon%'
+                    AND op_col NOT LIKE 'T-Clareon%'
+                    AND op_col NOT LIKE 'Tecnis%'
+                    AND op_col NOT LIKE 'LAL%'
+                    AND op_col NOT LIKE 'ELANA%'
+                """;
+
+        String sql = """
+                SELECT
+                    CAST(LEFT(e.reop_date, 4) AS int)        AS yr,
+                    CAST(SUBSTRING(e.reop_date, 6, 2) AS int) AS mo,
+                    COUNT(*) AS reoperation
+                FROM (
+                    SELECT r.REOP_DATE AS reop_date
+                    FROM RE_OPERATION r WITH(NOLOCK)
+                    LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = r.CUST_NUM
+                    WHERE r.REOP_DATE >= :from AND r.REOP_DATE <= :to
+                      AND (
+                """
+                + qualify.replace("op_col", "r.AGAIN_R") +
+                """
+                      )
+                      AND NOT (
+                          ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
+                          OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
+                      )
+                    UNION ALL
+                    SELECT r.REOP_DATE AS reop_date
+                    FROM RE_OPERATION r WITH(NOLOCK)
+                    LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = r.CUST_NUM
+                    WHERE r.REOP_DATE >= :from AND r.REOP_DATE <= :to
+                      AND (
+                """
+                + qualify.replace("op_col", "r.AGAIN_L") +
+                """
+                      )
+                      AND NOT (
+                          ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
+                          OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
+                      )
+                ) e
+                GROUP BY LEFT(e.reop_date, 4), SUBSTRING(e.reop_date, 6, 2)
+                ORDER BY LEFT(e.reop_date, 4), SUBSTRING(e.reop_date, 6, 2)
                 """;
         return jdbc.queryForList(sql, params);
     }

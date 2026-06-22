@@ -99,6 +99,7 @@ type SurgeryCell = {
   lasek: number; lasik: number; smile: number; smilePro: number
   icl: number; tIcl: number; kpl: number; tKpl: number; viva: number
   catMulti: number; catMono: number; catEdof: number
+  xtra: number; waveVision: number; monoVision: number; reoperation: number
   visionPatients: number; cataractPatients: number; total: number
 }
 
@@ -107,6 +108,11 @@ const VISION_COLS: { key: keyof SurgeryCell; label: string }[] = [
   { key: 'smile', label: '스마일' }, { key: 'smilePro', label: '스마일프로' },
   { key: 'icl', label: 'ICL' }, { key: 'tIcl', label: 'T-ICL' },
   { key: 'kpl', label: 'KPL' }, { key: 'tKpl', label: 'T-KPL' }, { key: 'viva', label: 'VIVA' },
+]
+// 시력교정 부가시술(add-on) + 재수술
+const ADDON_COLS: { key: keyof SurgeryCell; label: string }[] = [
+  { key: 'xtra', label: '엑스트라' }, { key: 'waveVision', label: '웨이브비전' },
+  { key: 'monoVision', label: '모노비전' }, { key: 'reoperation', label: '재수술' },
 ]
 const CATARACT_COLS: { key: keyof SurgeryCell; label: string }[] = [
   { key: 'catMulti', label: '다초점' }, { key: 'catMono', label: '단초점' }, { key: 'catEdof', label: 'EDOF' },
@@ -140,6 +146,7 @@ function ReportSurgeryTable({ dataMap }: { dataMap: Record<number, SurgeryCell[]
                 <th className="py-1.5">총수술</th>
                 <th className="py-1.5 text-blue-700">시력교정</th>
                 {VISION_COLS.map((c) => <th key={c.key} className="py-1.5">{c.label}</th>)}
+                {ADDON_COLS.map((c) => <th key={c.key} className="py-1.5 text-emerald-700">{c.label}</th>)}
                 <th className="py-1.5 text-violet-700">백내장</th>
                 {CATARACT_COLS.map((c) => <th key={c.key} className="py-1.5">{c.label}</th>)}
               </tr>
@@ -151,6 +158,7 @@ function ReportSurgeryTable({ dataMap }: { dataMap: Record<number, SurgeryCell[]
                   <td className="py-1.5 font-semibold tabular-nums">{cell(r.cell.total)}</td>
                   <td className="py-1.5 tabular-nums text-blue-700">{cell(r.cell.visionPatients)}</td>
                   {VISION_COLS.map((c) => <td key={c.key} className="py-1.5 tabular-nums">{cell(r.cell[c.key])}</td>)}
+                  {ADDON_COLS.map((c) => <td key={c.key} className="py-1.5 tabular-nums text-emerald-700">{cell(r.cell[c.key])}</td>)}
                   <td className="py-1.5 tabular-nums text-violet-700">{cell(r.cell.cataractPatients)}</td>
                   {CATARACT_COLS.map((c) => <td key={c.key} className="py-1.5 tabular-nums">{cell(r.cell[c.key])}</td>)}
                 </tr>
@@ -160,6 +168,7 @@ function ReportSurgeryTable({ dataMap }: { dataMap: Record<number, SurgeryCell[]
                 <td className="py-1.5 tabular-nums">{cell(sum('total'))}</td>
                 <td className="py-1.5 tabular-nums text-blue-700">{cell(sum('visionPatients'))}</td>
                 {VISION_COLS.map((c) => <td key={c.key} className="py-1.5 tabular-nums">{cell(sum(c.key))}</td>)}
+                {ADDON_COLS.map((c) => <td key={c.key} className="py-1.5 tabular-nums text-emerald-700">{cell(sum(c.key))}</td>)}
                 <td className="py-1.5 tabular-nums text-violet-700">{cell(sum('cataractPatients'))}</td>
                 {CATARACT_COLS.map((c) => <td key={c.key} className="py-1.5 tabular-nums">{cell(sum(c.key))}</td>)}
               </tr>
@@ -167,7 +176,8 @@ function ReportSurgeryTable({ dataMap }: { dataMap: Record<number, SurgeryCell[]
           </table>
         </div>
         <p className="mt-2 text-[11px] text-muted-foreground">
-          ※ 운영 DB 라이브(시술별). 라식계/라섹계·재수술 등 일부 세부 분류는 PDF 원표와 다를 수 있습니다.
+          ※ 운영 DB 라이브(시술별). 엑스트라·웨이브비전·모노비전은 시력교정 부가시술(환자 수 기준),
+          재수술은 RE_OPERATION 안(眼) 단위. 재수술 분류 기준(EN/익스체인지 포함·백내장 IOL 제외)은 팀장 검증 예정(Phase 2).
         </p>
       </CardContent>
     </Card>
