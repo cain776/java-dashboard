@@ -172,6 +172,34 @@ function ReportSurgeryTable({ dataMap }: { dataMap: Record<number, SurgeryCell[]
   )
 }
 
+/** 월간 레포트 로딩 스켈레톤 — 차트 카드(제목·범례·차트영역·표) 모양을 펄스로 표시 */
+function ReportChartSkeleton() {
+  return (
+    <Card className="report-chart flex break-inside-avoid flex-col border-border/70 shadow-sm">
+      <CardHeader className="items-center gap-2 pb-2">
+        <div className="h-5 w-44 animate-pulse rounded bg-muted" />
+        <div className="flex gap-5 pt-1">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-3 w-12 animate-pulse rounded bg-muted" />
+          ))}
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex h-[480px] flex-col justify-between py-6">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="h-px w-full animate-pulse rounded bg-muted" />
+          ))}
+        </div>
+        <div className="space-y-2 pt-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-4 w-full animate-pulse rounded bg-muted" />
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
 export function MonthlyReportPage() {
   const resv = useReservationOverallTrend(YEARS)
   const outpatient = useOutpatientCountTrend(YEARS)
@@ -338,7 +366,11 @@ export function MonthlyReportPage() {
         </div>
 
         {isLoading ? (
-          <div className="flex h-64 w-[1040px] items-center justify-center text-sm text-muted-foreground">불러오는 중…</div>
+          <div className="mx-auto w-[1040px] space-y-6">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <ReportChartSkeleton key={i} />
+            ))}
+          </div>
         ) : (
           // 고정폭(1040px): 화면·인쇄 차트 크기를 동일하게 → Recharts 재측정 없이 PDF에 12개월 전부·정렬 유지.
           <div className="mx-auto w-[1040px] space-y-6">
