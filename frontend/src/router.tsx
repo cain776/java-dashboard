@@ -5,40 +5,13 @@ import {
   redirect,
   Outlet,
 } from '@tanstack/react-router'
-import type { FC } from 'react'
 import { AppLayout } from './components/layout/AppLayout'
-import { statsPages, getMenuStatus } from './config/navigation'
+import { statsPages } from './config/navigation'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { StatsPlaceholderPage } from './pages/StatsPlaceholderPage'
 import { readStoredAuthSession } from './stores/auth-session'
-import { reportPageRoutes } from './pages/report/routes'
-import { overallPageRoutes } from './pages/overall/routes'
-import { reservationPageRoutes } from './pages/reservation/routes'
-import { examPageRoutes } from './pages/exam/routes'
-import { consultationPageRoutes } from './pages/consultation/routes'
-import { surgeryPageRoutes } from './pages/surgery/routes'
-import { outpatientPageRoutes } from './pages/outpatient/routes'
-import { marketingPageRoutes } from './pages/marketing/routes'
-import { cancelNoshowPageRoutes } from './pages/cancel-noshow/routes'
-import { unitPricePageRoutes } from './pages/unit-price/routes'
-import { etcPageRoutes } from './pages/etc/routes'
-
-// 도메인별 페이지 컴포넌트 레지스트리 — 각 pages/<domain>/routes.ts 가 자기 도메인을 소유.
-// 새 페이지 연결 = navigation.ts에 정의 + 해당 도메인 routes.ts에 한 줄 추가 (router.tsx 수정 불필요).
-const PAGE_COMPONENTS: Record<string, FC> = {
-  ...reportPageRoutes,
-  ...overallPageRoutes,
-  ...reservationPageRoutes,
-  ...examPageRoutes,
-  ...consultationPageRoutes,
-  ...surgeryPageRoutes,
-  ...outpatientPageRoutes,
-  ...marketingPageRoutes,
-  ...cancelNoshowPageRoutes,
-  ...unitPricePageRoutes,
-  ...etcPageRoutes,
-}
+import { PAGE_COMPONENTS, isRouteBlocked } from './pages/pageRegistry'
 
 // Root
 const rootRoute = createRootRoute({
@@ -77,7 +50,7 @@ const isProd = !import.meta.env.DEV
 // 레지스트리에 컴포넌트가 있고 차단 대상이 아니면 전용 페이지, 아니면 StatsPlaceholderPage.
 const statsRoutes = statsPages.map((page) => {
   const fallback = () => <StatsPlaceholderPage page={page} />
-  const blocked = isProd && getMenuStatus(page.id) === 'pending'
+  const blocked = isRouteBlocked(page.id, isProd)
   const component = blocked ? fallback : (PAGE_COMPONENTS[page.id] ?? fallback)
   return createRoute({
     getParentRoute: () => authLayout,
