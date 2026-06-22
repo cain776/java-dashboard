@@ -37,7 +37,8 @@ public class OverallExamWeeklyRepository {
      *   cataractSessions = 백내장 전체(노안포함, Cataract_Exam 세션수, idx9)
      *   직업(직장인/학생/기타)  §1.10 CUSTOM.JOB 롤업
      *   소개유형(일반/고객소개/직원소개) MOTIVE_NEW02.category01_name (Idx='1' 최신)
-     * 레거시 재현 불가한 소개유형은 우리 DB 기준값으로 표시한다(지표정의 §6.3).
+     * 고객소개 = '소개고객' + '소개미확인'(소개자정보 미입력). 레거시 월간보고가 소개미확인을
+     * 고객소개로 편입한 것을 맞춰 정합(2026 prod 평균차 고객소개 ~13건·일반 ~10건, 지표정의 §6.3).
      */
     public List<Map<String, Object>> findDemographicsDaily(String from, String to) {
         String sql = """
@@ -47,9 +48,9 @@ public class OverallExamWeeklyRepository {
                    SUM(CASE WHEN p.jobBucket = N'직장인' THEN 1 ELSE 0 END) AS jobOffice,
                    SUM(CASE WHEN p.jobBucket = N'학생'   THEN 1 ELSE 0 END) AS jobStudent,
                    SUM(CASE WHEN p.jobBucket = N'기타'   THEN 1 ELSE 0 END) AS jobEtc,
-                   SUM(CASE WHEN p.motiveL = N'소개고객' THEN 1 ELSE 0 END) AS introCustomer,
+                   SUM(CASE WHEN p.motiveL IN (N'소개고객', N'소개미확인') THEN 1 ELSE 0 END) AS introCustomer,
                    SUM(CASE WHEN p.motiveL = N'소개직원' THEN 1 ELSE 0 END) AS introStaff,
-                   SUM(CASE WHEN p.motiveL NOT IN (N'소개고객', N'소개직원') OR p.motiveL IS NULL THEN 1 ELSE 0 END) AS introGeneral
+                   SUM(CASE WHEN p.motiveL NOT IN (N'소개고객', N'소개미확인', N'소개직원') OR p.motiveL IS NULL THEN 1 ELSE 0 END) AS introGeneral
             FROM (
                 SELECT src.d AS d, src.isCat AS isCat,
                        (CASE

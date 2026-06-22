@@ -28,7 +28,7 @@ public class OverallExamWeeklyItem {
 
     private final int totalExam;       // idx0  총검사자 = EXAM 행 + Cataract_Exam 세션 (§1.9.1)
     private final int introGeneral;    // idx1  소개유형 일반 (잔차)
-    private final int introCustomer;   // idx2  소개유형 고객소개 (MOTIVE_NEW02 = 소개고객)
+    private final int introCustomer;   // idx2  소개유형 고객소개 (MOTIVE_NEW02 = 소개고객 + 소개미확인)
     private final int introStaff;      // idx3  소개유형 직원소개 (MOTIVE_NEW02 = 소개직원)
     private final int jobOffice;       // idx4  직업 직장인 (§1.10)
     private final int jobStudent;      // idx5  직업 학생
