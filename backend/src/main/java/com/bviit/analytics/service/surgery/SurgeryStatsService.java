@@ -80,15 +80,21 @@ public class SurgeryStatsService {
             b.xtra = toInt(row.get("xtra"));
             b.waveVision = toInt(row.get("waveVision"));
             b.monoVision = toInt(row.get("monoVision"));
+            b.contra = toInt(row.get("contra"));
+            b.personal = toInt(row.get("personal"));
+            b.lasekEx = toInt(row.get("lasekEx"));
+            b.lasekRed = toInt(row.get("lasekRed"));
             b.visionPatients = toInt(row.get("visionPatients"));
         }
 
-        // 재수술 병합 (RE_OPERATION, 안 단위)
+        // 재수술 병합 (RE_OPERATION, 레코드 단위 + 레이저/렌즈 분리)
         for (Map<String, Object> row : reopRows) {
             String key = MonthlyBuckets.key(toInt(row.get("yr")), toInt(row.get("mo")));
             Bucket b = map.get(key);
             if (b == null) continue;
             b.reoperation = toInt(row.get("reoperation"));
+            b.reopLaser = toInt(row.get("reopLaser"));
+            b.reopLens = toInt(row.get("reopLens"));
         }
 
         // 백내장 병합
@@ -116,7 +122,9 @@ public class SurgeryStatsService {
                     .icl(b.icl).tIcl(b.tIcl).kpl(b.kpl).tKpl(b.tKpl).viva(b.viva)
                     .catMulti(b.catMulti).catMono(b.catMono).catEdof(b.catEdof)
                     .xtra(b.xtra).waveVision(b.waveVision).monoVision(b.monoVision)
-                    .reoperation(b.reoperation)
+                    .contra(b.contra).personal(b.personal)
+                    .lasekEx(b.lasekEx).lasekRed(b.lasekRed)
+                    .reoperation(b.reoperation).reopLaser(b.reopLaser).reopLens(b.reopLens)
                     .visionPatients(b.visionPatients)
                     .cataractPatients(b.cataractPatients)
                     // 총 수술수 = 시력교정 + 백내장 + 재수술(레코드) — 레거시 월간보고 p.26 정의
@@ -189,8 +197,9 @@ public class SurgeryStatsService {
         int lasek, lasik, smile, smilePro;
         int icl, tIcl, kpl, tKpl, viva;
         int catMulti, catMono, catEdof;
-        int xtra, waveVision, monoVision;
-        int reoperation;
+        int xtra, waveVision, monoVision, contra, personal;
+        int lasekEx, lasekRed;
+        int reoperation, reopLaser, reopLens;
         int visionPatients;
         int cataractPatients;
 
