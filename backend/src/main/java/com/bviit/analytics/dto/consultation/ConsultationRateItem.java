@@ -34,6 +34,11 @@ public class ConsultationRateItem {
     private final double visionSurgeryRate;
     private final double visionCounselRate;
 
+    // 시력교정 상담성공률 원데이/일반 분해 (#21 3라인) + 일반 예약률 (#19)
+    private final double visionCounselRateOneday;   // 원데이 상담성공률 = booked/counsel (원데이)
+    private final double visionCounselRateGeneral;  // 일반 상담성공률 = booked/counsel (일반)
+    private final double visionGeneralBookRate;     // 일반 예약률 = bookedGeneral / examGeneral (분모=검사, #19)
+
     // 백내장
     private final int cataractExamCount;
     private final int cataractSurgeryBooked;
