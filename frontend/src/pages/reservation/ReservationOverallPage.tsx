@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -10,32 +10,53 @@ import {
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/components/filters/useFilterBar'
 import { PanelShell } from '@/components/PanelShell'
-import { useExaminationTrend } from '@/hooks/exam/useExaminationTrend'
+import { useReservationOverallTrend } from '@/hooks/reservation/useReservationOverallTrend'
 import { CURRENT_YEAR, MONTHS } from '@/constants/chart'
 import { formatAxisNumber } from '@/utils/stats'
 
-/** 시술별(검사 유형) 단일 지표 월별 추이 — 시력교정/드림렌즈 전용 페이지 공용 본문. */
-type ExamMetricKey = 'visionCorrection' | 'dreamlens'
-
-// 최신 연도부터 역순: 빨강 → 진회색 → 연하늘 → 주황
 const RECENCY_COLORS = ['#E11D2E', '#4B5563', '#A8CEDF', '#F59E0B']
 
-const now = new Date()
-const isFutureMonth = (year: number, monthIndex: number) =>
-  year > now.getFullYear() ||
-  (year === now.getFullYear() && monthIndex > now.getMonth())
+type TabKey = 'total' | 'online' | 'call'
 
-interface ExaminationMetricTrendProps {
-  metric: ExamMetricKey
-  /** 차트 카드 설명 (지표 정의) */
-  description: string
-}
+const TABS: { key: TabKey; field: 'reservations' | 'online' | 'call'; label: string; title: string; description: string }[] = [
+  {
+    key: 'total',
+    field: 'reservations',
+    label: '예약 종합',
+    title: '예약 종합 (콜, 온라인)',
+    description:
+      '검사예약을 콜(CTI·TM·재상담)과 온라인(홈페이지/앱·네이버·카카오톡)으로 합산한 종합 건수입니다. ' +
+      '2024·2025년은 레거시 BCRM 문의통계 확정값, 2026년은 운영 DB 추정치(검사예약 전체)이며 당월까지만 신뢰할 수 있습니다.',
+  },
+  {
+    key: 'online',
+    field: 'online',
+    label: '온라인 예약',
+    title: '온라인 예약 (네이버, 카카오, 홈페이지)',
+    description:
+      '온라인 채널(홈페이지/앱 + 네이버) 검사예약 건수입니다. 2024·2025년은 확정값, ' +
+      '2026년은 운영 DB 추정치(RESERVE_PATH ONLINE·APP·NAVER)입니다. 카카오는 해피톡 채널로 RESERVATION에 거의 잡히지 않습니다.',
+  },
+  {
+    key: 'call',
+    field: 'call',
+    label: '콜 예약',
+    title: '콜 예약 (인콜, 아웃콜)',
+    description:
+      '콜 채널(인콜 CTI + 아웃콜 CRM) 검사예약 건수입니다. 2024·2025년은 확정값, ' +
+      '2026년은 운영 DB 추정치(RESERVE_PATH CTI·CRM)입니다. 종합에서 온라인을 뺀 값과 같은 개념입니다.',
+  },
+]
 
-export function ExaminationMetricTrend({ metric, description }: ExaminationMetricTrendProps) {
+export function ReservationOverallPage() {
   const filter = useFilterBar('year', [CURRENT_YEAR - 2, CURRENT_YEAR - 1, CURRENT_YEAR])
+  const [tab, setTab] = useState<TabKey>('total')
+
+  const currentTab = TABS.find((t) => t.key === tab) ?? TABS[0]
+  const field = currentTab.field
 
   const sortedYears = useMemo(() => [...filter.years].sort((a, b) => a - b), [filter.years])
-  const { dataMap, isLoading, isError } = useExaminationTrend(sortedYears)
+  const { dataMap, isLoading, isError } = useReservationOverallTrend(sortedYears)
 
   const series = useMemo(() => {
     const latestYear = sortedYears[sortedYears.length - 1]
@@ -47,7 +68,6 @@ export function ExaminationMetricTrend({ metric, description }: ExaminationMetri
     }))
   }, [sortedYears])
 
-  // 필터 칩 색상을 차트 라인 색상과 동일하게 매핑 (연도 → 색)
   const yearChipColors = useMemo(() => {
     const map: Record<number, string> = {}
     series.forEach((s) => { map[s.year] = s.color })
@@ -62,18 +82,17 @@ export function ExaminationMetricTrend({ metric, description }: ExaminationMetri
     return config
   }, [series])
 
-  // 미래 월은 null → 선이 마지막 데이터 지점에서 끊김
   const chartData = useMemo(
     () =>
       MONTHS.map((month, monthIndex) => {
         const row: Record<string, string | number | null> = { month }
         sortedYears.forEach((year) => {
           const item = dataMap[year]?.[monthIndex]
-          row[`y${year}`] = isFutureMonth(year, monthIndex) ? null : item?.[metric] ?? 0
+          row[`y${year}`] = item?.[field] ?? null
         })
         return row
       }),
-    [sortedYears, dataMap, metric],
+    [sortedYears, dataMap, field],
   )
 
   return (
@@ -82,9 +101,27 @@ export function ExaminationMetricTrend({ metric, description }: ExaminationMetri
       <PanelShell isLoading={isLoading} isError={isError} variant="line" className="flex min-h-0 flex-1 flex-col">
         <Card className="flex min-h-0 flex-1 flex-col border-border/70 shadow-sm">
           <CardHeader className="space-y-3">
-            <div>
-              <CardTitle>월별 추이 비교</CardTitle>
-              <CardDescription>{description}</CardDescription>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <CardTitle>{currentTab.title}</CardTitle>
+                <CardDescription>{currentTab.description}</CardDescription>
+              </div>
+              <div className="flex flex-wrap gap-1 rounded-md bg-gray-100 p-1">
+                {TABS.map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => setTab(t.key)}
+                    className={`h-8 rounded px-3 text-sm font-medium transition-colors ${
+                      tab === t.key
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-500 hover:text-gray-700'
+                    }`}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="flex flex-wrap items-center justify-center gap-6">
               {series.map((s) => (
@@ -101,7 +138,6 @@ export function ExaminationMetricTrend({ metric, description }: ExaminationMetri
           </CardHeader>
           <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
             <ChartContainer config={chartConfig} className="aspect-auto min-h-0 w-full flex-1">
-              {/* left/right 여백과 YAxis 폭을 테이블 colgroup(80px)과 맞춰 월 라벨이 표 컬럼 중앙에 정렬됨 */}
               <LineChart data={chartData} margin={{ top: 24, left: 0, right: 80 }}>
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="month" scale="band" tickLine={false} axisLine={false} tickMargin={8} />
@@ -110,7 +146,7 @@ export function ExaminationMetricTrend({ metric, description }: ExaminationMetri
                   tickLine={false}
                   axisLine={false}
                   tickMargin={8}
-                  domain={[0, 'auto']}
+                  domain={['dataMin - 200', 'dataMax + 200']}
                   tickFormatter={formatAxisNumber}
                 />
                 <ChartTooltip content={<ChartTooltipContent />} />
@@ -122,6 +158,7 @@ export function ExaminationMetricTrend({ metric, description }: ExaminationMetri
                     stroke={s.color}
                     strokeWidth={s.isLatest ? 3 : 2.5}
                     dot={false}
+                    connectNulls={false}
                     activeDot={{ r: 4 }}
                     label={
                       s.isLatest
@@ -169,29 +206,31 @@ export function ExaminationMetricTrend({ metric, description }: ExaminationMetri
                     }, 0)
 
                     return (
-                    <tr key={s.year} className="border-b border-border">
-                      <td className="py-2">
-                        <span
-                          className="flex items-center justify-center gap-1.5 font-semibold"
-                          style={{ color: s.isLatest ? s.color : undefined }}
-                        >
+                      <tr key={s.year} className="border-b border-border">
+                        <td className="py-2">
                           <span
-                            className="h-[3px] w-5 rounded-full"
-                            style={{ backgroundColor: s.color }}
-                          />
-                          {s.year}
-                        </span>
-                      </td>
-                      {MONTHS.map((_, monthIndex) => {
-                        const value = chartData[monthIndex][s.key]
-                        return (
-                          <td key={monthIndex} className="py-2 tabular-nums">
-                            {value === null ? '' : formatAxisNumber(value as number)}
-                          </td>
-                        )
-                      })}
-                      <td className="py-2 font-semibold tabular-nums">{formatAxisNumber(total)}</td>
-                    </tr>
+                            className="flex items-center justify-center gap-1.5 font-semibold"
+                            style={{ color: s.isLatest ? s.color : undefined }}
+                          >
+                            <span
+                              className="h-[3px] w-5 rounded-full"
+                              style={{ backgroundColor: s.color }}
+                            />
+                            {s.year}
+                          </span>
+                        </td>
+                        {MONTHS.map((_, monthIndex) => {
+                          const value = chartData[monthIndex][s.key]
+                          return (
+                            <td key={monthIndex} className="py-2 tabular-nums">
+                              {typeof value === 'number' ? formatAxisNumber(value) : ''}
+                            </td>
+                          )
+                        })}
+                        <td className="py-2 font-semibold tabular-nums">
+                          {total > 0 ? formatAxisNumber(total) : ''}
+                        </td>
+                      </tr>
                     )
                   })}
                 </tbody>
