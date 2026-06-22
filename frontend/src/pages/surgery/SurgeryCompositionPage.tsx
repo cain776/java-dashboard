@@ -1,11 +1,13 @@
-import { useMemo, useState, type ReactNode } from 'react'
-import { ChevronDown } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Fragment, useMemo, useState, type ReactNode } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { useSurgeryTrend } from '@/hooks/surgery/useSurgeryTrend'
 import { CURRENT_YEAR, MONTHS } from '@/constants/chart'
 import { formatAxisNumber } from '@/utils/stats'
 
 const YEAR_OPTIONS = [CURRENT_YEAR - 2, CURRENT_YEAR - 1, CURRENT_YEAR]
+
+/** 조회 연도: 'all'(전체) 또는 특정 연도 */
+type YearFilter = 'all' | number
 
 interface Cell {
   lasek: number; lasik: number; smile: number; smilePro: number
@@ -24,6 +26,14 @@ const EMPTY: Cell = {
   lasekEx: 0, lasekRed: 0,
   reoperation: 0, reopLaser: 0, reopLens: 0,
   visionPatients: 0, cataractPatients: 0, total: 0,
+}
+
+/** 여러 월(또는 연도) Cell 합산 */
+const sumCells = (cells: Cell[]): Cell => {
+  const t = { ...EMPTY }
+  const keys = Object.keys(EMPTY) as (keyof Cell)[]
+  for (const c of cells) for (const k of keys) t[k] += c[k]
+  return t
 }
 
 const piolSum = (d: Cell) => d.icl + d.tIcl + d.kpl + d.tKpl + d.viva
@@ -67,9 +77,10 @@ const COLS: ColDef[] = [
 
 const toneClass = (t: Tone) => (t === 'blue' ? 'text-blue-700' : t === 'violet' ? 'text-violet-700' : '')
 
-function DataRow({ label, d, head }: { label: ReactNode; d: Cell; head?: boolean }) {
+function DataRow({ lead, label, d, head }: { lead?: ReactNode; label: ReactNode; d: Cell; head?: boolean }) {
   return (
     <tr className={head ? 'border-t-2 border-border bg-muted/30 font-semibold' : 'border-b border-border'}>
+      {lead}
       <td className="px-1.5 py-1.5 font-semibold">{label}</td>
       {COLS.map((c, i) => (
         <td
@@ -84,34 +95,48 @@ function DataRow({ label, d, head }: { label: ReactNode; d: Cell; head?: boolean
 }
 
 export function SurgeryCompositionPage() {
-  const [year, setYear] = useState(CURRENT_YEAR)
-  const { dataMap, isLoading, isError } = useSurgeryTrend([year])
+  const [year, setYear] = useState<YearFilter>('all')
+  // 연도 전환을 즉시 반영하도록 전 연도를 한 번에 조회하고 클라이언트에서 필터링한다.
+  const { dataMap, isLoading, isError } = useSurgeryTrend(YEAR_OPTIONS)
 
-  const rows = useMemo(() => {
-    const arr = dataMap[year] ?? []
-    return MONTHS.map((month, i) => ({ month, d: arr[i] ?? EMPTY }))
+  const showYearCol = year === 'all'
+
+  // 선택 연도별 섹션: 12개월 + 연 합계
+  const sections = useMemo(() => {
+    const years = year === 'all' ? YEAR_OPTIONS : [year]
+    return years.map((y) => {
+      const arr = dataMap[y] ?? []
+      const months = MONTHS.map((month, i) => ({ month, d: arr[i] ?? EMPTY }))
+      return { year: y, months, total: sumCells(months.map((r) => r.d)) }
+    })
   }, [dataMap, year])
 
-  const total = useMemo(() => {
-    const t = { ...EMPTY }
-    const keys = Object.keys(EMPTY) as (keyof Cell)[]
-    for (const r of rows) for (const k of keys) t[k] += r.d[k]
-    return t
-  }, [rows])
+  const grandTotal = useMemo(() => sumCells(sections.map((s) => s.total)), [sections])
 
-  const selectClass =
-    'h-9 appearance-none rounded-md border border-border/80 bg-white pl-3 pr-8 text-sm outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100'
+  const yearLabel = year === 'all' ? '전체' : `${year}년`
+  const btnClass = (active: boolean) =>
+    `rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+      active
+        ? 'border-blue-500 bg-blue-50 text-blue-700'
+        : 'border-border/70 bg-white text-gray-600 hover:bg-gray-50'
+    }`
   const th = 'px-1.5 py-1 font-semibold'
   const thL = `${th} border-l border-border`
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/70 bg-white px-3 py-2 shadow-sm">
-        <div className="relative">
-          <select aria-label="연도" value={year} onChange={(e) => setYear(Number(e.target.value))} className={`${selectClass} w-28`}>
-            {YEAR_OPTIONS.map((y) => <option key={y} value={y}>{y}년</option>)}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+      {/* 조회 영역 — 연도 선택(전체/연도별) */}
+      <div className="flex flex-wrap items-center gap-3 rounded-md border border-border/70 bg-white px-3 py-2 shadow-sm">
+        <span className="text-sm font-semibold text-foreground">조회 연도</span>
+        <div className="flex flex-wrap gap-1.5">
+          <button type="button" onClick={() => setYear('all')} className={btnClass(year === 'all')}>
+            전체
+          </button>
+          {YEAR_OPTIONS.map((y) => (
+            <button key={y} type="button" onClick={() => setYear(y)} className={btnClass(year === y)}>
+              {y}년
+            </button>
+          ))}
         </div>
         <div className="ml-auto flex items-center gap-3 text-sm">
           <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-blue-600" />시력교정수술</span>
@@ -121,10 +146,7 @@ export function SurgeryCompositionPage() {
 
       <Card className="border-border/70 shadow-sm">
         <CardHeader>
-          <CardTitle>수술별 비중 (시술별 · {year}년)</CardTitle>
-          <CardDescription>
-            월별 시술 건수와 그룹 내 비중(괄호 %)입니다. 시력교정 비중은 시력교정 합계 대비, 백내장 비중은 백내장 수술수 대비.
-          </CardDescription>
+          <CardTitle>수술별 비중 (시술별 · {yearLabel})</CardTitle>
         </CardHeader>
         <CardContent>
           {isError ? (
@@ -137,6 +159,7 @@ export function SurgeryCompositionPage() {
                 <thead>
                   {/* 1단: 대그룹 */}
                   <tr className="border-y border-border bg-muted/40">
+                    {showYearCol && <th rowSpan={3} className={th}>연도</th>}
                     <th rowSpan={3} className={th}>월</th>
                     <th rowSpan={3} className={thL}>합계</th>
                     <th colSpan={21} className={`${thL} border-b text-blue-700`}>시력교정수술</th>
@@ -178,18 +201,37 @@ export function SurgeryCompositionPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => <DataRow key={r.month} label={r.month} d={r.d} />)}
-                  <DataRow label="합계" d={total} head />
+                  {sections.map((s) => (
+                    <Fragment key={s.year}>
+                      {s.months.map((r, i) => (
+                        <DataRow
+                          key={`${s.year}-${r.month}`}
+                          lead={
+                            showYearCol && i === 0 ? (
+                              <td rowSpan={13} className="px-1.5 py-1.5 align-top font-semibold text-muted-foreground">
+                                {s.year}년
+                              </td>
+                            ) : undefined
+                          }
+                          label={r.month}
+                          d={r.d}
+                        />
+                      ))}
+                      <DataRow label="합계" d={s.total} head />
+                    </Fragment>
+                  ))}
+                  {showYearCol && (
+                    <DataRow
+                      lead={<td className="px-1.5 py-1.5 font-semibold">전체</td>}
+                      label="합계"
+                      d={grandTotal}
+                      head
+                    />
+                  )}
                 </tbody>
               </table>
             </div>
           )}
-          <p className="mt-3 text-[11px] text-muted-foreground">
-            ※ 운영 DB 라이브(surgery API), 레거시 월간보고 p.27 원표와 2026 1~4월 ±1 일치.
-            <strong>엑스트라·웨이브비전·모노비전·콘트라·퍼스널</strong>은 시력교정 부가시술(환자 수),
-            <strong>라섹계 EX/Red</strong>는 EYECLE+EX500 / EYECLE+RED, <strong>재수술</strong>은 RE_OPERATION 레코드(건) 단위(레이저=각막 재교정·렌즈=IOL).
-            라섹계 합계는 EYECLE 기준입니다. 분류 기준(특히 재수술 레이저/렌즈)은 팀장 검증 예정(Phase 2).
-          </p>
         </CardContent>
       </Card>
     </div>

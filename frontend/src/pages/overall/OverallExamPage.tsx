@@ -1,4 +1,5 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useMemo, useState } from 'react'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
 /**
  * 전체지표 > 검사자 종합표.
@@ -111,18 +112,64 @@ const display = (v: string) => {
   return Number.isFinite(n) ? n.toLocaleString('ko-KR') : v
 }
 
+// 데이터에 존재하는 연도(오름차순) — 조회 영역 버튼 생성용
+const YEARS = Array.from(new Set(ROWS.map((r) => r.year))).sort((a, b) => a - b)
+
+/** 조회 연도: 'all'(전체) 또는 특정 연도 */
+type YearFilter = 'all' | number
+
 export function OverallExamPage() {
+  const [year, setYear] = useState<YearFilter>('all')
+
+  const rows = useMemo(
+    () => (year === 'all' ? ROWS : ROWS.filter((r) => r.year === year)),
+    [year],
+  )
+
   return (
     <div className="flex h-[calc(100vh-5rem)] min-h-[40rem] flex-col">
       <Card className="flex min-h-0 flex-1 flex-col border-border/70 shadow-sm">
         <CardHeader>
           <CardTitle>검사자 종합지표</CardTitle>
-          <CardDescription>
-            총검사자, 소개유형·직업 구성, 시력교정·백내장 예약, 검사 카테고리, 원데이/일반검사를 월별로 모은 종합표입니다.
-            2024·2025년은 확정값, 2026년부터는 운영 DB 집계와 파생 산식으로 산출 가능한 칼럼을 반영합니다. (가로로 스크롤하세요)
-          </CardDescription>
         </CardHeader>
         <CardContent className="flex min-h-0 flex-1 flex-col">
+          {/* 조회 영역 — 연도 선택(전체/연도별) */}
+          <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-border/70 bg-muted/30 px-4 py-2.5">
+            <span className="text-sm font-semibold text-foreground">조회 연도</span>
+            <div className="flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={() => setYear('all')}
+                className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+                  year === 'all'
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-border/70 bg-white text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                전체
+              </button>
+              {YEARS.map((y) => {
+                const active = year === y
+                return (
+                  <button
+                    key={y}
+                    type="button"
+                    onClick={() => setYear(y)}
+                    className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+                      active
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-border/70 bg-white text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {y}년
+                  </button>
+                )
+              })}
+            </div>
+            <span className="ml-auto text-xs text-muted-foreground">
+              {year === 'all' ? '전체' : `${year}년`} · {rows.length}개월 · 가로 스크롤
+            </span>
+          </div>
           <div className="min-h-0 flex-1 overflow-auto">
             <table className="w-full min-w-[2200px] border-collapse text-center text-xs">
               <thead>
@@ -151,8 +198,15 @@ export function OverallExamPage() {
                 </tr>
               </thead>
               <tbody>
-                {ROWS.map((row, index) => {
-                  const isYearStart = index > 0 && ROWS[index - 1].year !== row.year
+                {rows.length === 0 && (
+                  <tr>
+                    <td colSpan={COL_COUNT + 2} className="py-10 text-center text-muted-foreground">
+                      표시할 데이터가 없습니다.
+                    </td>
+                  </tr>
+                )}
+                {rows.map((row, index) => {
+                  const isYearStart = index > 0 && rows[index - 1].year !== row.year
                   return (
                     <tr
                       key={`${row.year}-${row.month}`}
@@ -176,13 +230,6 @@ export function OverallExamPage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-2 shrink-0 text-xs leading-relaxed text-muted-foreground">
-            * 6월은 2026-06-15 기준 월중 부분 집계입니다.<br />
-            ※ 백내장 <b>전체(노안포함)</b>=Cataract_Exam 검사 행수(백내장 리스트 조회건수와 동일), <b>만</b>=백내장 검사건수(시술별 메뉴와 동일), <b>노안2</b>=전체−만.
-            2026은 모두 <b>우리 DB 기준 조회값</b>(레거시 엑셀 마감값과는 과거월이 다를 수 있음 — 확정 고정은 추후). <b>예약</b>=백내장 수술예약(O·진료4), <b>예약률</b>=예약÷만. <b>중단제외</b>는 정의 미확정으로 공란.<br />
-            ※ 2026 <b>중단수</b>=검사 중단(EXAM.STOP_YN='Y'), <b>중단율</b>=중단수÷검사건수 시력교정. 검사건수 <b>시력교정/드림렌즈/백내장</b>은 지표정의 §1.3~1.5 기준 운영 DB 집계. <b>노안2</b>=백내장 <b>전체(노안포함)−만</b>. <b>합계</b>=검사건수 4칼럼 합, <b>원데이</b>=검사OP(M/5) 내원, <b>원데이예약</b>=원데이 후 7일 이내 유효 시력교정 수술.
-            EXAM·Cataract_Exam은 고객당 1행 스냅샷이라 과거월 수치가 사후 미세 변동될 수 있습니다.
-          </p>
         </CardContent>
       </Card>
     </div>

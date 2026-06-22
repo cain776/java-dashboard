@@ -28,7 +28,13 @@ export interface StatsPageDefinition {
   sectionId: string
   sectionLabel: string
   description: string
-  apiPath: string
+  /**
+   * 플레이스홀더 화면(StatsPlaceholderPage)에 "API 초안"으로 표시되는 대표 엔드포인트.
+   * 실제 클라이언트 호출 경로는 api/<domain>에 따로 있고, 한 페이지가 여러 엔드포인트를
+   * 호출할 수 있어 1:1 대응이 아니다. 라우팅·fetch에 쓰이지 않는 표시 전용 값이므로
+   * "지도"로 신뢰하지 말 것.
+   */
+  apiDraftPath: string
 }
 
 const statsPage = (
@@ -38,7 +44,7 @@ const statsPage = (
   sectionId: string,
   sectionLabel: string,
   description: string,
-  apiPath: string
+  apiDraftPath: string
 ): StatsPageDefinition => ({
   id,
   label,
@@ -46,7 +52,7 @@ const statsPage = (
   sectionId,
   sectionLabel,
   description,
-  apiPath,
+  apiDraftPath,
 })
 
 export const getStatsPageById = (id: string): StatsPageDefinition => {

@@ -12,6 +12,8 @@ interface KpiCardProps {
   formatValue?: (v: number) => string
   /** 증감 표시 단위 (기본: '%', 전환율 등은 '%p') */
   changeUnit?: string
+  /** 증감 계산 방식: 'rate'=백분율 변화(changeRate), 'point'=포인트 차(next-base). 기본 'rate' */
+  changeMode?: 'rate' | 'point'
 }
 
 const defaultFormat = (v: number) => v.toLocaleString()
@@ -22,6 +24,7 @@ export function KpiCard({
   labels,
   formatValue = defaultFormat,
   changeUnit = '%',
+  changeMode = 'rate',
 }: KpiCardProps) {
   const base = values[0]
 
@@ -40,9 +43,9 @@ export function KpiCard({
           </p>
         </div>
         {values.slice(1).map((val, i) => {
-          const rate = changeRate(base, val)
-          const positive = rate > 0
-          const neutral = rate === 0
+          const delta = changeMode === 'point' ? val - base : changeRate(base, val)
+          const positive = delta > 0
+          const neutral = delta === 0
           const TrendIcon = neutral ? Minus : positive ? TrendingUp : TrendingDown
 
           return (
@@ -59,7 +62,7 @@ export function KpiCard({
                   }`}
                 >
                   <TrendIcon className="h-3 w-3" />
-                  {rate > 0 ? '+' : ''}{rate.toFixed(1)}{changeUnit}
+                  {delta > 0 ? '+' : ''}{delta.toFixed(1)}{changeUnit}
                 </span>
                 <span className="min-w-[7ch] text-right text-sm font-medium tabular-nums text-gray-700">
                   {formatValue(val)}
