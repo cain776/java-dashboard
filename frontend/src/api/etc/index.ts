@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import { api } from './client'
-import { apiResponseOf } from './_shared'
+import { api } from '@/api/client'
+import { apiResponseOf } from '@/api/_shared'
 
 /* ── Monthly (B2B 매출 페이지용) ── */
 

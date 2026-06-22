@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { useReservationList } from '@/hooks/reservation/useReservationList'
 import { weekOf, weeksInRange, shortDate, weekSpillNote, type WeekRef } from '@/utils/weekBucket'
-import type { ReservationListItem } from '@/api/reservationList'
+import type { ReservationListItem } from '@/api/reservation/reservationList'
 
 /**
  * 예약자 리스트 — "예약 종합(콜·온라인)" 월간 건수를 구성하는 검사예약 인원 명단.

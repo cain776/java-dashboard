@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { api } from './client'
+import { api } from '@/api/client'
 
 /**
  * 예약자 리스트 — "예약 종합(콜·온라인)" 월간 건수를 구성하는 검사예약 행 목록.

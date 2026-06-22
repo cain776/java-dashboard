@@ -49,18 +49,17 @@ project-root/
 │   │   ├── App.tsx                      # QueryClientProvider + RouterProvider
 │   │   ├── router.tsx                   # TanStack Router (인증 가드 + 도메인별 페이지 라우트)
 │   │   ├── index.css                    # Tailwind 4 + OKLCH 테마 변수
-│   │   ├── api/                         # 도메인별 API 모듈 (각자 도메인 객체 export)
-│   │   │   ├── client.ts               # HTTP 클라이언트 (Bearer 토큰 자동 주입)
-│   │   │   ├── _shared.ts              # apiResponseOf() 등 공통 응답 래퍼
-│   │   │   ├── auth.ts                 # 로그인 API
-│   │   │   ├── reservation.ts          # reservationApi (예약·예약종합 KPI·추이·구성)
-│   │   │   ├── exam.ts                 # examApi (시술별·검사건수)
-│   │   │   ├── surgery.ts              # surgeryApi (수술 KPI·추이·비중)
-│   │   │   ├── consultation.ts         # consultationApi (전환율·예약률·중단사유)
-│   │   │   ├── outpatient.ts           # outpatientApi (외래수)
-│   │   │   ├── overall.ts              # overallApi (주간 종합지표)
-│   │   │   ├── b2bRevenue.ts           # b2bApi (B2B 매출)
-│   │   │   └── examList.ts · cataractExamList.ts · reservationList.ts · surgeryList.ts  # 리스트 API
+│   │   ├── api/                         # 도메인별 API 폴더 (각 index.ts가 도메인 객체 export)
+│   │   │   ├── client.ts               # HTTP 클라이언트 (Bearer 토큰 자동 주입) — 공용
+│   │   │   ├── _shared.ts              # apiResponseOf() 등 공통 응답 래퍼 — 공용
+│   │   │   ├── auth.ts                 # 로그인 API — 공용
+│   │   │   ├── reservation/            # index.ts(reservationApi) + reservationList.ts
+│   │   │   ├── exam/                   # index.ts(examApi) + examList.ts · cataractExamList.ts
+│   │   │   ├── surgery/                # index.ts(surgeryApi) + surgeryList.ts
+│   │   │   ├── consultation/           # index.ts(consultationApi)
+│   │   │   ├── outpatient/             # index.ts(outpatientApi)
+│   │   │   ├── overall/                # index.ts(overallApi)
+│   │   │   └── etc/                    # index.ts(b2bApi · B2B 매출)
 │   │   ├── hooks/                       # 도메인별 TanStack Query 훅
 │   │   │   ├── reservation/            # useReservationKpi/Trend/Composition/List/OverallTrend …
 │   │   │   ├── exam/                   # useExamination*·useProcedureExamTrend·useExamList·useCataractExamList
@@ -153,7 +152,7 @@ project-root/
 | no-show-rate | 부도율 | /stats/no-show-rate | 취소&부도 | 미구현 |
 | unit-price | 객단가 | /stats/unit-price | 객단가 | 미구현 |
 | dreamlens-revenue | 드림렌즈 매출 | /stats/dreamlens-revenue | 기타 | 미구현 |
-| b2b-revenue | B2B 매출 | /stats/b2b-revenue | 기타 | 미구현 |
+| b2b-revenue | B2B 매출 | /stats/b2b-revenue | 기타 | 완료 |
 | staff-point | 직원 포인트 | /stats/staff-point | 기타 | 미구현 |
 | prp-rate | PRP 시술율 | /stats/prp-rate | 기타 | 미구현 |
 | reoperation-rate | 재수술율 | /stats/reoperation-rate | 기타 | 미구현 |
@@ -222,10 +221,9 @@ GET    /api/stats/{pageId}/compare?compareTo=PREVIOUS_PERIOD
 ### 라우팅 패턴
 
 - 인증 필요 페이지는 `authLayout` 하위에 등록 (`router.tsx`)
-- 새 통계 페이지: `config/navigation.ts`에 정의 → `pages/<domain>/`에 컴포넌트 작성 → `router.tsx`에서 `./pages/<domain>/<Name>` 전용 라우트 등록
-- 미구현 페이지는 `StatsPlaceholderPage`로 자동 렌더링
-- 새 페이지 추가 시 `filter` 제거: `router.tsx`에서 해당 ID의 플레이스홀더를 전용 컴포넌트로 교체
-- 훅은 `@/hooks/<domain>/useXxx`, API는 `@/api/<domain>` 에서 import (도메인 폴더 기준)
+- 라우트는 `router.tsx`가 `navigation.ts`의 `statsPages` + 도메인 레지스트리(`pages/<domain>/routes.ts`, `pageId → 컴포넌트`)를 합쳐 **자동 생성**한다. 레지스트리에 컴포넌트가 있으면 전용 페이지, 없으면 `StatsPlaceholderPage`로 렌더 (하드코딩 목록 없음)
+- 새 통계 페이지 연결: `navigation.ts`에 정의 → `pages/<domain>/`에 컴포넌트 작성 → `pages/<domain>/routes.ts`에 `'<id>': Component` 한 줄 추가 (**`router.tsx` 수정 불필요**)
+- 훅은 `@/hooks/<domain>/useXxx`, API는 `@/api/<domain>`(리스트는 `@/api/<domain>/xxxList`)에서 import
 
 ### 차트 (Recharts)
 

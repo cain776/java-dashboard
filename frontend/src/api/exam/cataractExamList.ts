@@ -1,20 +1,20 @@
 import { z } from 'zod'
-import { api } from './client'
+import { api } from '@/api/client'
 
 /**
- * 검사자 리스트(상담사별) — 성민CRM 화면 소스(EXAM+CUSTOM+OPERATIONDATA+EMPLOYEE)의 행 목록.
- * 검사정보1~30(측정값)을 제외한 비측정 47컬럼. 전 컬럼 문자열(견적가도 텍스트).
- * 백엔드: GET /api/exam-list?from&to → ApiResponse<List<Map>> (camelCase 키).
+ * 백내장 검사자 리스트 — 성민CRM "백내장 검사자 리스트"(FrmCataract_ExamList).
+ * 검사자 리스트(시력교정)와 동일한 49필드 계약(전 컬럼 문자열). 소스만 Cataract_Exam 계열.
+ * 백엔드: GET /api/cataract-exam-list?from&to → ApiResponse<List<Map>>.
  */
-const examListItemSchema = z.object({
+const cataractExamListItemSchema = z.object({
   chartNo: z.string(),
   name: z.string(),
   nameEng: z.string(),
   examDate: z.string(),
   examType: z.string(),
+  examRegDate: z.string(),
   examCategory: z.string(),
   patientType: z.string(),
-  examRegDate: z.string(),
   examMemo: z.string(),
   estimate: z.string(),
   surgeryRate: z.string(),
@@ -58,17 +58,17 @@ const examListItemSchema = z.object({
   nationality: z.string(),
 })
 
-export type ExamListItem = z.infer<typeof examListItemSchema>
+export type CataractExamListItem = z.infer<typeof cataractExamListItemSchema>
 
-const examListResponseSchema = z.object({
+const cataractExamListResponseSchema = z.object({
   success: z.boolean(),
-  data: z.array(examListItemSchema),
+  data: z.array(cataractExamListItemSchema),
   message: z.string().nullish(),
 })
 
-export const examListApi = {
-  getExamList: async (from: string, to: string): Promise<ExamListItem[]> => {
-    const res = await api.get<unknown>(`/exam-list?from=${from}&to=${to}`)
-    return examListResponseSchema.parse(res).data
+export const cataractExamListApi = {
+  getCataractExamList: async (from: string, to: string): Promise<CataractExamListItem[]> => {
+    const res = await api.get<unknown>(`/cataract-exam-list?from=${from}&to=${to}`)
+    return cataractExamListResponseSchema.parse(res).data
   },
 }

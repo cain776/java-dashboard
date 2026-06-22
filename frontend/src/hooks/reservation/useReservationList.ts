@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { reservationListApi, type ReservationListItem } from '@/api/reservationList'
+import { reservationListApi, type ReservationListItem } from '@/api/reservation/reservationList'
 
 /**
  * 예약자 리스트 조회 훅. 예약일 범위(from~to)로 서버 조회 (월 또는 주 단위).

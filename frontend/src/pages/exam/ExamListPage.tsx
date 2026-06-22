@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { useExamList } from '@/hooks/exam/useExamList'
 import { useWeeklyApproval } from '@/hooks/useWeeklyApproval'
 import { WeeklyApprovalPanel } from '@/components/stats/WeeklyApprovalPanel'
-import type { ExamListItem } from '@/api/examList'
+import type { ExamListItem } from '@/api/exam/examList'
 
 /**
  * 검사자 리스트 — 성민CRM "검사자 리스트(상담사별)" 화면.

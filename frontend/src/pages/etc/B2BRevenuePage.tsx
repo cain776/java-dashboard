@@ -14,7 +14,7 @@ import {
 import { FilterBar } from '@/components/filters/FilterBar'
 import { useFilterBar } from '@/components/filters/useFilterBar'
 import { CHART_COLORS, MONTHS, YEAR_STROKE_PATTERNS } from '@/constants/chart'
-import { b2bApi, type B2bRevenueMonthlyItem } from '@/api/b2bRevenue'
+import { b2bApi, type B2bRevenueMonthlyItem } from '@/api/etc'
 import { changeRate, periodLabel } from '@/utils/stats'
 
 type MonthlyData = {

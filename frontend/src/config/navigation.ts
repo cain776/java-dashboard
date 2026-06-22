@@ -425,7 +425,7 @@ const MENU_STATUS: Record<string, MenuStatus> = {
   'no-show-rate': 'pending',
   'unit-price': 'pending',
   'dreamlens-revenue': 'pending',
-  'b2b-revenue': 'pending',
+  'b2b-revenue': 'complete',
   'staff-point': 'pending',
   'prp-rate': 'pending',
   'reoperation-rate': 'pending',

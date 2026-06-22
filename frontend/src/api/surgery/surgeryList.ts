@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { api } from './client'
+import { api } from '@/api/client'
 
 /**
  * 수술자 리스트 — 기준일은 수술일자, 보조일은 검사일자.

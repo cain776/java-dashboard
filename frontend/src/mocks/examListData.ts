@@ -1,4 +1,4 @@
-import type { ExamListItem } from '@/api/examList'
+import type { ExamListItem } from '@/api/exam/examList'
 
 /**
  * 검사자 리스트 목업 (2026-04, 성민CRM 실제 데이터 패턴 기반).

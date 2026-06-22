@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { useSurgeryList } from '@/hooks/surgery/useSurgeryList'
 import { useWeeklyApproval } from '@/hooks/useWeeklyApproval'
 import { WeeklyApprovalPanel } from '@/components/stats/WeeklyApprovalPanel'
-import type { SurgeryListItem } from '@/api/surgeryList'
+import type { SurgeryListItem } from '@/api/surgery/surgeryList'
 
 const dash = (v: string) => (v && v.trim() ? v : '—')
 

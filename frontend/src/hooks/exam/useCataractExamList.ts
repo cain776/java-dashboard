@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { cataractExamListApi, type CataractExamListItem } from '@/api/cataractExamList'
+import { cataractExamListApi, type CataractExamListItem } from '@/api/exam/cataractExamList'
 import { useDataSourceStore } from '@/stores/dataSourceStore'
 
 /**

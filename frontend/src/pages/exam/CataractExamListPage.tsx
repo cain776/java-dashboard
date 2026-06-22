@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { useCataractExamList } from '@/hooks/exam/useCataractExamList'
 import { useWeeklyApproval } from '@/hooks/useWeeklyApproval'
 import { WeeklyApprovalPanel } from '@/components/stats/WeeklyApprovalPanel'
-import type { CataractExamListItem } from '@/api/cataractExamList'
+import type { CataractExamListItem } from '@/api/exam/cataractExamList'
 
 const dash = (v: string) => (v && v.trim() ? v : '—')
 
