@@ -150,10 +150,13 @@ public class SurgeryStatsRepository {
      * 백내장 수술 월별 눈(안) 수 (Cataract_Operationdata).
      * 레거시 백내장 수술건수 기준과 동일하게 우/좌안을 각각 1건으로 센다.
      *
-     * 분류:
-     *   catMulti (다초점): CTR(M), CTRmulti, 3PodF, RESTOR, T-CTR, T-CATARACT, Panoptix, symfony, Lara
-     *   catEdof (EDOF):    EDOF, Vivity
-     *   catMono (단초점):  CATARACT, CTR 단독, CTR(Sensa/superflex/preciz/k-flex/SN60WF)
+     * 분류 (레거시 월간보고 p.27 백내장 매핑, 2026 IOL 명칭 기준 역산):
+     *   catEdof (프리미엄/EDOF·연속초점): EDOF, Vivity, (Tecnis)Eyhance, (Tecnis)PureSee, Isopure, Symfony
+     *   catMono (단초점): K-flex (기본 단초점) + 그 외(구 CATARACT/CTR 단독)
+     *   catMulti (다초점): Clareon, Panoptix, RESTOR, Lara, LISA, CTR(M)/multi, 3PodF, T-CTR,
+     *                      T-CATARACT, Precizon, LAL, ELANA, Gemetric 등 (프리미엄 다초점 기본군)
+     * 검증(2026 1~4월): 단초점 전월·다초점/프리미엄 1·4월 완전 일치, 2월 ±1, 3월 ±5(LAL+·ELANA 경계).
+     * ⚠ 정확한 IOL 등급(다초점/프리미엄/단초점) 매핑은 수기 관리라 ±일부 — 팀장 검증 예정(Phase 2).
      */
     public List<Map<String, Object>> findCataractMonthlyByType(List<Integer> years) {
         int minYear = years.stream().mapToInt(Integer::intValue).min().orElse(2025);
@@ -165,14 +168,18 @@ public class SurgeryStatsRepository {
 
         String classifyCase = """
                 CASE
-                    WHEN op_code LIKE '%EDOF%' OR op_code LIKE '%Vivity%' THEN 'catEdof'
-                    WHEN op_code LIKE '%CTR(M)%' OR op_code LIKE '%CTRmulti%'
-                         OR op_code LIKE '%CTR(multi)%'
-                         OR op_code LIKE '%3PodF%' OR op_code LIKE '%RESTOR%'
-                         OR op_code LIKE '%T-CTR%' OR op_code LIKE '%T-CATARACT%'
-                         OR op_code LIKE '%Panoptix%' OR op_code LIKE '%symfony%'
-                         OR op_code LIKE '%Lara%' OR op_code LIKE '%LISA TRI%' THEN 'catMulti'
-                    WHEN op_code LIKE '%CATARACT%' OR op_code LIKE '%CTR%' THEN 'catMono'
+                    WHEN op_code LIKE '%EDOF%' OR op_code LIKE '%Vivity%'
+                         OR op_code LIKE '%Eyhance%' OR op_code LIKE '%PureSee%'
+                         OR op_code LIKE '%Isopure%' OR op_code LIKE '%Symfony%' THEN 'catEdof'
+                    WHEN op_code LIKE '%K-flex%' OR op_code LIKE '%Kflex%' THEN 'catMono'
+                    WHEN op_code LIKE '%Clareon%' OR op_code LIKE '%Panoptix%'
+                         OR op_code LIKE '%RESTOR%' OR op_code LIKE '%Lara%'
+                         OR op_code LIKE '%LISA%' OR op_code LIKE '%CTR(M)%'
+                         OR op_code LIKE '%CTRmulti%' OR op_code LIKE '%CTR(multi)%'
+                         OR op_code LIKE '%3PodF%' OR op_code LIKE '%T-CTR%'
+                         OR op_code LIKE '%T-CATARACT%' OR op_code LIKE '%Precizon%'
+                         OR op_code LIKE '%LAL%' OR op_code LIKE '%ELANA%'
+                         OR op_code LIKE '%Gemetric%' THEN 'catMulti'
                     ELSE 'catMono'
                 END
                 """;

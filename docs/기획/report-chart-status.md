@@ -201,6 +201,7 @@
 ## 해석 — 차이의 원인
 
 - **#24·25 백내장/시력교정 수술 = 0건 (완전 일치)** → 수술 환자수 집계는 레거시와 동일 로직.
+- **백내장 IOL 세부(다초점/프리미엄/단초점) 분류 정정(2026-06-22)** — 기존 패턴(CTR·Panoptix·symfony 등 구 IOL명)이 2026 실제 IOL(Clareon·Tecnis Eyhance·K-flex·Vivity·PureSee…)과 안 맞아 **다초점 0·단초점 96%로 완전 붕괴**였음. 레거시 p.27 백내장 월별 분포로 재매핑: **프리미엄(EDOF)=Eyhance·PureSee·Vivity·Isopure·EDOF·Symfony / 단초점=K-flex / 다초점=Clareon·Panoptix·Precizon·LAL·ELANA 등**. 검증(2026 1~4월): 단초점 전월·다초점/프리미엄 1·4월 완전 일치, 2월 ±1, 3월 ±5(LAL+·ELANA 경계). ⚠ 정확한 IOL 등급 매핑은 수기 관리라 일부 ± — 팀장 검증 예정(Phase 2).
 - **#27 수술상세표 add-on·재수술 (2026-06-22 라이브, 레거시 p.27 원표 대조)** — `SurgeryStatsRepository`로 운영 DB 직접 집계.
   - add-on(시력교정, `OPERATIONR/L` 패턴, 환자 수 DISTINCT) vs 레거시:
     - 엑스트라 `%+X%`=327·343·139·135 (레거시 동일 **완전 일치**) / 모노비전 `MONO%`=37·32·30·30 (**완전 일치**) / 퍼스널 `%P.E%`=0·2·3·2 (**완전 일치**)
