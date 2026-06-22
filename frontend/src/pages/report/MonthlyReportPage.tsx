@@ -17,6 +17,7 @@ import { useSurgeryTrend } from '@/hooks/surgery/useSurgeryTrend'
 import { useCataractReservationRateTrend } from '@/hooks/consultation/useCataractReservationRateTrend'
 import { useStopReasonMonthly } from '@/hooks/consultation/useStopReasonMonthly'
 import { useOverallExamWeekly } from '@/hooks/overall/useOverallExamWeekly'
+import { useConsultationRateTrend } from '@/hooks/consultation/useConsultationRateTrend'
 import type { StopReasonMonthlyItem } from '@/api/consultation'
 import { MONTHLY_LEGACY_CHARTS } from '@/data/monthlyReportLegacy'
 import { CURRENT_YEAR, MONTHS } from '@/constants/chart'
@@ -226,6 +227,7 @@ export function MonthlyReportPage() {
   const visionRate = useCataractReservationRateTrend([CURRENT_YEAR], 'vision')
   const cataractRate = useCataractReservationRateTrend([CURRENT_YEAR], 'cataract')
   const overall = useOverallExamWeekly([CURRENT_YEAR])
+  const consult = useConsultationRateTrend(YEARS) // 시력교정 상담성공률(전체) — 3개년 라이브
 
   // 당해연도 주간 항목을 월(1~12)별로 합산 — 검사유입·세그먼트 도표의 라이브 분모분자
   const overallMonthly = useMemo(() => {
@@ -322,6 +324,8 @@ export function MonthlyReportPage() {
       visionSurgery: build((y, i) => surgery.dataMap[y]?.[i]?.visionPatients),
       totalSurgery: build((y, i) => surgery.dataMap[y]?.[i]?.total),
       outpatient: build((y, i) => outpatient.dataMap[y]?.[i]?.outpatientCount),
+      // 시력교정 상담성공률(전체) = 상담→수술예약(visionCounselRate), consultation-rate 3개년 라이브
+      counselSuccess: build((y, i) => consult.dataMap[y]?.[i]?.visionConsultation || null),
       // 🟢 라이브 전환 (overall-exam/weekly 월합산) — 2024·2025 레거시 확정값, 당해연도 라이브
       examGeneralCustomer: liveOrLegacy('exam-general-customer', (s) => s.introGeneral),
       examReferralCustomer: liveOrLegacy('exam-referral-customer', (s) => s.introCustomer),
@@ -344,7 +348,7 @@ export function MonthlyReportPage() {
         s.visionExam > 0 ? (s.stopCount / s.visionExam) * 100 : null,
       ),
     }
-  }, [resv.dataMap, outpatient.dataMap, procedure.dataMap, exam.dataMap, surgery.dataMap, visionRate.dataMap, cataractRate.dataMap, overallMonthly])
+  }, [resv.dataMap, outpatient.dataMap, procedure.dataMap, exam.dataMap, surgery.dataMap, visionRate.dataMap, cataractRate.dataMap, consult.dataMap, overallMonthly])
 
   // 최신(데이터 있는) 월 — 리포트 기준월
   const latestMonthIdx = useMemo(() => {
@@ -357,7 +361,7 @@ export function MonthlyReportPage() {
   const periodLabel = `${CURRENT_YEAR}년 ${latestMonthIdx + 1}월`
 
   const isLoading =
-    resv.isLoading || outpatient.isLoading || procedure.isLoading || exam.isLoading || surgery.isLoading || stopReason.isLoading || overall.isLoading
+    resv.isLoading || outpatient.isLoading || procedure.isLoading || exam.isLoading || surgery.isLoading || stopReason.isLoading || overall.isLoading || consult.isLoading
 
   // 전체 도표 목차(월간보고 순서). node 있으면 완료(차트 렌더+목차 링크), 없으면 미완성(목차 회색 표시).
   const items: { group: string; id: string; label: string; node?: ReactNode }[] = [
@@ -381,7 +385,7 @@ export function MonthlyReportPage() {
     { group: '비율', id: 'rate-vision', label: '시력교정 예약률', node: <ReportLineChart title="시력교정 예약률" suffix="(수술예약건/검사자)" years={YEARS} data={charts.visionRate} format="percent" /> },
     { group: '비율', id: 'rate-vision-general', label: '시력교정 일반예약률', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['rate-vision-general']} years={YEARS} data={charts.rateVisionGeneral} /> },
     { group: '비율', id: 'rate-oneday', label: '원데이 예약률', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['rate-oneday']} years={YEARS} data={charts.rateOneday} /> },
-    { group: '전환&성공', id: 'success-rate', label: '시력교정 상담성공률' },
+    { group: '전환&성공', id: 'success-rate', label: '시력교정 상담성공률', node: <ReportLineChart title="시력교정 상담성공률" suffix="(상담→수술예약)" years={YEARS} data={charts.counselSuccess} format="percent" /> },
     { group: '중단', id: 'stop-rate', label: '중단율', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['stop-rate']} years={YEARS} data={charts.stopRate} /> },
     { group: '중단', id: 'stop-reason', label: '중단 사유', node: <StopReasonBar item={stopReasonItem} monthLabel={periodLabel} /> },
     { group: '수술', id: 'surgery-cataract', label: '백내장 수술', node: <ReportLineChart title="백내장 수술" years={YEARS} data={charts.cataractSurgery} /> },
