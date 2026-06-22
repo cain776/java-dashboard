@@ -14,6 +14,7 @@
 **표시 규칙** — 전전년·전년은 레거시 확정값, 당해연도는 운영 DB 라이브. 색상은 절대연도가 아닌 위치 매핑(당해 = 🔴빨강 · 전년 = ⚫진회색 · 전전년 = 🔵연파랑)이라 연도가 넘어가도 유지된다.
 
 **변경 이력**
+- **2026-06-22 (검증·정렬)** — 운영DB(mssql-prod) 실측으로 라이브 11종 검증 + **고객소개 판정 수정**(`소개고객`+`소개미확인`, 레거시가 소개미확인을 고객소개로 편입한 것 반영) → 레거시 평균차 고객소개 110→13건·일반고객 106→10건 수렴.
 - **2026-06-22** — 도메인 리팩토링 경로 반영 + 실제 페이지 와이어링 현황 섹션 추가 · 레거시 하드코딩 11종(#4·5·6·8·9·10·15·16·19·20·22)을 `overall-exam/weekly` 월합산 라이브로 전환(당해연도 라이브, 2024·2025 레거시 유지) → 라이브 26 / 미구현 2.
 - **2026-06-19** — `overall-exam/weekly` 라이브 API 추가(소개유형·직업·중단·원데이/일반검사 분모분자를 운영 DB에서 일자별 집계 → 월 합산 시 월값 재현). 검사유입·세그먼트 비율 도표의 데이터 근거 확보로 🟥 9 → 🟥 1.
 - 구 `report-chart-legacy-diff.md`(레거시 검증)를 흡수해 현황 + 검증을 하나로 통합.
@@ -48,37 +49,37 @@
 | ⚪ 미구현(목차 회색, node 없음) | 2 | 7(고객분류별 검사수) · 21(시력교정 상담성공률) |
 
 > **남은 작업**: #7 고객분류별 검사수(군인·기업 B2B 분류 신규 정의 필요), #21 시력교정 상담성공률(세그먼트 분리). 주간 레포트(`/report/weekly`)는 아직 골격 페이지로 동일 차트 미구현.
-> 라이브 전환 도표의 당해연도 값은 운영 DB(우리 기준) 집계라 레거시 PDF와 정의 차이(특히 소개유형)가 있을 수 있음(§해석). 2024·2025는 레거시 확정값 유지.
+> 라이브 전환 도표의 당해연도 값은 운영 DB 집계. 소개유형은 고객소개 판정 정렬(`소개고객`+`소개미확인`)로 레거시와 정합(평균차 ~10~13건). 2024·2025는 레거시 확정값 유지.
 
 ---
 
 ## 전체 도표 (월간보고 순서)
 
 > **월별 평균 차이** = `|레거시 − 대시보드|`의 2026년 1~4월 평균(단위: 건 또는 %p). 레거시 PDF에 확정된 구간만 사용.
-> 표의 `미산출` 도표(4~6·8~10·16·19·20)는 **2026-06-22 라이브 전환 후 운영 DB(mssql-prod)로 실측 완료** → 아래 [검사유입·세그먼트] 절 참조.
+> 검사유입·세그먼트 도표(4~6·8~10·16·19·20)의 평균차는 **2026-06-22 라이브 전환 후 운영 DB(mssql-prod) 실측값** → 상세는 아래 [검사유입·세그먼트] 절.
 
 | # | 도표명 | 그룹 | 상태 | 데이터 근거 / 필요 작업 | 월별 평균 차이 |
 |:--:|------|----|:--:|------|:--:|
 | 1 | 예약 종합(콜·온라인) | 예약 | ✅ 완료됨 | `reservation-overall/monthly` → `reservations` | 약 14건 (추정 라이브) |
 | 2 | 콜 예약(인콜·아웃콜) | 예약 | ✅ 완료됨 | 동 API → `call` (인콜/아웃콜 세부 미분리, 합계 OK) | 약 18건 (3월 46건 최대) |
 | 3 | 온라인 예약(네이버·카카오·홈페이지) | 예약 | ✅ 완료됨 | 동 API → `online` (채널 세부 미분리, 합계 OK) | 약 14건 (3월 29건 최대) |
-| 4 | 일반 고객 검사(소개 제외) | 검사유입 | 🟡 비교함 | `overall-exam/weekly` → `introGeneral` (라이브). 레거시 차이 §해석 | 미산출 |
-| 5 | 고객소개 검사 | 검사유입 | 🟡 비교함 | `overall-exam/weekly` → `introCustomer` (라이브, 레거시 차이 §해석) | 미산출 |
-| 6 | 직원소개 검사 | 검사유입 | 🟡 비교함 | `overall-exam/weekly` → `introStaff` (라이브, 레거시 차이 §해석) | 미산출 |
+| 4 | 일반 고객 검사(소개 제외) | 검사유입 | 🟡 비교함 | `overall-exam/weekly` → `introGeneral` (잔차, 라이브) | 10건 |
+| 5 | 고객소개 검사 | 검사유입 | 🟡 비교함 | `overall-exam/weekly` → `introCustomer` (=소개고객+소개미확인, 라이브) | 13건 |
+| 6 | 직원소개 검사 | 검사유입 | 🟡 비교함 | `overall-exam/weekly` → `introStaff` (라이브) | 3건 |
 | 7 | 고객분류별 검사수(멀티) | 검사유입 | 🟥 미완성 | 고객/검색+광고/직원/**B2B 군인·기업** 분류 — 표에도 없음, 전부 신규 | — 미완성 |
-| 8 | 직장인 검사 | 검사유입 | ✅ 완료됨 | `overall-exam/weekly` → `jobOffice` (라이브, prod 검증 ±0.7%p) | 미산출 |
-| 9 | 학생 검사 | 검사유입 | ✅ 완료됨 | `overall-exam/weekly` → `jobStudent` (라이브) | 미산출 |
-| 10 | 기타 검사(직장인·학생 제외) | 검사유입 | ✅ 완료됨 | `overall-exam/weekly` → `jobEtc` (라이브) | 미산출 |
+| 8 | 직장인 검사 | 검사유입 | ✅ 완료됨 | `overall-exam/weekly` → `jobOffice` (라이브) | 2건 |
+| 9 | 학생 검사 | 검사유입 | ✅ 완료됨 | `overall-exam/weekly` → `jobStudent` (라이브) | 3건 |
+| 10 | 기타 검사(직장인·학생 제외) | 검사유입 | ✅ 완료됨 | `overall-exam/weekly` → `jobEtc` (라이브) | 3건 |
 | 11 | 백내장 검사수 | 검사수 | ✅ 완료됨 | `examination/monthly` → `cataract` | 약 4건 (3월 12건 최대) |
 | 12 | 시력교정 검사 | 검사수 | ✅ 완료됨 | `examination/monthly` → `visionCorrection` | 약 3건 |
 | 13 | 검사수(총검사자) | 검사수 | ✅ 완료됨 | `procedure-exam/monthly` → `examCount` (= EXAM행+Cataract세션) | 약 6건 |
 | 14 | 원데이 검사 | 검사수 | ✅ 완료됨 | `procedure-exam/monthly` → `oneDayExamCount` | 약 6건 (2월 17건 최대) |
 | 15 | 일반 검사 | 검사수 | 🟡 비교함 | `overall-exam/weekly` → `visionExam − oneDay` 파생 | 약 4건 (정의 주의 §해석) |
-| 16 | 일반검사 비율 | 비율 | 🟡 비교함 | `overall-exam/weekly` 파생 (`(visionExam−oneDay)÷visionExam`) | 미산출 (파생 시 ~1%p) |
+| 16 | 일반검사 비율 | 비율 | 🟡 비교함 | `overall-exam/weekly` 파생 (`(visionExam−oneDay)÷visionExam`) | 0%p |
 | 17 | 백내장 예약률 | 비율 | ✅ 완료됨 | `cataract-reservation-rate/trend?category=cataract` | 약 3%p |
 | 18 | 시력교정 예약률 | 비율 | ✅ 완료됨 | `cataract-reservation-rate/trend?category=vision` | 약 1%p |
-| 19 | 시력교정 일반예약률 | 비율 | 🟡 비교함 | `overall-exam/weekly` 파생 (`(visionBooked−oneDayBooked)÷(visionExam−oneDay)`) | 미산출 |
-| 20 | 원데이 예약률 | 비율 | 🟡 비교함 | `overall-exam/weekly` 파생 (`oneDayBooked÷oneDay`) | 미산출 |
+| 19 | 시력교정 일반예약률 | 비율 | 🟡 비교함 | `overall-exam/weekly` 파생 (`(visionBooked−oneDayBooked)÷(visionExam−oneDay)`) | 5%p |
+| 20 | 원데이 예약률 | 비율 | 🟡 비교함 | `overall-exam/weekly` 파생 (`oneDayBooked÷oneDay`) | 1%p |
 | 21 | 시력교정 상담성공률(전체·원데이·일반) | 비율 | 🟡 비교함 | `consultation-rate`에 전체율 有 / 원데이·일반은 `overall-exam/weekly` 성공률(`33·34`)로 보강 | 약 1%p (세그먼트 분리 미구현) |
 | 22 | 중단율 | 중단 | 🟡 비교함 | `overall-exam/weekly` → `stopCount ÷ visionExam` (단일 API, 라이브) | 약 1%p |
 | 23 | 중단 사유(막대) | 중단 | ✅ 완료됨 | `stop-reason/monthly` (사유 7종) | 합계 0건(4월 65=65) / 사유분류 매핑 상이 |
@@ -106,8 +107,9 @@
 ## ② 🟡 비교함 (10) — 기존 API + 파생/결합/검증
 
 > `overall-exam/weekly`는 일자별 라이브이므로 월 합산하면 월간 차트값을 재현한다.
+> ✅ **2026-06-22: 아래 대부분 라이브 전환 완료** — 소개유형·일반검사·일반검사비율·일반예약률·원데이예약률·중단율. 남은 '비교함'은 #21 상담성공률(세그먼트)·#27 수술상세표(재수술 미분리)뿐.
 
-- **소개유형 3종(일반/고객소개/직원소개)** — `overall-exam/weekly`의 `introGeneral/Customer/Staff`로 라이브 제공. 단 우리 DB 기준(고객소개=`소개고객`)이라 레거시 월간보고와 차이 있음(§해석) — 정의 합의 필요.
+- **소개유형 3종(일반/고객소개/직원소개)** — `overall-exam/weekly`의 `introGeneral/Customer/Staff`로 라이브. 고객소개=`소개고객`+`소개미확인`으로 정렬해 레거시 정합(2026 1~4월 평균차 ~10~13건, §해석). ✅ 전환 완료.
 - **일반 검사** — `overall-exam/weekly`의 `visionExam − oneDay` 파생(라이브 분모분자).
 - **일반검사 비율 / 시력교정 일반예약률 / 원데이 예약률** — `overall-exam/weekly` 칼럼(`30·32·33·34` 산식)으로 파생(라이브). 전용 trend 필드로 승격 가능.
 - **중단율** — `overall-exam/weekly`의 `stopCount ÷ visionExam` (단일 API 내 파생).
