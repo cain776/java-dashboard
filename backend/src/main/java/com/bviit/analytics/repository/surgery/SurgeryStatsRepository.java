@@ -223,14 +223,17 @@ public class SurgeryStatsRepository {
     }
 
     /**
-     * 시력교정 재수술 월별 건수 (RE_OPERATION, 눈(안) 단위).
+     * 시력교정 재수술 월별 건수 (RE_OPERATION, 레코드(건) 단위).
      *
-     * AGAIN_R / AGAIN_L 각각을 1건(=재수술 1안)으로 센다. 다음은 시력교정 재수술이 아니므로 제외:
+     * RE_OPERATION 한 행(=한 번의 재수술 방문)을 1건으로 센다. AGAIN_R 또는 AGAIN_L 중
+     * 하나라도 적격이면 그 행을 카운트(양안 재수술도 1건). 다음은 시력교정 재수술이 아니므로 제외:
      *   - Irrigation / repo* / *reposition* : 세척·정복술(재수술 아님)
      *   - Clareon / T-Clareon / Tecnis / LAL / ELANA : 백내장 IOL 명칭(렌즈 교체이나 시력교정 재수술 집계 대상 외)
      *
      * 포함되는 시력교정 재수술: 익스체인지(exch/encla/Bio…), 리무벌(remo…), 재교정(EN/ENHANCE/Re-en…) 등.
-     * ⚠ Phase 2 — 분류 기준(특히 EN/enhancement 포함, 백내장 IOL 제외)은 팀장 검증 필요.
+     * 레거시 월간보고 p.27 "재수술 합계"(레이저+렌즈)와 단위 동일, 2026 1~4월 ±1 일치
+     * (레거시 32·33·19·19 / 본 쿼리 33·34·18·19).
+     * ⚠ Phase 2 — 레이저/렌즈 세부 분류와 EN/enhancement 포함 여부는 팀장 검증 필요.
      *
      * REOP_DATE는 char 'YYYY-MM-DD' → 문자열 비교/추출로 연·월 도출 (MSSQL 2014 호환).
      * READ-ONLY — SELECT만 실행.
@@ -243,7 +246,7 @@ public class SurgeryStatsRepository {
                 .addValue("from", minYear + "-01-01")
                 .addValue("to", maxYear + "-12-31");
 
-        // 재수술 제외 패턴 (op_col 자리에 AGAIN_R/AGAIN_L 치환)
+        // 재수술 적격 조건 (op_col 자리에 AGAIN_R/AGAIN_L 치환). 제외 패턴 외이면 적격.
         String qualify = """
                     op_col IS NOT NULL AND RTRIM(op_col) <> ''
                     AND op_col NOT LIKE 'Irrigation%'
@@ -256,42 +259,34 @@ public class SurgeryStatsRepository {
                     AND op_col NOT LIKE 'ELANA%'
                 """;
 
+        // 레코드 단위: AGAIN_R 적격 OR AGAIN_L 적격이면 그 행을 1건으로 카운트
         String sql = """
                 SELECT
-                    CAST(LEFT(e.reop_date, 4) AS int)        AS yr,
-                    CAST(SUBSTRING(e.reop_date, 6, 2) AS int) AS mo,
+                    CAST(LEFT(r.REOP_DATE, 4) AS int)         AS yr,
+                    CAST(SUBSTRING(r.REOP_DATE, 6, 2) AS int) AS mo,
                     COUNT(*) AS reoperation
-                FROM (
-                    SELECT r.REOP_DATE AS reop_date
-                    FROM RE_OPERATION r WITH(NOLOCK)
-                    LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = r.CUST_NUM
-                    WHERE r.REOP_DATE >= :from AND r.REOP_DATE <= :to
-                      AND (
+                FROM RE_OPERATION r WITH(NOLOCK)
+                LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = r.CUST_NUM
+                WHERE r.REOP_DATE >= :from AND r.REOP_DATE <= :to
+                  AND NOT (
+                      ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
+                      OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
+                  )
+                  AND (
+                      (
                 """
                 + qualify.replace("op_col", "r.AGAIN_R") +
                 """
                       )
-                      AND NOT (
-                          ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
-                          OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
-                      )
-                    UNION ALL
-                    SELECT r.REOP_DATE AS reop_date
-                    FROM RE_OPERATION r WITH(NOLOCK)
-                    LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = r.CUST_NUM
-                    WHERE r.REOP_DATE >= :from AND r.REOP_DATE <= :to
-                      AND (
+                      OR
+                      (
                 """
                 + qualify.replace("op_col", "r.AGAIN_L") +
                 """
                       )
-                      AND NOT (
-                          ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
-                          OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
-                      )
-                ) e
-                GROUP BY LEFT(e.reop_date, 4), SUBSTRING(e.reop_date, 6, 2)
-                ORDER BY LEFT(e.reop_date, 4), SUBSTRING(e.reop_date, 6, 2)
+                  )
+                GROUP BY LEFT(r.REOP_DATE, 4), SUBSTRING(r.REOP_DATE, 6, 2)
+                ORDER BY LEFT(r.REOP_DATE, 4), SUBSTRING(r.REOP_DATE, 6, 2)
                 """;
         return jdbc.queryForList(sql, params);
     }
