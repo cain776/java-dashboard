@@ -66,9 +66,10 @@ public class SurgeryStatsRepository {
                          OR op_code LIKE '%iFS%' OR op_code LIKE '%VISU%'
                          OR op_code LIKE '%fs200%' OR op_code LIKE '%Fs200%'
                          OR op_code LIKE '%Micro+%' OR op_code LIKE '%Hybrid%' THEN 'lasik'
-                    WHEN op_code LIKE '%T-prk%' OR op_code LIKE '%EYE CLE%'
-                         OR op_code LIKE '%EYE+%' OR op_code LIKE '%FLAP PRK%'
-                         OR op_code LIKE '%PtK%' OR op_code LIKE '%M-LE%' THEN 'lasek'
+                    WHEN op_code LIKE '%EYECLE%' OR op_code LIKE '%T-prk%'
+                         OR op_code LIKE '%EYE CLE%' OR op_code LIKE '%EYE+%'
+                         OR op_code LIKE '%FLAP PRK%' OR op_code LIKE '%PtK%'
+                         OR op_code LIKE '%M-LE%' THEN 'lasek'
                     ELSE 'other'
                 END
                 """;

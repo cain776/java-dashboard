@@ -169,24 +169,6 @@ export const statsPages: StatsPageDefinition[] = [
     '/api/stats/procedure-exam'
   ),
   statsPage(
-    'examination-vision',
-    '시력교정 검사건수',
-    '/stats/examination/vision',
-    'exam-group',
-    '검사',
-    '시력교정 검사(EXAM 실측, 사람 단위, 드림렌즈 제외) 건수를 확인하는 화면입니다.',
-    '/api/stats/examination'
-  ),
-  statsPage(
-    'examination-dreamlens',
-    '드림렌즈 검사건수',
-    '/stats/examination/dreamlens',
-    'exam-group',
-    '검사',
-    '드림렌즈 검사(렌즈센터 D 기준, 사람 단위) 건수를 확인하는 화면입니다.',
-    '/api/stats/examination'
-  ),
-  statsPage(
     'consultation-rate',
     '전환율',
     '/stats/consultation-rate',
@@ -409,8 +391,6 @@ const MENU_STATUS: Record<string, MenuStatus> = {
   'cataract-exam-list': 'complete',
   'examination': 'complete',
   'procedure-exam': 'complete',
-  'examination-vision': 'complete',
-  'examination-dreamlens': 'complete',
   'consultation-rate': 'complete',
   'cataract-reservation-rate': 'complete',
   'stop-reason': 'complete',
@@ -476,8 +456,6 @@ export const menuItems: MenuItem[] = [
       link('cataract-exam-list'),
       link('examination'),
       link('procedure-exam'),
-      link('examination-vision'),
-      link('examination-dreamlens'),
     ],
   },
   {
