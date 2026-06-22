@@ -47,7 +47,7 @@ project-root/
 │   ├── src/
 │   │   ├── main.tsx                     # 진입점 (MSW 초기화 → React 렌더)
 │   │   ├── App.tsx                      # QueryClientProvider + RouterProvider
-│   │   ├── router.tsx                   # TanStack Router (인증 가드 + 도메인별 페이지 라우트)
+│   │   ├── router.tsx                   # TanStack Router (인증 가드 + statsPages 기반 자동 라우트)
 │   │   ├── index.css                    # Tailwind 4 + OKLCH 테마 변수
 │   │   ├── api/                         # 도메인별 API 폴더 (각 index.ts가 도메인 객체 export)
 │   │   │   ├── client.ts               # HTTP 클라이언트 (Bearer 토큰 자동 주입) — 공용
@@ -77,7 +77,9 @@ project-root/
 │   │   │   └── ui/                      # shadcn 컴포넌트 (button, card, chart)
 │   │   ├── config/
 │   │   │   └── navigation.ts            # 메뉴 구조 + 통계 페이지 정의 (sectionId = 도메인 그룹)
-│   │   ├── pages/                       # 도메인별 폴더 (Login·Dashboard·StatsPlaceholder만 root)
+│   │   ├── pages/                       # 도메인별 폴더 (Login·Dashboard·StatsPlaceholder·pageRegistry만 root)
+│   │   │   ├── pageRegistry.ts          # 도메인 routes.ts 통합 + PROD pending 라우트 차단 정책
+│   │   │   ├── pageRegistry.test.ts     # 라우트 정책 불변식 테스트
 │   │   │   ├── reservation/            # IntakeConversion·Reservation·ReservationOverall·ReservationList
 │   │   │   ├── exam/                   # ExamList·CataractExamList·Examination(±Vision/Dreamlens)·ProcedureExam
 │   │   │   ├── consultation/           # ConsultationRate(+consultation-rate/)·CataractReservationRate·StopReason
@@ -105,10 +107,10 @@ project-root/
 백엔드·프론트 모두 **레이어 우선 + 도메인 하위 분할** 구조를 따른다. 도메인 = `navigation.ts`의 메뉴 그룹(`sectionId`): `reservation`(예약) / `exam`(검사) / `surgery`(수술) / `consultation`(전환&성공률) / `report` / `overall`(전체지표) / `outpatient`(외래) / `marketing` / `cancel-noshow` / `unit-price` / `etc`.
 
 - **백엔드**: `controller/`·`service/`·`repository/`·`dto/` 각 레이어 안에 도메인 하위패키지(`controller/reservation/` …). `stats/`에는 도메인에 속하지 않는 **공용 유틸만** 남긴다(`StatsPanelSupport`, `StatsRequestValidator`). `Mock*Repository`는 해당 도메인 `repository/<domain>/`에 둔다.
-- **프론트**: `api/<domain>.ts`(도메인 API 객체 + 타입) · `hooks/<domain>/` · `pages/<domain>/`. 여러 도메인이 공유하는 것만 root(`api/_shared.ts`, `api/client.ts`, `hooks/useIsMobile.ts`, `hooks/useWeeklyApproval.ts`, `pages/{Login,Dashboard,StatsPlaceholder}Page.tsx`)에 둔다. 페이지 전용 하위 컴포넌트는 페이지 폴더 안에(`pages/consultation/consultation-rate/`, `pages/surgery/surgery-ratio/`).
+- **프론트**: `api/<domain>/index.ts`(도메인 API 객체 + 타입) · `hooks/<domain>/` · `pages/<domain>/`. 리스트 전용 API는 `api/<domain>/xxxList.ts`에 둔다. 여러 도메인이 공유하는 것만 root(`api/_shared.ts`, `api/client.ts`, `api/auth.ts`, `hooks/useIsMobile.ts`, `hooks/useWeeklyApproval.ts`, `pages/{Login,Dashboard,StatsPlaceholder}Page.tsx`, `pages/pageRegistry.ts`)에 둔다. 페이지 전용 하위 컴포넌트는 페이지 폴더 안에(`pages/consultation/consultation-rate/`, `pages/surgery/surgery-ratio/`).
 - **신규 추가**: 새 통계 기능은 해당 도메인 폴더/패키지에 파일을 추가한다(새 레이어 루트에 흩뿌리지 말 것). 도메인이 없으면 메뉴 그룹 기준으로 새 폴더를 만든다.
 
-> ✅ **이관 완료**: 프론트(api·hooks·pages)와 백엔드(controller·service·repository·dto) 모두 도메인 패키지로 이관 완료. 백엔드 `*/stats/`에는 공용 유틸(`StatsPanelSupport`·`StatsRequestValidator`)만 남는다. (frontend: tsc·lint·test green / backend: gradle build SUCCESSFUL)
+> ✅ **이관 완료**: 프론트(api·hooks·pages·pageRegistry)와 백엔드(controller·service·repository·dto) 모두 도메인 패키지로 이관 완료. 백엔드 `*/stats/`에는 공용 유틸(`StatsPanelSupport`·`StatsRequestValidator`)만 남는다. 검증 기준: frontend lint/build/test green, backend test green.
 
 ## 현재 구현 상태
 
@@ -117,34 +119,44 @@ project-root/
 - JWT 기반 로그인/인증 (백엔드 + 프론트)
 - 메인 대시보드 레이아웃 (Sidebar + Topbar + Content)
 - DashboardPage (KPI 카드 4개 + 차트 5개, 하드코딩 목업)
-- ReservationPage (월별/연도별 비교, 하드코딩 목업)
+- ReservationPage (월별/연도별 비교, TanStack Query 기반 API/MSW 연동)
 - 인증 라우트 가드 (미인증 시 /login 리다이렉트)
 - MSW 개발 목킹
-- 통계 전용 페이지 10종 + MSSQL(prod) 연동 통계 API (검사·수술·전환율·리스트 등, 아래 표 참조)
+- 통계 전용 페이지 20종 + MSSQL(prod) 연동 통계 API (검사·수술·전환율·리스트·B2B 등, 아래 표 참조)
+- 도메인별 `routes.ts` + `pageRegistry.ts` 기반 라우트 자동 생성
+- PROD pending 메뉴 숨김 및 직접 URL placeholder 차단 정책
 
 ### 미구현 (플레이스홀더)
 
-통계 페이지 15종은 아직 `StatsPlaceholderPage`로 렌더.
+통계 페이지 14종은 아직 `pending` 상태. 개발(DEV)에서는 WIP 페이지 미리보기를 허용하고, 운영(PROD)에서는 사이드바에서 숨기며 직접 URL 접근도 `StatsPlaceholderPage`로 차단한다.
 
 ## 통계 페이지 목록
 
-`navigation.ts`에 25개 정의. 상태: **완료**(전용 페이지+API) / **미구현**.
+`navigation.ts`에 34개 정의. 상태: **완료**(전용 페이지+API) 20개 / **미구현(pending)** 14개.
 (시력교정/드림렌즈 검사건수 2종은 `시술별`(examination)에 포함되어 2026-06-22 메뉴 삭제)
 
 | ID | 메뉴명 | 경로 | 그룹 | 상태 |
 |----|------|------|------|------|
+| weekly-report | 주간 레포트 | /report/weekly | Report | 완료 |
+| monthly-report | 월간 레포트 | /report/monthly | Report | 완료 |
+| overall-exam | 월별 검사자 종합지표 | /stats/overall-exam | 전체지표 | 완료 |
+| overall-exam-weekly | 주간 검사자 종합지표 | /stats/overall-exam-weekly | 전체지표 | 완료 |
 | intake-conversion | 유입(검사예약) | /stats/intake-conversion | 예약 | 미구현 |
 | reservation | 예약 건수 | /stats/reservation | 예약 | 완료 |
 | reservation-overall | 예약 종합 | /stats/reservation-overall | 예약 | 완료 (3탭: 종합/온라인/콜, 지표정의 §5.1) |
+| reservation-list | 예약자 리스트 | /stats/reservation-list | 예약 | 완료 |
 | exam-list | 검사자 리스트 | /stats/exam-list | 검사 | 완료 |
 | cataract-exam-list | 백내장 검사자 리스트 | /stats/cataract-exam-list | 검사 | 완료 |
 | examination | 시술별 | /stats/examination | 검사 | 완료 |
 | procedure-exam | 검사건수 | /stats/procedure-exam | 검사 | 완료 |
 | consultation-rate | 전환율 | /stats/consultation-rate | 전환&성공률 | 완료 |
 | cataract-reservation-rate | 예약률 | /stats/cataract-reservation-rate | 전환&성공률 | 완료 |
+| stop-reason | 중단 사유 | /stats/stop-reason | 전환&성공률 | 완료 |
 | surgery-list | 수술자 리스트 | /stats/surgery-list | 수술 | 완료 |
 | surgery | 수술 건수 | /stats/surgery | 수술 | 완료 |
 | surgery-ratio | 주요 수술별 비중 | /stats/surgery-ratio | 수술 | 완료 |
+| surgery-composition | 수술별 비중 | /stats/surgery-composition | 수술 | 완료 |
+| outpatient-count | 외래수 | /stats/outpatient-count | 외래 | 완료 |
 | overseas | 해외 환자 관련 지표 | /stats/overseas | 마케팅 | 미구현 |
 | marketing | 마케팅 유입 및 효율 지표 | /stats/marketing | 마케팅 | 미구현 |
 | cancel-rate | 예약취소율 | /stats/cancel-rate | 취소&부도 | 미구현 |
@@ -169,10 +181,13 @@ project-root/
 ```
 POST   /api/auth/login                              # 로그인 (구현됨)
 
-# 통계 API (구현 예정)
-GET    /api/stats/{pageId}                           # 통계 데이터 조회
-GET    /api/stats/{pageId}/trend?period=MONTHLY&from=2025-01&to=2025-12
-GET    /api/stats/{pageId}/compare?compareTo=PREVIOUS_PERIOD
+# 통계 API (도메인별 구현)
+GET    /api/stats/{pageId}                           # 단일/요약 조회가 있는 메뉴
+GET    /api/stats/{pageId}/monthly?years=2024,2025   # 월별 추이 계열
+GET    /api/stats/{pageId}/kpi?years=2024,2025&mock=false
+GET    /api/stats/{pageId}/trend?years=2024,2025&mock=false
+GET    /api/stats/{pageId}/composition?years=2024,2025&mock=false
+GET    /api/{listPageId}?from=2026-01-01&to=2026-01-31  # 리스트 계열
 ```
 
 ### 응답 포맷
@@ -213,17 +228,18 @@ GET    /api/stats/{pageId}/compare?compareTo=PREVIOUS_PERIOD
 2. Repository 작성 (`repository/<domain>/`)
 3. Service 비즈니스 로직 (`service/<domain>/`)
 4. Controller 엔드포인트 (`controller/<domain>/`)
-5. 프론트 API 함수(`api/<domain>.ts`) + 훅(`hooks/<domain>/`) + 페이지(`pages/<domain>/`) 연결
+5. 프론트 API 함수(`api/<domain>/index.ts`, 필요 시 `api/<domain>/xxxList.ts`) + 훅(`hooks/<domain>/`) + 페이지(`pages/<domain>/`) 연결
 
 ## 프론트엔드 컨벤션
 
 ### 라우팅 패턴
 
 - 인증 필요 페이지는 `authLayout` 하위에 등록 (`router.tsx`)
-- 라우트는 `router.tsx`가 `navigation.ts`의 `statsPages` + 도메인 레지스트리(`pages/<domain>/routes.ts`, `pageId → 컴포넌트`)를 합쳐 **자동 생성**한다. 레지스트리에 컴포넌트가 있으면 전용 페이지, 없으면 `StatsPlaceholderPage`로 렌더 (하드코딩 목록 없음)
+- 라우트는 `router.tsx`가 `navigation.ts`의 `statsPages`와 `pages/pageRegistry.ts`의 `PAGE_COMPONENTS`를 합쳐 **자동 생성**한다. `pageRegistry.ts`는 각 도메인 레지스트리(`pages/<domain>/routes.ts`, `pageId → 컴포넌트`)를 통합한다.
+- 레지스트리에 컴포넌트가 있고 운영 차단 대상이 아니면 전용 페이지, 없거나 PROD pending이면 `StatsPlaceholderPage`로 렌더한다(하드코딩 목록 없음).
 - 새 통계 페이지 연결: `navigation.ts`에 정의 → `pages/<domain>/`에 컴포넌트 작성 → `pages/<domain>/routes.ts`에 `'<id>': Component` 한 줄 추가 (**`router.tsx` 수정 불필요**)
 - 훅은 `@/hooks/<domain>/useXxx`, API는 `@/api/<domain>`(리스트는 `@/api/<domain>/xxxList`)에서 import
-- **pending(미완성) 메뉴 정책**: 운영 빌드(PROD)에서는 사이드바에서 **숨김** + 라우트 **차단**(직접 URL도 `StatsPlaceholderPage`). 개발 빌드에서는 미리보기 가능(사이드바 빨강 표시). 상태는 `MENU_STATUS`, 조회는 `getMenuStatus()`.
+- **pending(미완성) 메뉴 정책**: 운영 빌드(PROD)에서는 사이드바에서 **숨김** + 라우트 **차단**(직접 URL도 `StatsPlaceholderPage`). 개발 빌드에서는 미리보기 가능(사이드바 빨강 표시). 상태는 `MENU_STATUS`, 조회는 `getMenuStatus()`, 라우트 차단은 `pageRegistry.isRouteBlocked()`가 담당한다. `pageRegistry.test.ts`가 이 정책을 보호한다.
 
 ### 차트 (Recharts)
 
@@ -333,11 +349,11 @@ cd frontend && npm run test              # Vitest
 
 ## Claude에게 요청할 때 참고사항
 
-- **새 통계 페이지**: `navigation.ts`에 25개 정의됨 → 전용 페이지 컴포넌트 작성 + `router.tsx` 라우트 교체 + 백엔드 API 구현
+- **새 통계 페이지**: `navigation.ts`에 정의 → 전용 페이지 컴포넌트 작성 → `pages/<domain>/routes.ts`에 등록 → 백엔드 API 구현 (`router.tsx` 직접 수정 금지)
 - **새 차트**: Recharts 기반, shadcn `ChartContainer` 사용, `CHART_PALETTE` 색상 적용
 - **새 UI 컴포넌트**: `npx shadcn@latest add <name>` (설정: `components.json`)
 - **API 연동**: `api/client.ts` HTTP 클라이언트 사용, TanStack Query `useQuery`로 캐싱
-- **DashboardPage/ReservationPage 데이터는 하드코딩 목업** — API 연동 시 교체 필요
+- **DashboardPage 데이터는 하드코딩 목업** — API 연동 시 교체 필요
 - **MSW 핸들러**: 새 API 개발 전 `mocks/handlers.ts`에 목 추가하면 프론트 선행 개발 가능
 
 ## DB 테이블 카탈로그
