@@ -124,11 +124,12 @@ project-root/
 
 ### 미구현 (플레이스홀더)
 
-통계 페이지 15종은 아직 `StatsPlaceholderPage`로 렌더. 2종은 백엔드 API만 존재.
+통계 페이지 15종은 아직 `StatsPlaceholderPage`로 렌더.
 
 ## 통계 페이지 목록
 
-`navigation.ts`에 27개 정의. 상태: **완료**(전용 페이지+API) / **백엔드만**(API만, 프론트 placeholder) / **미구현**.
+`navigation.ts`에 25개 정의. 상태: **완료**(전용 페이지+API) / **미구현**.
+(시력교정/드림렌즈 검사건수 2종은 `시술별`(examination)에 포함되어 2026-06-22 메뉴 삭제)
 
 | ID | 메뉴명 | 경로 | 그룹 | 상태 |
 |----|------|------|------|------|
@@ -139,8 +140,6 @@ project-root/
 | cataract-exam-list | 백내장 검사자 리스트 | /stats/cataract-exam-list | 검사 | 완료 |
 | examination | 시술별 | /stats/examination | 검사 | 완료 |
 | procedure-exam | 검사건수 | /stats/procedure-exam | 검사 | 완료 |
-| examination-vision | 시력교정 검사건수 | /stats/examination/vision | 검사 | 백엔드만 |
-| examination-dreamlens | 드림렌즈 검사건수 | /stats/examination/dreamlens | 검사 | 백엔드만 |
 | consultation-rate | 전환율 | /stats/consultation-rate | 전환&성공률 | 완료 |
 | cataract-reservation-rate | 예약률 | /stats/cataract-reservation-rate | 전환&성공률 | 완료 |
 | surgery-list | 수술자 리스트 | /stats/surgery-list | 수술 | 완료 |
@@ -334,7 +333,7 @@ cd frontend && npm run test              # Vitest
 
 ## Claude에게 요청할 때 참고사항
 
-- **새 통계 페이지**: `navigation.ts`에 27개 정의됨 → 전용 페이지 컴포넌트 작성 + `router.tsx` 라우트 교체 + 백엔드 API 구현
+- **새 통계 페이지**: `navigation.ts`에 25개 정의됨 → 전용 페이지 컴포넌트 작성 + `router.tsx` 라우트 교체 + 백엔드 API 구현
 - **새 차트**: Recharts 기반, shadcn `ChartContainer` 사용, `CHART_PALETTE` 색상 적용
 - **새 UI 컴포넌트**: `npx shadcn@latest add <name>` (설정: `components.json`)
 - **API 연동**: `api/client.ts` HTTP 클라이언트 사용, TanStack Query `useQuery`로 캐싱
