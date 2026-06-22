@@ -54,9 +54,17 @@ public class SurgeryMonthlyItem {
     private final int xtra;        // 엑스트라 (OPERATIONR/L LIKE '%+X%')
     private final int waveVision;  // 웨이브비전 (LIKE '%W.V%')
     private final int monoVision;  // 모노비전 (LIKE 'MONO%')
+    private final int contra;      // 콘트라 (LIKE '%CONT%')
+    private final int personal;    // 퍼스널 (LIKE '%P.E%')
 
-    // 시력교정 재수술 (RE_OPERATION, 안 단위) — #27 상세표 / Phase 2
-    private final int reoperation;
+    // 라섹계 세부 (EYECLE 기준, 환자 수 DISTINCT) — #27 상세표
+    private final int lasekEx;     // EX (EYECLE + EX500)
+    private final int lasekRed;    // Red (EYECLE + RED)
+
+    // 시력교정 재수술 (RE_OPERATION, 레코드(건) 단위) — #27 상세표 / Phase 2
+    private final int reoperation; // 합계
+    private final int reopLaser;   // 레이저 재교정 (각막)
+    private final int reopLens;    // 렌즈 재수술 (remo/exch/IOL)
 
     // 그룹별 환자 수 (DISTINCT)
     private final int visionPatients;

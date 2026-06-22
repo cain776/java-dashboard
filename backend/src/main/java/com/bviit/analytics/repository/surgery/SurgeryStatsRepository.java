@@ -90,6 +90,10 @@ public class SurgeryStatsRepository {
                     COUNT(DISTINCT CASE WHEN e.raw LIKE '%+X%'  THEN e.cust_num END) AS xtra,
                     COUNT(DISTINCT CASE WHEN e.raw LIKE '%W.V%' THEN e.cust_num END) AS waveVision,
                     COUNT(DISTINCT CASE WHEN e.raw LIKE 'MONO%' THEN e.cust_num END) AS monoVision,
+                    COUNT(DISTINCT CASE WHEN e.raw LIKE '%CONT%' THEN e.cust_num END) AS contra,
+                    COUNT(DISTINCT CASE WHEN e.raw LIKE '%P.E%'  THEN e.cust_num END) AS personal,
+                    COUNT(DISTINCT CASE WHEN e.raw LIKE '%EYECLE%' AND e.raw LIKE '%EX500%' THEN e.cust_num END) AS lasekEx,
+                    COUNT(DISTINCT CASE WHEN e.raw LIKE '%EYECLE%' AND e.raw LIKE '%RED%'   THEN e.cust_num END) AS lasekRed,
                     COUNT(DISTINCT e.cust_num) AS visionPatients
                 FROM (
                     SELECT o.OPERATION_DATE AS op_date,
@@ -259,34 +263,54 @@ public class SurgeryStatsRepository {
                     AND op_col NOT LIKE 'ELANA%'
                 """;
 
-        // 레코드 단위: AGAIN_R 적격 OR AGAIN_L 적격이면 그 행을 1건으로 카운트
+        // 레코드 단위: AGAIN_R 적격 OR AGAIN_L 적격이면 그 행을 1건으로 카운트.
+        // 레이저/렌즈 분류(레거시 p.27): 렌즈 마커(remo·exch·ICL·ART·EVO·ECHO·precizon 등) 우선,
+        // 그 외(EN·PRK·FLAP·EYECLE·KPL 등)는 레이저(각막 재교정). 레거시와 ±1.
+        String lensMarkers = """
+                    txt LIKE '%remo%' OR txt LIKE '%exch%' OR txt LIKE '%ICL%'
+                    OR txt LIKE '%ARF%' OR txt LIKE '%ART%' OR txt LIKE '%EVO%'
+                    OR txt LIKE '%ECHO%' OR txt LIKE '%GLAZE%' OR txt LIKE '%precizon%'
+                    OR txt LIKE '%Lisa%' OR txt LIKE '%Gemetric%' OR txt LIKE '%encla%'
+                """;
+
         String sql = """
                 SELECT
-                    CAST(LEFT(r.REOP_DATE, 4) AS int)         AS yr,
-                    CAST(SUBSTRING(r.REOP_DATE, 6, 2) AS int) AS mo,
-                    COUNT(*) AS reoperation
-                FROM RE_OPERATION r WITH(NOLOCK)
-                LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = r.CUST_NUM
-                WHERE r.REOP_DATE >= :from AND r.REOP_DATE <= :to
-                  AND NOT (
-                      ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
-                      OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
-                  )
-                  AND (
-                      (
+                    x.yr, x.mo,
+                    COUNT(*) AS reoperation,
+                    SUM(CASE WHEN x.cat = 'lens' THEN 0 ELSE 1 END) AS reopLaser,
+                    SUM(CASE WHEN x.cat = 'lens' THEN 1 ELSE 0 END) AS reopLens
+                FROM (
+                    SELECT
+                        CAST(LEFT(r.REOP_DATE, 4) AS int)         AS yr,
+                        CAST(SUBSTRING(r.REOP_DATE, 6, 2) AS int) AS mo,
+                        CASE WHEN (
+                """
+                + lensMarkers.replace("txt", "(ISNULL(r.AGAIN_R,'') + '|' + ISNULL(r.AGAIN_L,''))") +
+                """
+                        ) THEN 'lens' ELSE 'laser' END AS cat
+                    FROM RE_OPERATION r WITH(NOLOCK)
+                    LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = r.CUST_NUM
+                    WHERE r.REOP_DATE >= :from AND r.REOP_DATE <= :to
+                      AND NOT (
+                          ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
+                          OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
+                      )
+                      AND (
+                          (
                 """
                 + qualify.replace("op_col", "r.AGAIN_R") +
                 """
-                      )
-                      OR
-                      (
+                          )
+                          OR
+                          (
                 """
                 + qualify.replace("op_col", "r.AGAIN_L") +
                 """
+                          )
                       )
-                  )
-                GROUP BY LEFT(r.REOP_DATE, 4), SUBSTRING(r.REOP_DATE, 6, 2)
-                ORDER BY LEFT(r.REOP_DATE, 4), SUBSTRING(r.REOP_DATE, 6, 2)
+                ) x
+                GROUP BY x.yr, x.mo
+                ORDER BY x.yr, x.mo
                 """;
         return jdbc.queryForList(sql, params);
     }

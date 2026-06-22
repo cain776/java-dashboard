@@ -99,7 +99,8 @@ type SurgeryCell = {
   lasek: number; lasik: number; smile: number; smilePro: number
   icl: number; tIcl: number; kpl: number; tKpl: number; viva: number
   catMulti: number; catMono: number; catEdof: number
-  xtra: number; waveVision: number; monoVision: number; reoperation: number
+  xtra: number; waveVision: number; monoVision: number; contra: number; personal: number
+  reoperation: number
   visionPatients: number; cataractPatients: number; total: number
 }
 
@@ -109,10 +110,11 @@ const VISION_COLS: { key: keyof SurgeryCell; label: string }[] = [
   { key: 'icl', label: 'ICL' }, { key: 'tIcl', label: 'T-ICL' },
   { key: 'kpl', label: 'KPL' }, { key: 'tKpl', label: 'T-KPL' }, { key: 'viva', label: 'VIVA' },
 ]
-// 시력교정 부가시술(add-on) + 재수술
+// 시력교정 부가시술(add-on, 레거시 p.27 순서) + 재수술
 const ADDON_COLS: { key: keyof SurgeryCell; label: string }[] = [
-  { key: 'xtra', label: '엑스트라' }, { key: 'waveVision', label: '웨이브비전' },
-  { key: 'monoVision', label: '모노비전' }, { key: 'reoperation', label: '재수술' },
+  { key: 'xtra', label: '엑스트라' }, { key: 'personal', label: '퍼스널' }, { key: 'contra', label: '콘트라' },
+  { key: 'waveVision', label: '웨이브비전' }, { key: 'monoVision', label: '모노비전' },
+  { key: 'reoperation', label: '재수술' },
 ]
 const CATARACT_COLS: { key: keyof SurgeryCell; label: string }[] = [
   { key: 'catMulti', label: '다초점' }, { key: 'catMono', label: '단초점' }, { key: 'catEdof', label: 'EDOF' },

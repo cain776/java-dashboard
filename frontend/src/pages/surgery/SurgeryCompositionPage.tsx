@@ -11,14 +11,18 @@ interface Cell {
   lasek: number; lasik: number; smile: number; smilePro: number
   icl: number; tIcl: number; kpl: number; tKpl: number; viva: number
   catMulti: number; catMono: number; catEdof: number
-  xtra: number; waveVision: number; monoVision: number; reoperation: number
+  xtra: number; waveVision: number; monoVision: number; contra: number; personal: number
+  lasekEx: number; lasekRed: number
+  reoperation: number; reopLaser: number; reopLens: number
   visionPatients: number; cataractPatients: number; total: number
 }
 
 const EMPTY: Cell = {
   lasek: 0, lasik: 0, smile: 0, smilePro: 0, icl: 0, tIcl: 0, kpl: 0, tKpl: 0, viva: 0,
   catMulti: 0, catMono: 0, catEdof: 0,
-  xtra: 0, waveVision: 0, monoVision: 0, reoperation: 0,
+  xtra: 0, waveVision: 0, monoVision: 0, contra: 0, personal: 0,
+  lasekEx: 0, lasekRed: 0,
+  reoperation: 0, reopLaser: 0, reopLens: 0,
   visionPatients: 0, cataractPatients: 0, total: 0,
 }
 
@@ -44,15 +48,15 @@ const COLS: ColDef[] = [
   { render: (d) => vc(d.tKpl), muted: true },                                             // T-KPL
   { render: (d) => vc(d.viva), muted: true },                                             // VIVA
   { render: (d) => vp(d.lasik, d.visionPatients), border: true },                         // 라식계
-  { render: (d) => vp(d.lasek, d.visionPatients), border: true, strong: true },           // 라섹계 합계
-  { render: () => '' },                                                                   // 라섹계 EX
-  { render: () => '' },                                                                   // 라섹계 Red
+  { render: (d) => vp(d.lasekEx + d.lasekRed, d.visionPatients), border: true, strong: true }, // 라섹계 합계 (EYECLE)
+  { render: (d) => vp(d.lasekEx, d.lasekEx + d.lasekRed) },                               // 라섹계 EX
+  { render: (d) => vp(d.lasekRed, d.lasekEx + d.lasekRed) },                              // 라섹계 Red
   { render: (d) => vc(d.reoperation), border: true, strong: true },                       // 재수술 합계
-  { render: () => '' },                                                                   // 재수술 레이저
-  { render: () => '' },                                                                   // 재수술 렌즈
+  { render: (d) => vp(d.reopLaser, d.reoperation) },                                      // 재수술 레이저
+  { render: (d) => vp(d.reopLens, d.reoperation) },                                       // 재수술 렌즈
   { render: (d) => vc(d.xtra), border: true },                                            // 엑스트라
-  { render: () => '' },                                                                   // 퍼스널
-  { render: () => '' },                                                                   // 콘트라
+  { render: (d) => vc(d.personal) },                                                      // 퍼스널
+  { render: (d) => vc(d.contra) },                                                        // 콘트라
   { render: (d) => vc(d.waveVision) },                                                    // 웨이브비전
   { render: (d) => vc(d.monoVision) },                                                    // 모노비전
   { render: (d) => vc(d.cataractPatients), border: true, strong: true, tone: 'violet' },  // 백내장 수술수
@@ -181,10 +185,10 @@ export function SurgeryCompositionPage() {
             </div>
           )}
           <p className="mt-3 text-[11px] text-muted-foreground">
-            ※ 운영 DB 라이브(surgery API). <strong>엑스트라·웨이브비전·모노비전</strong>은 시력교정 부가시술(환자 수),
-            <strong>재수술 합계</strong>는 RE_OPERATION 레코드(건) 단위입니다(레거시 월간보고 ±1 일치).
-            <strong>라섹계 EX/Red · 재수술 레이저/렌즈 · 퍼스널/콘트라</strong>는 아직 별도 필드가 없어 빈칸입니다.
-            재수술 레이저/렌즈 세부 분류는 팀장 검증 예정(Phase 2).
+            ※ 운영 DB 라이브(surgery API), 레거시 월간보고 p.27 원표와 2026 1~4월 ±1 일치.
+            <strong>엑스트라·웨이브비전·모노비전·콘트라·퍼스널</strong>은 시력교정 부가시술(환자 수),
+            <strong>라섹계 EX/Red</strong>는 EYECLE+EX500 / EYECLE+RED, <strong>재수술</strong>은 RE_OPERATION 레코드(건) 단위(레이저=각막 재교정·렌즈=IOL).
+            라섹계 합계는 EYECLE 기준입니다. 분류 기준(특히 재수술 레이저/렌즈)은 팀장 검증 예정(Phase 2).
           </p>
         </CardContent>
       </Card>
