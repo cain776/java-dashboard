@@ -1,13 +1,22 @@
 # 월간/주간 레포트 차트 — 구현 현황 + 레거시 검증 (28종)
 
-> 대상 화면: `/report/monthly` — 월간(28개 도표 구현). `/report/weekly` — 주간(현재 골격 페이지, 차트 미구현). ([MonthlyReportPage.tsx](../../frontend/src/pages/report/MonthlyReportPage.tsx) · [ReportPage.tsx](../../frontend/src/pages/report/ReportPage.tsx))
-> 원본(레거시): `◆월간보고◆_2026년_4월.pdf` (수기 엑셀 월간보고, 28개 도표)
-> 데이터: 운영 MSSQL(`SOFTCRM`) 연동 API · 포트 `18080`
-> 표시 연도: **당해연도·전년도·전전년도 3개년 비교** — `YEARS = [기준연도-2, 기준연도-1, 기준연도]` (현재 기준 2024·2025·2026, 매년 자동 이동). 전전년도·전년도는 레거시 확정값, 당해연도는 운영 DB 라이브. 색상은 절대연도가 아닌 위치 매핑(당해=빨강·전년=진회색·전전년=연파랑)이라 연도가 넘어가도 유지됨 ([MonthlyReportPage.tsx](../../frontend/src/pages/report/MonthlyReportPage.tsx) · [ReportLineChart.tsx](../../frontend/src/components/report/ReportLineChart.tsx)).
-> 작성/갱신: 2026-06-19 · 재확인 2026-06-22(도메인 리팩토링 경로 반영 + 실제 페이지 와이어링 현황 추가) · 브랜치: `dev`
-> 목적: 월간보고 28개 도표를 **우리 대시보드 API 기준**으로 ① 상태 분류(완료/비교/미완성) ② **레거시 대비 월별 평균 차이** 산출.
-> 갱신(2026-06-19): **`overall-exam/weekly` 라이브 API 추가** — 소개유형·직업·중단·원데이/일반검사 분모분자를 운영 DB에서 일자별로 집계(월 합산 시 월값 재현). 검사유입·세그먼트 비율 도표의 데이터 근거가 생겨 🟥 9종 → 🟥 1종으로 감소.
-> ※ 본 문서는 구 `report-chart-legacy-diff.md`(레거시 검증)를 흡수해 현황과 검증을 하나로 합친 것입니다.
+월간보고 28개 도표를 **우리 대시보드 API 기준**으로 ① 상태 분류(완료/비교/미완성), ② 레거시 대비 월별 평균 차이를 정리한다.
+
+| 항목 | 내용 |
+|------|------|
+| 대상 화면 | `/report/monthly` — 월간(28개 도표 구현) · `/report/weekly` — 주간(골격 페이지, 차트 미구현) |
+| 코드 | [MonthlyReportPage.tsx](../../frontend/src/pages/report/MonthlyReportPage.tsx) · [ReportPage.tsx](../../frontend/src/pages/report/ReportPage.tsx) · [ReportLineChart.tsx](../../frontend/src/components/report/ReportLineChart.tsx) |
+| 원본(레거시) | `◆월간보고◆_2026년_4월.pdf` (수기 엑셀 월간보고, 28개 도표) |
+| 데이터 | 운영 MSSQL(`SOFTCRM`) 연동 API · 포트 `18080` |
+| 표시 연도 | 당해·전년·전전년 3개년 비교 (`YEARS = [기준−2, 기준−1, 기준]`, 현재 2024·2025·2026 · 매년 자동 이동) |
+| 갱신 | 2026-06-19 작성 · 2026-06-22 재확인 · 브랜치 `dev` |
+
+**표시 규칙** — 전전년·전년은 레거시 확정값, 당해연도는 운영 DB 라이브. 색상은 절대연도가 아닌 위치 매핑(당해 = 🔴빨강 · 전년 = ⚫진회색 · 전전년 = 🔵연파랑)이라 연도가 넘어가도 유지된다.
+
+**변경 이력**
+- **2026-06-22** — 도메인 리팩토링 경로 반영 + 실제 페이지 와이어링 현황 섹션 추가.
+- **2026-06-19** — `overall-exam/weekly` 라이브 API 추가(소개유형·직업·중단·원데이/일반검사 분모분자를 운영 DB에서 일자별 집계 → 월 합산 시 월값 재현). 검사유입·세그먼트 비율 도표의 데이터 근거 확보로 🟥 9 → 🟥 1.
+- 구 `report-chart-legacy-diff.md`(레거시 검증)를 흡수해 현황 + 검증을 하나로 통합.
 
 ## 상태 정의
 
