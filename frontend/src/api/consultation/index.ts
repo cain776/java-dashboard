@@ -43,6 +43,9 @@ const consultationRateItemSchema = z.object({
   visionActualSurgery: z.number(),
   visionSurgeryRate: z.number(),
   visionCounselRate: z.number(),
+  visionCounselRateOneday: z.number().optional(),
+  visionCounselRateGeneral: z.number().optional(),
+  visionGeneralBookRate: z.number().optional(),
   // 백내장
   cataractExamCount: z.number(),
   cataractSurgeryBooked: z.number(),

@@ -1,5 +1,5 @@
 import { useMemo, Fragment, type ReactNode } from 'react'
-import { Bar, BarChart, CartesianGrid, Cell, LabelList, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, XAxis, YAxis } from 'recharts'
 import { Printer } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -186,6 +186,96 @@ function ReportSurgeryTable({ dataMap }: { dataMap: Record<number, SurgeryCell[]
   )
 }
 
+/* ── 시력교정 상담성공률 — 전체/원데이/일반 3계열 (당해연도, 라이브) ── */
+const SUCCESS_SERIES: { key: 'all' | 'oneday' | 'general'; label: string; color: string }[] = [
+  { key: 'all', label: '전체 성공률', color: '#E11D2E' },
+  { key: 'oneday', label: '원데이', color: '#7CB342' },
+  { key: 'general', label: '일반', color: '#5B9BD5' },
+]
+const successChartConfig: ChartConfig = {
+  all: { label: '전체 성공률', color: '#E11D2E' },
+  oneday: { label: '원데이', color: '#7CB342' },
+  general: { label: '일반', color: '#5B9BD5' },
+}
+
+function ReportSuccessRateChart({
+  year, all, oneday, general,
+}: { year: number; all: (number | null)[]; oneday: (number | null)[]; general: (number | null)[] }) {
+  const series = { all, oneday, general }
+  const chartData = MONTHS.map((month, i) => ({ month, all: all[i], oneday: oneday[i], general: general[i] }))
+  const pct = (v: number) => `${Math.round(v)}%`
+  const avg = (vals: (number | null)[]) => {
+    const nums = vals.filter((v): v is number => typeof v === 'number')
+    return nums.length ? nums.reduce((a, b) => a + b, 0) / nums.length : null
+  }
+
+  return (
+    <Card className="report-chart flex break-inside-avoid flex-col border-border/70 shadow-sm">
+      <CardHeader className="items-center gap-1 pb-2">
+        <CardTitle className="text-center text-lg">
+          시력교정 상담성공률
+          <span className="text-sm font-medium text-muted-foreground"> (검사중단/수술불가 제외 · {year}년)</span>
+        </CardTitle>
+        <div className="flex flex-wrap items-center justify-center gap-5 pt-1">
+          {SUCCESS_SERIES.map((s) => (
+            <span key={s.key} className="flex items-center gap-1.5 text-sm font-bold" style={{ color: s.color }}>
+              <span className="h-[3px] w-7 rounded-full" style={{ backgroundColor: s.color }} />
+              {s.label}
+            </span>
+          ))}
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <ChartContainer config={successChartConfig} className="report-chart-area aspect-auto h-[480px] w-full">
+          <LineChart data={chartData} margin={{ top: 24, left: 0, right: 80 }}>
+            <CartesianGrid vertical={false} />
+            <XAxis dataKey="month" scale="band" tickLine={false} axisLine={false} tickMargin={8} />
+            <YAxis width={80} tickLine={false} axisLine={false} tickMargin={6}
+              domain={['dataMin - 5', 'dataMax + 5']} tickFormatter={(v) => pct(Number(v))} />
+            <ChartTooltip content={<ChartTooltipContent />} />
+            {SUCCESS_SERIES.map((s) => (
+              <Line key={s.key} type="monotone" dataKey={s.key} stroke={s.color} strokeWidth={2.5}
+                dot={false} connectNulls={false} activeDot={{ r: 4 }} />
+            ))}
+          </LineChart>
+        </ChartContainer>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[840px] table-fixed border-collapse text-center text-xs">
+            <colgroup><col className="w-20" />{MONTHS.map((m) => <col key={m} />)}<col className="w-20" /></colgroup>
+            <thead>
+              <tr className="border-y border-border bg-muted/40">
+                <th className="py-1.5" />
+                {MONTHS.map((m) => <th key={m} className="py-1.5 font-semibold text-foreground">{m}</th>)}
+                <th className="py-1.5 font-semibold text-foreground">평균</th>
+              </tr>
+            </thead>
+            <tbody>
+              {SUCCESS_SERIES.map((s) => {
+                const a = avg(series[s.key])
+                return (
+                  <tr key={s.key} className="border-b border-border">
+                    <td className="py-1.5 font-semibold" style={{ color: s.color }}>{s.label}</td>
+                    {MONTHS.map((_, i) => {
+                      const v = series[s.key][i]
+                      return <td key={i} className="py-1.5 tabular-nums">{typeof v === 'number' ? pct(v) : ''}</td>
+                    })}
+                    <td className="py-1.5 font-semibold tabular-nums">{typeof a === 'number' ? pct(a) : ''}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          ※ 운영 DB 라이브. 성공률 = 수술예약 / 상담(검사중단·수술불가 제외). 전체·원데이는 레거시와 ±1~2%p,
+          일반은 3월 등 일부 월 ~5%p 차(레거시 일반 산정 시점차).
+        </p>
+      </CardContent>
+    </Card>
+  )
+}
+
 /** 월간 레포트 로딩 스켈레톤 — 차트 카드(제목·범례·차트영역·표) 모양을 펄스로 표시 */
 function ReportChartSkeleton() {
   return (
@@ -322,6 +412,27 @@ export function MonthlyReportPage() {
       return out
     }
 
+    // 당해연도 12개월 단일 시리즈 (consultation 등 외부 dataMap에서 직접) — 미완성월 null
+    const curYearSeries = (pick: (i: number) => number | null | undefined): (number | null)[] =>
+      Array.from({ length: 12 }, (_, i) => {
+        if (isIncompleteMonth(CURRENT_YEAR, i)) return null
+        const v = pick(i)
+        return typeof v === 'number' && v > 0 ? v : null
+      })
+
+    // 2024·2025 = 레거시 확정값, 당해연도 = consultation 라이브
+    const consultLiveOrLegacy = (
+      legacyKey: string,
+      pick: (i: number) => number | null | undefined,
+    ): Record<number, (number | null)[]> => {
+      const legacy = MONTHLY_LEGACY_CHARTS[legacyKey].data
+      const out: Record<number, (number | null)[]> = {}
+      YEARS.forEach((y) => {
+        out[y] = y !== CURRENT_YEAR && legacy[y] ? legacy[y] : curYearSeries(pick)
+      })
+      return out
+    }
+
     return {
       reservations: build((y, i) => resv.dataMap[y]?.[i]?.reservations),
       call: build((y, i) => resv.dataMap[y]?.[i]?.call),
@@ -336,8 +447,10 @@ export function MonthlyReportPage() {
       visionSurgery: build((y, i) => surgery.dataMap[y]?.[i]?.visionPatients),
       totalSurgery: build((y, i) => surgery.dataMap[y]?.[i]?.total),
       outpatient: build((y, i) => outpatient.dataMap[y]?.[i]?.outpatientCount),
-      // 시력교정 상담성공률(전체) = 상담→수술예약(visionCounselRate), consultation-rate 3개년 라이브
-      counselSuccess: build((y, i) => consult.dataMap[y]?.[i]?.visionConsultation || null),
+      // 시력교정 상담성공률(검사중단/수술불가 제외) — 전체/원데이/일반 3계열, 당해연도 라이브 (#21)
+      successAll: curYearSeries((i) => consult.dataMap[CURRENT_YEAR]?.[i]?.visionConsultation),
+      successOneday: curYearSeries((i) => consult.dataMap[CURRENT_YEAR]?.[i]?.visionConsultationOneday),
+      successGeneral: curYearSeries((i) => consult.dataMap[CURRENT_YEAR]?.[i]?.visionConsultationGeneral),
       // 🟢 라이브 전환 (overall-exam/weekly 월합산) — 2024·2025 레거시 확정값, 당해연도 라이브
       examGeneralCustomer: liveOrLegacy('exam-general-customer', (s) => s.introGeneral),
       examReferralCustomer: liveOrLegacy('exam-referral-customer', (s) => s.introCustomer),
@@ -349,10 +462,8 @@ export function MonthlyReportPage() {
       ratioGeneral: liveOrLegacy('ratio-general', (s) =>
         s.visionExam > 0 ? ((s.visionExam - s.oneDay) / s.visionExam) * 100 : null,
       ),
-      rateVisionGeneral: liveOrLegacy('rate-vision-general', (s) => {
-        const den = s.visionExam - s.oneDay
-        return den > 0 ? ((s.visionBooked - s.oneDayBooked) / den) * 100 : null
-      }),
+      // 일반 예약률(분모=일반검사) — 당해연도는 consultation 라이브(일반 직접 카운트), 2024·2025 레거시 (#19)
+      rateVisionGeneral: consultLiveOrLegacy('rate-vision-general', (i) => consult.dataMap[CURRENT_YEAR]?.[i]?.visionGeneralBookRate),
       rateOneday: liveOrLegacy('rate-oneday', (s) =>
         s.oneDay > 0 ? (s.oneDayBooked / s.oneDay) * 100 : null,
       ),
@@ -397,7 +508,7 @@ export function MonthlyReportPage() {
     { group: '비율', id: 'rate-vision', label: '시력교정 예약률', node: <ReportLineChart title="시력교정 예약률" suffix="(수술예약건/검사자)" years={YEARS} data={charts.visionRate} format="percent" /> },
     { group: '비율', id: 'rate-vision-general', label: '시력교정 일반예약률', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['rate-vision-general']} years={YEARS} data={charts.rateVisionGeneral} /> },
     { group: '비율', id: 'rate-oneday', label: '원데이 예약률', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['rate-oneday']} years={YEARS} data={charts.rateOneday} /> },
-    { group: '전환&성공', id: 'success-rate', label: '시력교정 상담성공률', node: <ReportLineChart title="시력교정 상담성공률" suffix="(상담→수술예약)" years={YEARS} data={charts.counselSuccess} format="percent" /> },
+    { group: '전환&성공', id: 'success-rate', label: '시력교정 상담성공률', node: <ReportSuccessRateChart year={CURRENT_YEAR} all={charts.successAll} oneday={charts.successOneday} general={charts.successGeneral} /> },
     { group: '중단', id: 'stop-rate', label: '중단율', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['stop-rate']} years={YEARS} data={charts.stopRate} /> },
     { group: '중단', id: 'stop-reason', label: '중단 사유', node: <StopReasonBar item={stopReasonItem} monthLabel={periodLabel} /> },
     { group: '수술', id: 'surgery-cataract', label: '백내장 수술', node: <ReportLineChart title="백내장 수술" years={YEARS} data={charts.cataractSurgery} /> },

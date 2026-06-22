@@ -52,6 +52,16 @@ public class ConsultationRateService {
             b.visionActualSurgery = actual;
             b.visionSurgeryRate = exam > 0 ? roundToOneDecimal(booked * 100.0 / exam) : 0;
             b.visionCounselRate = counsel > 0 ? roundToOneDecimal(booked * 100.0 / counsel) : 0;
+
+            int counselOd = toInt(row.get("counselOneday"));
+            int counselBookedOd = toInt(row.get("counselBookedOneday"));
+            int counselGen = toInt(row.get("counselGeneral"));
+            int counselBookedGen = toInt(row.get("counselBookedGeneral"));
+            int examGen = toInt(row.get("examGeneral"));
+            int bookedGen = toInt(row.get("bookedGeneral"));
+            b.visionCounselRateOneday = counselOd > 0 ? roundToOneDecimal(counselBookedOd * 100.0 / counselOd) : 0;
+            b.visionCounselRateGeneral = counselGen > 0 ? roundToOneDecimal(counselBookedGen * 100.0 / counselGen) : 0;
+            b.visionGeneralBookRate = examGen > 0 ? roundToOneDecimal(bookedGen * 100.0 / examGen) : 0;
         }
 
         // 백내장 병합
@@ -88,6 +98,9 @@ public class ConsultationRateService {
         int visionActualSurgery;
         double visionSurgeryRate;
         double visionCounselRate;
+        double visionCounselRateOneday;
+        double visionCounselRateGeneral;
+        double visionGeneralBookRate;
         int cataractExamCount;
         int cataractSurgeryBooked;
         int cataractStoppedCount;
@@ -107,6 +120,9 @@ public class ConsultationRateService {
                     .visionActualSurgery(visionActualSurgery)
                     .visionSurgeryRate(visionSurgeryRate)
                     .visionCounselRate(visionCounselRate)
+                    .visionCounselRateOneday(visionCounselRateOneday)
+                    .visionCounselRateGeneral(visionCounselRateGeneral)
+                    .visionGeneralBookRate(visionGeneralBookRate)
                     .cataractExamCount(cataractExamCount)
                     .cataractSurgeryBooked(cataractSurgeryBooked)
                     .cataractStoppedCount(cataractStoppedCount)
