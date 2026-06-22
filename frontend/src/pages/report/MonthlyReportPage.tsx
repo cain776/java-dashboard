@@ -16,6 +16,7 @@ import { useExaminationTrend } from '@/hooks/exam/useExaminationTrend'
 import { useSurgeryTrend } from '@/hooks/surgery/useSurgeryTrend'
 import { useCataractReservationRateTrend } from '@/hooks/consultation/useCataractReservationRateTrend'
 import { useStopReasonMonthly } from '@/hooks/consultation/useStopReasonMonthly'
+import { useOverallExamWeekly } from '@/hooks/overall/useOverallExamWeekly'
 import type { StopReasonMonthlyItem } from '@/api/consultation'
 import { MONTHLY_LEGACY_CHARTS } from '@/data/monthlyReportLegacy'
 import { CURRENT_YEAR, MONTHS } from '@/constants/chart'
@@ -200,6 +201,21 @@ function ReportChartSkeleton() {
   )
 }
 
+/** overall-exam/weekly 주간 항목을 월별로 합산한 값 (당해연도 라이브 도표용) */
+interface OverallMonthSums {
+  introGeneral: number
+  introCustomer: number
+  introStaff: number
+  jobOffice: number
+  jobStudent: number
+  jobEtc: number
+  visionExam: number
+  oneDay: number
+  visionBooked: number
+  oneDayBooked: number
+  stopCount: number
+}
+
 export function MonthlyReportPage() {
   const resv = useReservationOverallTrend(YEARS)
   const outpatient = useOutpatientCountTrend(YEARS)
@@ -209,6 +225,33 @@ export function MonthlyReportPage() {
   const stopReason = useStopReasonMonthly([CURRENT_YEAR])
   const visionRate = useCataractReservationRateTrend([CURRENT_YEAR], 'vision')
   const cataractRate = useCataractReservationRateTrend([CURRENT_YEAR], 'cataract')
+  const overall = useOverallExamWeekly([CURRENT_YEAR])
+
+  // 당해연도 주간 항목을 월(1~12)별로 합산 — 검사유입·세그먼트 도표의 라이브 분모분자
+  const overallMonthly = useMemo(() => {
+    const acc: Record<number, OverallMonthSums> = {}
+    for (const it of overall.items) {
+      if (it.year !== CURRENT_YEAR) continue
+      const s = acc[it.month] ?? {
+        introGeneral: 0, introCustomer: 0, introStaff: 0,
+        jobOffice: 0, jobStudent: 0, jobEtc: 0,
+        visionExam: 0, oneDay: 0, visionBooked: 0, oneDayBooked: 0, stopCount: 0,
+      }
+      s.introGeneral += it.introGeneral
+      s.introCustomer += it.introCustomer
+      s.introStaff += it.introStaff
+      s.jobOffice += it.jobOffice
+      s.jobStudent += it.jobStudent
+      s.jobEtc += it.jobEtc
+      s.visionExam += it.visionExam
+      s.oneDay += it.oneDay
+      s.visionBooked += it.visionBooked
+      s.oneDayBooked += it.oneDayBooked
+      s.stopCount += it.stopCount
+      acc[it.month] = s
+    }
+    return acc
+  }, [overall.items])
 
   const charts = useMemo(() => {
     // 연도별 12개월 배열 빌더 — 미래월은 null(선 끊김)
@@ -244,6 +287,27 @@ export function MonthlyReportPage() {
       return out
     }
 
+    // 2024·2025 = 레거시 확정값, 당해연도 = overall-exam/weekly 월합산 라이브
+    const liveOrLegacy = (
+      legacyKey: string,
+      pick: (s: OverallMonthSums) => number | null,
+    ): Record<number, (number | null)[]> => {
+      const legacy = MONTHLY_LEGACY_CHARTS[legacyKey].data
+      const out: Record<number, (number | null)[]> = {}
+      YEARS.forEach((y) => {
+        if (y !== CURRENT_YEAR && legacy[y]) {
+          out[y] = legacy[y]
+          return
+        }
+        out[y] = Array.from({ length: 12 }, (_, i) => {
+          if (isIncompleteMonth(y, i)) return null
+          const s = overallMonthly[i + 1]
+          return s ? pick(s) : null
+        })
+      })
+      return out
+    }
+
     return {
       reservations: build((y, i) => resv.dataMap[y]?.[i]?.reservations),
       call: build((y, i) => resv.dataMap[y]?.[i]?.call),
@@ -258,8 +322,29 @@ export function MonthlyReportPage() {
       visionSurgery: build((y, i) => surgery.dataMap[y]?.[i]?.visionPatients),
       totalSurgery: build((y, i) => surgery.dataMap[y]?.[i]?.total),
       outpatient: build((y, i) => outpatient.dataMap[y]?.[i]?.outpatientCount),
+      // 🟢 라이브 전환 (overall-exam/weekly 월합산) — 2024·2025 레거시 확정값, 당해연도 라이브
+      examGeneralCustomer: liveOrLegacy('exam-general-customer', (s) => s.introGeneral),
+      examReferralCustomer: liveOrLegacy('exam-referral-customer', (s) => s.introCustomer),
+      examReferralStaff: liveOrLegacy('exam-referral-staff', (s) => s.introStaff),
+      examWorker: liveOrLegacy('exam-worker', (s) => s.jobOffice),
+      examStudent: liveOrLegacy('exam-student', (s) => s.jobStudent),
+      examEtc: liveOrLegacy('exam-etc', (s) => s.jobEtc),
+      examGeneral: liveOrLegacy('exam-general', (s) => s.visionExam - s.oneDay),
+      ratioGeneral: liveOrLegacy('ratio-general', (s) =>
+        s.visionExam > 0 ? ((s.visionExam - s.oneDay) / s.visionExam) * 100 : null,
+      ),
+      rateVisionGeneral: liveOrLegacy('rate-vision-general', (s) => {
+        const den = s.visionExam - s.oneDay
+        return den > 0 ? ((s.visionBooked - s.oneDayBooked) / den) * 100 : null
+      }),
+      rateOneday: liveOrLegacy('rate-oneday', (s) =>
+        s.oneDay > 0 ? (s.oneDayBooked / s.oneDay) * 100 : null,
+      ),
+      stopRate: liveOrLegacy('stop-rate', (s) =>
+        s.visionExam > 0 ? (s.stopCount / s.visionExam) * 100 : null,
+      ),
     }
-  }, [resv.dataMap, outpatient.dataMap, procedure.dataMap, exam.dataMap, surgery.dataMap, visionRate.dataMap, cataractRate.dataMap])
+  }, [resv.dataMap, outpatient.dataMap, procedure.dataMap, exam.dataMap, surgery.dataMap, visionRate.dataMap, cataractRate.dataMap, overallMonthly])
 
   // 최신(데이터 있는) 월 — 리포트 기준월
   const latestMonthIdx = useMemo(() => {
@@ -272,32 +357,32 @@ export function MonthlyReportPage() {
   const periodLabel = `${CURRENT_YEAR}년 ${latestMonthIdx + 1}월`
 
   const isLoading =
-    resv.isLoading || outpatient.isLoading || procedure.isLoading || exam.isLoading || surgery.isLoading || stopReason.isLoading
+    resv.isLoading || outpatient.isLoading || procedure.isLoading || exam.isLoading || surgery.isLoading || stopReason.isLoading || overall.isLoading
 
   // 전체 도표 목차(월간보고 순서). node 있으면 완료(차트 렌더+목차 링크), 없으면 미완성(목차 회색 표시).
   const items: { group: string; id: string; label: string; node?: ReactNode }[] = [
     { group: '예약', id: 'reservation-overall', label: '예약 종합 (콜·온라인)', node: <ReportLineChart title="예약 종합" suffix="(콜, 온라인)" years={YEARS} data={charts.reservations} /> },
     { group: '예약', id: 'reservation-call', label: '콜 예약 (인콜·아웃콜)', node: <ReportLineChart title="콜 예약" suffix="(인콜, 아웃콜)" years={YEARS} data={charts.call} /> },
     { group: '예약', id: 'reservation-online', label: '온라인 예약 (네이버·카카오·홈페이지)', node: <ReportLineChart title="온라인 예약" suffix="(네이버, 카카오, 홈페이지)" years={YEARS} data={charts.online} /> },
-    { group: '검사 유입', id: 'exam-general-customer', label: '일반 고객 검사 (소개 제외)', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['exam-general-customer']} years={YEARS} /> },
-    { group: '검사 유입', id: 'exam-referral-customer', label: '고객소개 검사', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['exam-referral-customer']} years={YEARS} /> },
-    { group: '검사 유입', id: 'exam-referral-staff', label: '직원소개 검사', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['exam-referral-staff']} years={YEARS} /> },
+    { group: '검사 유입', id: 'exam-general-customer', label: '일반 고객 검사 (소개 제외)', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['exam-general-customer']} years={YEARS} data={charts.examGeneralCustomer} /> },
+    { group: '검사 유입', id: 'exam-referral-customer', label: '고객소개 검사', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['exam-referral-customer']} years={YEARS} data={charts.examReferralCustomer} /> },
+    { group: '검사 유입', id: 'exam-referral-staff', label: '직원소개 검사', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['exam-referral-staff']} years={YEARS} data={charts.examReferralStaff} /> },
     { group: '검사 유입', id: 'exam-by-class', label: '고객분류별 검사수' },
-    { group: '검사 유입', id: 'exam-worker', label: '직장인 검사', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['exam-worker']} years={YEARS} /> },
-    { group: '검사 유입', id: 'exam-student', label: '학생 검사', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['exam-student']} years={YEARS} /> },
-    { group: '검사 유입', id: 'exam-etc', label: '기타 검사', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['exam-etc']} years={YEARS} /> },
+    { group: '검사 유입', id: 'exam-worker', label: '직장인 검사', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['exam-worker']} years={YEARS} data={charts.examWorker} /> },
+    { group: '검사 유입', id: 'exam-student', label: '학생 검사', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['exam-student']} years={YEARS} data={charts.examStudent} /> },
+    { group: '검사 유입', id: 'exam-etc', label: '기타 검사', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['exam-etc']} years={YEARS} data={charts.examEtc} /> },
     { group: '검사수', id: 'exam-cataract', label: '백내장 검사수', node: <ReportLineChart title="백내장 검사수" years={YEARS} data={charts.cataractExam} /> },
     { group: '검사수', id: 'exam-vision', label: '시력교정 검사', node: <ReportLineChart title="시력교정 검사" years={YEARS} data={charts.visionExam} /> },
     { group: '검사수', id: 'exam-count', label: '검사수', node: <ReportLineChart title="검사수" years={YEARS} data={charts.examCount} /> },
     { group: '검사수', id: 'exam-oneday', label: '원데이 검사', node: <ReportLineChart title="원데이 검사" years={YEARS} data={charts.oneDayExam} /> },
-    { group: '검사수', id: 'exam-general', label: '일반 검사', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['exam-general']} years={YEARS} /> },
-    { group: '비율', id: 'ratio-general', label: '일반검사 비율', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['ratio-general']} years={YEARS} /> },
+    { group: '검사수', id: 'exam-general', label: '일반 검사', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['exam-general']} years={YEARS} data={charts.examGeneral} /> },
+    { group: '비율', id: 'ratio-general', label: '일반검사 비율', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['ratio-general']} years={YEARS} data={charts.ratioGeneral} /> },
     { group: '비율', id: 'rate-cataract', label: '백내장 예약률', node: <ReportLineChart title="백내장 예약률" suffix="(수술예약건/검사자)" years={YEARS} data={charts.cataractRate} format="percent" /> },
     { group: '비율', id: 'rate-vision', label: '시력교정 예약률', node: <ReportLineChart title="시력교정 예약률" suffix="(수술예약건/검사자)" years={YEARS} data={charts.visionRate} format="percent" /> },
-    { group: '비율', id: 'rate-vision-general', label: '시력교정 일반예약률', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['rate-vision-general']} years={YEARS} /> },
-    { group: '비율', id: 'rate-oneday', label: '원데이 예약률', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['rate-oneday']} years={YEARS} /> },
+    { group: '비율', id: 'rate-vision-general', label: '시력교정 일반예약률', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['rate-vision-general']} years={YEARS} data={charts.rateVisionGeneral} /> },
+    { group: '비율', id: 'rate-oneday', label: '원데이 예약률', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['rate-oneday']} years={YEARS} data={charts.rateOneday} /> },
     { group: '전환&성공', id: 'success-rate', label: '시력교정 상담성공률' },
-    { group: '중단', id: 'stop-rate', label: '중단율', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['stop-rate']} years={YEARS} /> },
+    { group: '중단', id: 'stop-rate', label: '중단율', node: <ReportLineChart {...MONTHLY_LEGACY_CHARTS['stop-rate']} years={YEARS} data={charts.stopRate} /> },
     { group: '중단', id: 'stop-reason', label: '중단 사유', node: <StopReasonBar item={stopReasonItem} monthLabel={periodLabel} /> },
     { group: '수술', id: 'surgery-cataract', label: '백내장 수술', node: <ReportLineChart title="백내장 수술" years={YEARS} data={charts.cataractSurgery} /> },
     { group: '수술', id: 'surgery-vision', label: '시력교정 수술', node: <ReportLineChart title="시력교정 수술" years={YEARS} data={charts.visionSurgery} /> },
