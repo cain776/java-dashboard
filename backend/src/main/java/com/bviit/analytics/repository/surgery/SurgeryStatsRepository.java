@@ -264,13 +264,14 @@ public class SurgeryStatsRepository {
                 """;
 
         // 레코드 단위: AGAIN_R 적격 OR AGAIN_L 적격이면 그 행을 1건으로 카운트.
-        // 레이저/렌즈 분류(레거시 p.27): 렌즈 마커(remo·exch·ICL·ART·EVO·ECHO·precizon 등) 우선,
-        // 그 외(EN·PRK·FLAP·EYECLE·KPL 등)는 레이저(각막 재교정). 레거시와 ±1.
+        // 레이저/렌즈 분류(레거시 p.27): **적격인 눈의 시술명으로만** 판정한다.
+        // (제외된 눈 — repo/Clareon 등 — 의 텍스트는 무시. 예: R=repo+T-ICL(제외)·L=bio+T-PRK(레이저) → 레이저)
+        // 렌즈 마커(remo·exch·ICL·ART·EVO·ECHO·precizon 등) 우선, 그 외는 레이저(각막 재교정). 2026 1~4월 레이저/렌즈 분리 레거시 일치(총건수만 ±1).
         String lensMarkers = """
-                    txt LIKE '%remo%' OR txt LIKE '%exch%' OR txt LIKE '%ICL%'
-                    OR txt LIKE '%ARF%' OR txt LIKE '%ART%' OR txt LIKE '%EVO%'
-                    OR txt LIKE '%ECHO%' OR txt LIKE '%GLAZE%' OR txt LIKE '%precizon%'
-                    OR txt LIKE '%Lisa%' OR txt LIKE '%Gemetric%' OR txt LIKE '%encla%'
+                    qt LIKE '%remo%' OR qt LIKE '%exch%' OR qt LIKE '%ICL%'
+                    OR qt LIKE '%ARF%' OR qt LIKE '%ART%' OR qt LIKE '%EVO%'
+                    OR qt LIKE '%ECHO%' OR qt LIKE '%GLAZE%' OR qt LIKE '%precizon%'
+                    OR qt LIKE '%Lisa%' OR qt LIKE '%Gemetric%' OR qt LIKE '%encla%'
                 """;
 
         String sql = """
@@ -281,33 +282,36 @@ public class SurgeryStatsRepository {
                     SUM(CASE WHEN x.cat = 'lens' THEN 1 ELSE 0 END) AS reopLens
                 FROM (
                     SELECT
-                        CAST(LEFT(r.REOP_DATE, 4) AS int)         AS yr,
-                        CAST(SUBSTRING(r.REOP_DATE, 6, 2) AS int) AS mo,
+                        CAST(LEFT(y.d, 4) AS int)         AS yr,
+                        CAST(SUBSTRING(y.d, 6, 2) AS int) AS mo,
                         CASE WHEN (
                 """
-                + lensMarkers.replace("txt", "(ISNULL(r.AGAIN_R,'') + '|' + ISNULL(r.AGAIN_L,''))") +
+                + lensMarkers.replace("qt", "y.qt") +
                 """
                         ) THEN 'lens' ELSE 'laser' END AS cat
-                    FROM RE_OPERATION r WITH(NOLOCK)
-                    LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = r.CUST_NUM
-                    WHERE r.REOP_DATE >= :from AND r.REOP_DATE <= :to
-                      AND NOT (
-                          ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
-                          OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
-                      )
-                      AND (
-                          (
+                    FROM (
+                        SELECT
+                            r.REOP_DATE AS d,
+                            (CASE WHEN
                 """
                 + qualify.replace("op_col", "r.AGAIN_R") +
                 """
-                          )
-                          OR
-                          (
+                             THEN ISNULL(r.AGAIN_R, '') ELSE '' END)
+                            + '|' +
+                            (CASE WHEN
                 """
                 + qualify.replace("op_col", "r.AGAIN_L") +
                 """
+                             THEN ISNULL(r.AGAIN_L, '') ELSE '' END) AS qt
+                        FROM RE_OPERATION r WITH(NOLOCK)
+                        LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = r.CUST_NUM
+                        WHERE r.REOP_DATE >= :from AND r.REOP_DATE <= :to
+                          AND NOT (
+                              ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
+                              OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
                           )
-                      )
+                    ) y
+                    WHERE REPLACE(y.qt, '|', '') <> ''
                 ) x
                 GROUP BY x.yr, x.mo
                 ORDER BY x.yr, x.mo
