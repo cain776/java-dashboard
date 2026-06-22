@@ -199,7 +199,7 @@ export function MonthlyReportPage() {
     // 예약률: 2024·2025 확정값 + 2026 API
     const rateMap = (
       legacy: Record<number, number[]>,
-      query: { dataMap: Record<number, { examCount: number; reservationRate: number }[]> },
+      rateData: Record<number, { examCount: number; reservationRate: number }[]>,
     ): Record<number, (number | null)[]> => {
       const out: Record<number, (number | null)[]> = {}
       YEARS.forEach((y) => {
@@ -209,7 +209,7 @@ export function MonthlyReportPage() {
         }
         out[y] = Array.from({ length: 12 }, (_, i) => {
           if (isIncompleteMonth(y, i)) return null
-          const it = query.dataMap[y]?.[i]
+          const it = rateData[y]?.[i]
           return it && it.examCount ? Math.ceil(it.reservationRate) : null
         })
       })
@@ -224,8 +224,8 @@ export function MonthlyReportPage() {
       visionExam: build((y, i) => exam.dataMap[y]?.[i]?.visionCorrection),
       examCount: build((y, i) => procedure.dataMap[y]?.[i]?.examCount),
       oneDayExam: build((y, i) => procedure.dataMap[y]?.[i]?.oneDayExamCount),
-      cataractRate: rateMap(CATARACT_RATE_LEGACY, cataractRate),
-      visionRate: rateMap(VISION_RATE_LEGACY, visionRate),
+      cataractRate: rateMap(CATARACT_RATE_LEGACY, cataractRate.dataMap),
+      visionRate: rateMap(VISION_RATE_LEGACY, visionRate.dataMap),
       cataractSurgery: build((y, i) => surgery.dataMap[y]?.[i]?.cataractPatients),
       visionSurgery: build((y, i) => surgery.dataMap[y]?.[i]?.visionPatients),
       totalSurgery: build((y, i) => surgery.dataMap[y]?.[i]?.total),

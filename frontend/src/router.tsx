@@ -7,7 +7,7 @@ import {
 } from '@tanstack/react-router'
 import type { FC } from 'react'
 import { AppLayout } from './components/layout/AppLayout'
-import { statsPages } from './config/navigation'
+import { statsPages, getMenuStatus } from './config/navigation'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { StatsPlaceholderPage } from './pages/StatsPlaceholderPage'
@@ -70,14 +70,19 @@ const dashboardRoute = createRoute({
   component: DashboardPage,
 })
 
+// 운영 빌드(PROD)에서는 pending(미완성) 페이지의 라우트를 차단한다(직접 URL 접근도 placeholder).
+const isProd = !import.meta.env.DEV
+
 // 통계 페이지 라우트는 navigation.ts 정의로부터 자동 생성한다.
-// 도메인 레지스트리에 컴포넌트가 있으면 전용 페이지, 없으면 StatsPlaceholderPage.
+// 레지스트리에 컴포넌트가 있고 차단 대상이 아니면 전용 페이지, 아니면 StatsPlaceholderPage.
 const statsRoutes = statsPages.map((page) => {
-  const PageComponent = PAGE_COMPONENTS[page.id]
+  const fallback = () => <StatsPlaceholderPage page={page} />
+  const blocked = isProd && getMenuStatus(page.id) === 'pending'
+  const component = blocked ? fallback : (PAGE_COMPONENTS[page.id] ?? fallback)
   return createRoute({
     getParentRoute: () => authLayout,
     path: page.path,
-    component: PageComponent ?? (() => <StatsPlaceholderPage page={page} />),
+    component,
   })
 })
 

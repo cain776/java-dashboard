@@ -435,6 +435,9 @@ const MENU_STATUS: Record<string, MenuStatus> = {
   'daily-reception': 'pending',
 }
 
+/** 메뉴 구현 상태 조회 (router의 운영 빌드 pending 라우트 차단 등에 사용). */
+export const getMenuStatus = (id: string): MenuStatus => MENU_STATUS[id] ?? 'pending'
+
 const link = (id: string): MenuLink => {
   const page = findPage(id)
   return { label: page.label, href: page.path, status: MENU_STATUS[id] }

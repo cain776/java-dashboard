@@ -224,6 +224,7 @@ GET    /api/stats/{pageId}/compare?compareTo=PREVIOUS_PERIOD
 - 라우트는 `router.tsx`가 `navigation.ts`의 `statsPages` + 도메인 레지스트리(`pages/<domain>/routes.ts`, `pageId → 컴포넌트`)를 합쳐 **자동 생성**한다. 레지스트리에 컴포넌트가 있으면 전용 페이지, 없으면 `StatsPlaceholderPage`로 렌더 (하드코딩 목록 없음)
 - 새 통계 페이지 연결: `navigation.ts`에 정의 → `pages/<domain>/`에 컴포넌트 작성 → `pages/<domain>/routes.ts`에 `'<id>': Component` 한 줄 추가 (**`router.tsx` 수정 불필요**)
 - 훅은 `@/hooks/<domain>/useXxx`, API는 `@/api/<domain>`(리스트는 `@/api/<domain>/xxxList`)에서 import
+- **pending(미완성) 메뉴 정책**: 운영 빌드(PROD)에서는 사이드바에서 **숨김** + 라우트 **차단**(직접 URL도 `StatsPlaceholderPage`). 개발 빌드에서는 미리보기 가능(사이드바 빨강 표시). 상태는 `MENU_STATUS`, 조회는 `getMenuStatus()`.
 
 ### 차트 (Recharts)
 

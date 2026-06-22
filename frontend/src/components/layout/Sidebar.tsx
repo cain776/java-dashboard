@@ -3,24 +3,36 @@ import { Link, useLocation } from '@tanstack/react-router'
 import { ChevronDown } from 'lucide-react'
 import {
   menuItems,
+  type MenuItem,
   type MenuLink,
   type MenuStatus,
 } from '@/config/navigation'
 
+// 운영 빌드(PROD)에서는 pending(미완성) 메뉴를 숨긴다. 개발에서는 빨강으로 표시한다.
+const isProd = !import.meta.env.DEV
+
+const hidePendingForProd = (items: MenuItem[]): MenuItem[] => {
+  if (!isProd) return items
+  return items
+    .map((item) =>
+      item.children
+        ? { ...item, children: item.children.filter((child) => child.status !== 'pending') }
+        : item,
+    )
+    .filter((item) => (item.children ? item.children.length > 0 : item.status !== 'pending'))
+}
+
+const visibleMenuItems = hidePendingForProd(menuItems)
+
 const getOpenMenus = (pathname: string) =>
   new Set(
-    menuItems
+    visibleMenuItems
       .filter((item) => item.children?.some((child) => child.href === pathname))
       .map((item) => item.id)
   )
 
-// 운영 빌드에서 pending 메뉴 숨김
-const isProd = !import.meta.env.DEV
-const isDisabled = (status?: MenuStatus) => isProd && status === 'pending'
-
 // 구현 상태별 텍스트 색상 (활성 상태가 아닐 때만 적용)
 const statusTextClass = (status?: MenuStatus): string => {
-  if (isDisabled(status)) return 'text-gray-300 pointer-events-none cursor-default'
   if (status === 'pending') return 'text-red-500 hover:text-red-600'
   if (status === 'backend-only') return 'text-amber-600 hover:text-amber-700'
   return 'text-gray-500 hover:text-gray-900'
@@ -112,7 +124,7 @@ export function Sidebar({ collapsed, onToggleSidebar, onNavigate }: { collapsed:
 
       <nav className="flex-1 overflow-y-auto py-4">
         <ul className="space-y-1 px-2">
-          {menuItems.map((item) => {
+          {visibleMenuItems.map((item) => {
             const Icon = item.icon
             const children = item.children ?? []
             const hasChildren = children.length > 0
