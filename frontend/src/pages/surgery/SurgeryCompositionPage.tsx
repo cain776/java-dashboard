@@ -182,9 +182,9 @@ export function SurgeryCompositionPage() {
           )}
           <p className="mt-3 text-[11px] text-muted-foreground">
             ※ 운영 DB 라이브(surgery API). <strong>엑스트라·웨이브비전·모노비전</strong>은 시력교정 부가시술(환자 수),
-            <strong>재수술 합계</strong>는 RE_OPERATION 안(眼) 단위입니다.
+            <strong>재수술 합계</strong>는 RE_OPERATION 레코드(건) 단위입니다(레거시 월간보고 ±1 일치).
             <strong>라섹계 EX/Red · 재수술 레이저/렌즈 · 퍼스널/콘트라</strong>는 아직 별도 필드가 없어 빈칸입니다.
-            재수술 분류 기준은 팀장 검증 예정(Phase 2).
+            재수술 레이저/렌즈 세부 분류는 팀장 검증 예정(Phase 2).
           </p>
         </CardContent>
       </Card>

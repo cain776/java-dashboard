@@ -119,7 +119,8 @@ public class SurgeryStatsService {
                     .reoperation(b.reoperation)
                     .visionPatients(b.visionPatients)
                     .cataractPatients(b.cataractPatients)
-                    .total(b.visionPatients + b.cataractPatients)
+                    // 총 수술수 = 시력교정 + 백내장 + 재수술(레코드) — 레거시 월간보고 p.26 정의
+                    .total(b.visionPatients + b.cataractPatients + b.reoperation)
                     .build());
         }
 
