@@ -4,8 +4,9 @@ import { withQuery } from '@/api/_shared'
 
 /**
  * 예약자 리스트 — "예약 종합(콜·온라인)" 월간 건수를 구성하는 검사예약 행 목록.
- * 백엔드: GET /api/reservation-list?from&to → ApiResponse<List<Map>> (camelCase 키).
- * 집계 기준 날짜 = 등록일(registeredAt). 행 1개 = RESERVE_NUM 1개. 월 합계 = 예약 종합 값.
+ * 백엔드: GET /api/reservation-list?from&to → ApiResponse<{rows, kakaoCount}> (camelCase 키).
+ * 집계 기준 날짜 = 등록일(registeredAt). 행 1개 = RESERVE_NUM 1개.
+ * 명단 행 합계 + kakaoCount(해피톡 카카오, 명단 외) = 예약 종합 값.
  * 전 컬럼 문자열. reserveState: Y(예약)/I(접수)/H(퇴원)/C(취소).
  */
 const reservationListItemSchema = z.object({
@@ -27,12 +28,21 @@ export type ReservationListItem = z.infer<typeof reservationListItemSchema>
 
 const reservationListResponseSchema = z.object({
   success: z.boolean(),
-  data: z.array(reservationListItemSchema),
+  data: z.object({
+    rows: z.array(reservationListItemSchema),
+    kakaoCount: z.number(),
+  }),
   message: z.string().nullish(),
 })
 
+export interface ReservationListResult {
+  rows: ReservationListItem[]
+  /** 카카오(해피톡, 명단 외) 건수 — 명단 합계 + kakaoCount = 예약 종합. */
+  kakaoCount: number
+}
+
 export const reservationListApi = {
-  getReservationList: async (from: string, to: string): Promise<ReservationListItem[]> => {
+  getReservationList: async (from: string, to: string): Promise<ReservationListResult> => {
     const res = await api.get<unknown>(withQuery('/reservation-list', { from, to }))
     return reservationListResponseSchema.parse(res).data
   },
