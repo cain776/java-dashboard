@@ -11,7 +11,6 @@
 - **폼**: react-hook-form + Zod
 - **DB**: H2 (개발, 기본) / PostgreSQL (운영, `application-postgres.properties`)
 - **인증**: Spring Security + JWT (jjwt, HMAC-SHA256)
-- **모킹**: MSW (`VITE_USE_MSW=true`일 때만 opt-in)
 - **언어**: 한국어 UI
 
 ## 디렉토리 구조
@@ -45,7 +44,7 @@ project-root/
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── main.tsx                     # 진입점 (VITE_USE_MSW=true면 MSW 초기화 → React 렌더)
+│   │   ├── main.tsx                     # 진입점 (React 렌더)
 │   │   ├── App.tsx                      # QueryClientProvider + RouterProvider
 │   │   ├── router.tsx                   # TanStack Router (인증 가드 + statsPages 기반 자동 라우트)
 │   │   ├── index.css                    # Tailwind 4 + OKLCH 테마 변수
@@ -91,8 +90,7 @@ project-root/
 │   │   │   ├── DashboardPage.tsx       # 메인 대시보드 (KPI 카드 + 차트, 목업 데이터)
 │   │   │   └── StatsPlaceholderPage.tsx # 미구현 통계 페이지 템플릿
 │   │   ├── stores/                      # authStore (Zustand: token+user, localStorage 연동)
-│   │   ├── mocks/                       # MSW (browser.ts·handlers.ts)
-│   │   ├── constants/ · data/ · lib/ · utils/   # chart 상수·레거시 데이터·cn()·stats 포맷터
+│   │   ├── constants/ · data/ · lib/ · utils/   # chart 상수·레거시 데이터·목 픽스처·cn()·stats 포맷터
 │   │   └── test/                        # Vitest + @testing-library/jest-dom
 │   ├── components.json                  # shadcn CLI 설정
 │   ├── vite.config.ts                   # 프록시: /api → localhost:8080
@@ -120,9 +118,8 @@ project-root/
 - JWT 기반 로그인/인증 (백엔드 + 프론트)
 - 메인 대시보드 레이아웃 (Sidebar + Topbar + Content)
 - DashboardPage (KPI 카드 4개 + 차트 5개, 하드코딩 목업)
-- ReservationPage (월별/연도별 비교, TanStack Query 기반 API/MSW 연동)
+- ReservationPage (월별/연도별 비교, TanStack Query 기반 API 연동)
 - 인증 라우트 가드 (미인증 시 /login 리다이렉트)
-- MSW opt-in 개발 목킹 (`VITE_USE_MSW=true`)
 - 통계 전용 페이지 20종 + MSSQL(prod) 연동 통계 API (검사·수술·전환율·리스트·B2B 등, 아래 표 참조)
 - 도메인별 `routes.ts` + `pageRegistry.ts` 기반 라우트 자동 생성
 - PROD pending 메뉴 숨김 및 직접 URL placeholder 차단 정책
@@ -355,7 +352,6 @@ cd frontend && npm run test              # Vitest
 - **새 UI 컴포넌트**: `npx shadcn@latest add <name>` (설정: `components.json`)
 - **API 연동**: `api/client.ts` HTTP 클라이언트 사용, TanStack Query `useQuery`로 캐싱
 - **DashboardPage 데이터는 하드코딩 목업** — API 연동 시 교체 필요
-- **MSW 핸들러**: 새 API 개발 전 `mocks/handlers.ts`에 목 추가하면 프론트 선행 개발 가능
 
 ## DB 테이블 카탈로그
 

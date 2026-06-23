@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { surgeryListApi, type SurgeryListItem } from '@/api/surgery/surgeryList'
-import { EXAM_LIST_MOCK } from '@/mocks/examListData'
+import { EXAM_LIST_MOCK } from '@/data/examListData'
 import { useDataSourceStore } from '@/stores/dataSourceStore'
 
 const mockSurgeryRows = (from: string, to: string): SurgeryListItem[] =>
