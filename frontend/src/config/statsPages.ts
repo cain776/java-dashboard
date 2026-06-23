@@ -134,6 +134,15 @@ export const statsPages: StatsPageDefinition[] = [
     '/api/cataract-exam-list'
   ),
   statsPage(
+    'all-exam-list',
+    '전체 검사자 리스트',
+    '/stats/all-exam-list',
+    'exam-group',
+    '검사',
+    '시력교정+백내장 검사자를 통합한 명단입니다. 검사구분·내원동기·직업 토글 조회건수가 월별 검사자 종합지표(검사유입·검사수)와 정합합니다.',
+    '/api/all-exam-list'
+  ),
+  statsPage(
     'examination',
     '시술별',
     '/stats/examination',

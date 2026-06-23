@@ -42,6 +42,7 @@ const MENU_STATUS: Record<string, MenuStatus> = {
   'reservation-list': 'complete',
   'exam-list': 'complete',
   'cataract-exam-list': 'complete',
+  'all-exam-list': 'complete',
   'examination': 'complete',
   'procedure-exam': 'complete',
   'consultation-rate': 'complete',
@@ -131,7 +132,7 @@ const rawMenuItems: MenuItem[] = [
     label: '검사',
     href: '#',
     icon: Microscope,
-    children: kids('exam-list', 'cataract-exam-list', 'examination', 'procedure-exam'),
+    children: kids('exam-list', 'cataract-exam-list', 'all-exam-list', 'examination', 'procedure-exam'),
   },
   {
     id: 'consultation',
