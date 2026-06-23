@@ -1,6 +1,7 @@
 import type { FC } from 'react'
 import { ExamListPage } from './ExamListPage'
 import { CataractExamListPage } from './CataractExamListPage'
+import { AllExamListPage } from './AllExamListPage'
 import { ExaminationPage } from './ExaminationPage'
 import { ProcedureExamPage } from './ProcedureExamPage'
 
@@ -8,6 +9,7 @@ import { ProcedureExamPage } from './ProcedureExamPage'
 export const examPageRoutes: Record<string, FC> = {
   'exam-list': ExamListPage,
   'cataract-exam-list': CataractExamListPage,
+  'all-exam-list': AllExamListPage,
   'examination': ExaminationPage,
   'procedure-exam': ProcedureExamPage,
 }
