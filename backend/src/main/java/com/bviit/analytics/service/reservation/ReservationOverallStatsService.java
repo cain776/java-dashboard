@@ -21,7 +21,7 @@ import static com.bviit.analytics.util.NumberUtils.toInt;
  *   - 2024~2025: 레거시 BCRM 문의통계(RSS) 종합·온라인 확정값 고정.
  *   - 2026년 이후: 운영 DB 추정치(등록일 InsertedDateTime 기준). mssql 프로파일에서만 계산.
  *       · 콜    = RESERVE_PATH CTI/CRM, B2B(군인)·재검·중복 예약 제외(RESERVE_SEQ '8'/'5', COMMENT).
- *       · 온라인 = RESERVE_PATH ONLINE/APP(홈페이지) + NAVER(네이버). 카카오는 RESERVE_PATH 부재로 미포함.
+ *       · 온라인 = RESERVE_PATH ONLINE/APP(홈페이지) + NAVER(네이버) + 카카오(HappyTalk 수술전·★신환, 별도 집계).
  *       · 종합  = 콜 + 온라인.
  *     레거시 RSS 화면(uSTATISTICSD1) 정의에 맞춘 보정으로 2026 차트와 월 ±1~3% 일치(상세는 Repository 주석).
  *

@@ -18,7 +18,8 @@ import lombok.extern.jackson.Jacksonized;
  *
  * 필드:
  *   - reservations(=total): 예약 종합(콜+온라인) 추정치.
- *   - online: 온라인 예약(홈페이지 ONLINE/APP + 네이버 NAVER). 카카오는 RESERVE_PATH 부재로 사실상 미포함.
+ *   - online: 온라인 예약(홈페이지 ONLINE/APP + 네이버 NAVER). 카카오는 RESERVE_PATH가 없어
+ *             HappyTalk(수술전·★신환)에서 별도 집계해 더함(2026~ DB 추정치에만, 2024~25는 확정값).
  *   - call: 콜 예약(인콜 CTI + 아웃콜 CRM).
  */
 @Getter
