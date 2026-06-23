@@ -152,19 +152,18 @@ public class ExaminationStatsRepository {
     }
 
     /**
-     * 백내장 예약률 — 백내장 검사를 받고 좌/우 어느 한쪽이라도 백내장 진단이 있는 사람 수 대비
-     * 수술예약이 있는 사람 수.
+     * 백내장 예약률 — 백내장 진단 눈 수(좌+우 합산) 대비 수술예약 보유 사람 수.
      *
-     * 분모·분자 모두 사람(검사 1건) 단위. 양안 진단이라도 1로 카운트한다 — Excel "백내장 만(M)"
-     * 컬럼과 동일한 기준이며, 분모를 눈 수(좌+우)로 카운트하던 이전 로직은 분자(사람 단위)와
-     * 단위가 어긋나 예약률이 항상 실제보다 낮게 나오던 버그가 있었다.
+     * ⚠️ 분모 = 눈 수, 분자 = 수술예약 사람 수로 단위가 다르지만, **레거시 월간보고(백내장 예약률 ~60%대)
+     * 와 일치시키기 위해 눈분모를 사용**한다. 분모를 사람(좌·우 합산 아님)으로 바꾸면 ~89%로 레거시와
+     * ~30%p 괴리가 나, 팀 결정에 따라 눈분모(레거시 정의)로 환원함 — 2026 라이브 ≈ 57·57·60·60·64%.
+     * 2024·2025 하드코딩값(CATARACT_RATE_LEGACY)도 눈분모 기준이라 3개년 비교가 정합한다.
      */
     public List<Map<String, Object>> findCataractReservationRateMonthly(String from, String to) {
         String sql = """
             SELECT base.yr,
                    base.mo,
-                   SUM(CASE WHEN base.rightEye = 1 OR base.leftEye = 1
-                            THEN 1 ELSE 0 END) AS examCount,
+                   SUM(base.rightEye) + SUM(base.leftEye) AS examCount,
                    SUM(CASE WHEN (base.rightEye = 1 OR base.leftEye = 1)
                               AND base.hasSurgeryBooking = 1
                             THEN 1 ELSE 0 END) AS surgeryBookedCount
