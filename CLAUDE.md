@@ -76,7 +76,8 @@ project-root/
 │   │   │   ├── report/                  # ReportLineChart
 │   │   │   └── ui/                      # shadcn 컴포넌트 (button, card, chart)
 │   │   ├── config/
-│   │   │   └── navigation.ts            # 메뉴 구조 + 통계 페이지 정의 (sectionId = 도메인 그룹)
+│   │   │   ├── statsPages.ts            # 통계 페이지 정의 (id/path/section/apiDraftPath)
+│   │   │   └── navigation.ts            # 메뉴 구조 + 구현 상태 맵
 │   │   ├── pages/                       # 도메인별 폴더 (Login·Dashboard·StatsPlaceholder·pageRegistry만 root)
 │   │   │   ├── pageRegistry.ts          # 도메인 routes.ts 통합 + PROD pending 라우트 차단 정책
 │   │   │   ├── pageRegistry.test.ts     # 라우트 정책 불변식 테스트
@@ -104,7 +105,7 @@ project-root/
 
 ### 도메인별 코드 구성 (레이어 → 도메인)
 
-백엔드·프론트 모두 **레이어 우선 + 도메인 하위 분할** 구조를 따른다. 도메인 = `navigation.ts`의 메뉴 그룹(`sectionId`): `reservation`(예약) / `exam`(검사) / `surgery`(수술) / `consultation`(전환&성공률) / `report` / `overall`(전체지표) / `outpatient`(외래) / `marketing` / `cancel-noshow` / `unit-price` / `etc`.
+백엔드·프론트 모두 **레이어 우선 + 도메인 하위 분할** 구조를 따른다. 도메인 = `statsPages.ts`의 메뉴 그룹(`sectionId`): `reservation`(예약) / `exam`(검사) / `surgery`(수술) / `consultation`(전환&성공률) / `report` / `overall`(전체지표) / `outpatient`(외래) / `marketing` / `cancel-noshow` / `unit-price` / `etc`.
 
 - **백엔드**: `controller/`·`service/`·`repository/`·`dto/` 각 레이어 안에 도메인 하위패키지(`controller/reservation/` …). `stats/`에는 도메인에 속하지 않는 **공용 유틸만** 남긴다(`StatsPanelSupport`, `StatsRequestValidator`). `Mock*Repository`는 해당 도메인 `repository/<domain>/`에 둔다.
 - **프론트**: `api/<domain>/index.ts`(도메인 API 객체 + 타입) · `hooks/<domain>/` · `pages/<domain>/`. 리스트 전용 API는 `api/<domain>/xxxList.ts`에 둔다. 여러 도메인이 공유하는 것만 root(`api/_shared.ts`, `api/client.ts`, `api/auth.ts`, `hooks/useIsMobile.ts`, `hooks/useWeeklyApproval.ts`, `pages/{Login,Dashboard,StatsPlaceholder}Page.tsx`, `pages/pageRegistry.ts`)에 둔다. 페이지 전용 하위 컴포넌트는 페이지 폴더 안에(`pages/consultation/consultation-rate/`, `pages/surgery/surgery-ratio/`).
@@ -132,7 +133,7 @@ project-root/
 
 ## 통계 페이지 목록
 
-`navigation.ts`에 34개 정의. 상태: **완료**(전용 페이지+API) 20개 / **미구현(pending)** 14개.
+`statsPages.ts`에 34개 정의하고, `navigation.ts`의 상태 맵으로 완료/미구현을 관리한다. 상태: **완료**(전용 페이지+API) 20개 / **미구현(pending)** 14개.
 (시력교정/드림렌즈 검사건수 2종은 `시술별`(examination)에 포함되어 2026-06-22 메뉴 삭제)
 
 | ID | 메뉴명 | 경로 | 그룹 | 상태 |
@@ -235,9 +236,9 @@ GET    /api/{listPageId}?from=2026-01-01&to=2026-01-31  # 리스트 계열
 ### 라우팅 패턴
 
 - 인증 필요 페이지는 `authLayout` 하위에 등록 (`router.tsx`)
-- 라우트는 `router.tsx`가 `navigation.ts`의 `statsPages`와 `pages/pageRegistry.ts`의 `PAGE_COMPONENTS`를 합쳐 **자동 생성**한다. `pageRegistry.ts`는 각 도메인 레지스트리(`pages/<domain>/routes.ts`, `pageId → 컴포넌트`)를 통합한다.
+- 라우트는 `router.tsx`가 `statsPages.ts`의 `statsPages`와 `pages/pageRegistry.ts`의 `PAGE_COMPONENTS`를 합쳐 **자동 생성**한다. `pageRegistry.ts`는 각 도메인 레지스트리(`pages/<domain>/routes.ts`, `pageId → 컴포넌트`)를 통합한다.
 - 레지스트리에 컴포넌트가 있고 운영 차단 대상이 아니면 전용 페이지, 없거나 PROD pending이면 `StatsPlaceholderPage`로 렌더한다(하드코딩 목록 없음).
-- 새 통계 페이지 연결: `navigation.ts`에 정의 → `pages/<domain>/`에 컴포넌트 작성 → `pages/<domain>/routes.ts`에 `'<id>': Component` 한 줄 추가 (**`router.tsx` 수정 불필요**)
+- 새 통계 페이지 연결: `statsPages.ts`에 페이지 정의 → `navigation.ts` 상태 맵/메뉴 추가 → `pages/<domain>/`에 컴포넌트 작성 → `pages/<domain>/routes.ts`에 `'<id>': Component` 한 줄 추가 (**`router.tsx` 수정 불필요**)
 - 훅은 `@/hooks/<domain>/useXxx`, API는 `@/api/<domain>`(리스트는 `@/api/<domain>/xxxList`)에서 import
 - **pending(미완성) 메뉴 정책**: 운영 빌드(PROD)에서는 사이드바에서 **숨김** + 라우트 **차단**(직접 URL도 `StatsPlaceholderPage`). 개발 빌드에서는 미리보기 가능(사이드바 빨강 표시). 상태는 `MENU_STATUS`, 조회는 `getMenuStatus()`, 라우트 차단은 `pageRegistry.isRouteBlocked()`가 담당한다. `pageRegistry.test.ts`가 이 정책을 보호한다.
 
@@ -349,7 +350,7 @@ cd frontend && npm run test              # Vitest
 
 ## Claude에게 요청할 때 참고사항
 
-- **새 통계 페이지**: `navigation.ts`에 정의 → 전용 페이지 컴포넌트 작성 → `pages/<domain>/routes.ts`에 등록 → 백엔드 API 구현 (`router.tsx` 직접 수정 금지)
+- **새 통계 페이지**: `statsPages.ts`에 정의 → `navigation.ts` 상태/메뉴 반영 → 전용 페이지 컴포넌트 작성 → `pages/<domain>/routes.ts`에 등록 → 백엔드 API 구현 (`router.tsx` 직접 수정 금지)
 - **새 차트**: Recharts 기반, shadcn `ChartContainer` 사용, `CHART_PALETTE` 색상 적용
 - **새 UI 컴포넌트**: `npx shadcn@latest add <name>` (설정: `components.json`)
 - **API 연동**: `api/client.ts` HTTP 클라이언트 사용, TanStack Query `useQuery`로 캐싱

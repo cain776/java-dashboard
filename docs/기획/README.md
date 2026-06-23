@@ -22,5 +22,5 @@
 ## 참고
 
 - 데이터 출처·테이블 함정은 [`../db/tables/`](../db/tables/) 카탈로그 참조.
-- 구현 상태는 코드(`frontend/src/config/navigation.ts`)의 상태 맵 기준 (🟢 complete / 🟠 backend-only / 🔴 pending).
+- 페이지 목록은 코드(`frontend/src/config/statsPages.ts`), 구현 상태는 `frontend/src/config/navigation.ts`의 상태 맵 기준 (🟢 complete / 🟠 backend-only / 🔴 pending).
 - 노션 동기본: "비앤빛 KPI 대시보드 기획서" 페이지.

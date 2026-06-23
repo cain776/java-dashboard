@@ -59,7 +59,7 @@ MSSQL DataSource (mssql)  → JdbcTemplate      → RESERVATION, ExamCount 등 (
 
 **구현 상태 범례** — 🟢 complete: 백엔드 API + 프론트 연결 완료 · 🟠 backend-only: 백엔드만 완료(프론트 placeholder) · 🔴 pending: 미착수(또는 목업 UI만)
 
-사이드바는 9개 섹션(예약 · 검사 · 상담 건수 · 수술 · 마케팅 · 취소&부도 · 객단가 · 기타 + HOME)으로 구성되며, 각 메뉴는 `navigation.ts`의 상태 맵에 따라 색상 배지를 표시한다.
+사이드바는 9개 섹션(예약 · 검사 · 상담 건수 · 수술 · 마케팅 · 취소&부도 · 객단가 · 기타 + HOME)으로 구성되며, 각 메뉴는 `statsPages.ts`의 페이지 정의와 `navigation.ts`의 상태 맵에 따라 표시한다.
 
 > 2026-06-10: 기존 "검사&예약" 섹션을 **예약**(유입·예약 건수)과 **검사**(검사 건수 + 카테고리별 4종)로 분리.
 

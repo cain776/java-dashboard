@@ -56,7 +56,8 @@ project-root/
 │   │   │   │   └── Topbar.tsx           # 상단 바 (유저명, 로그아웃)
 │   │   │   └── ui/                      # shadcn 컴포넌트 (button, card, chart)
 │   │   ├── config/
-│   │   │   └── navigation.ts            # 메뉴 구조 + 통계 페이지 정의 (10개)
+│   │   │   ├── statsPages.ts            # 통계 페이지 정의
+│   │   │   └── navigation.ts            # 메뉴 구조 + 구현 상태 맵
 │   │   ├── pages/
 │   │   │   ├── LoginPage.tsx            # 로그인 (react-hook-form + Zod)
 │   │   │   ├── DashboardPage.tsx        # 메인 대시보드 (KPI 카드 + 차트, 목업 데이터)
@@ -166,7 +167,7 @@ GET    /api/stats/{pageId}/compare?compareTo=PREVIOUS_PERIOD
 ### 라우팅 패턴
 
 - 인증 필요 페이지는 `authLayout` 하위에 등록 (`router.tsx`)
-- 새 통계 페이지: `config/navigation.ts`에 정의 → `router.tsx`에 전용 라우트 등록
+- 새 통계 페이지: `config/statsPages.ts`에 정의 → `config/navigation.ts` 상태/메뉴 반영 → 도메인 `routes.ts`에 전용 컴포넌트 등록
 - 미구현 페이지는 `StatsPlaceholderPage`로 자동 렌더링
 - 새 페이지 추가 시 `filter` 제거: `router.tsx`에서 해당 ID의 플레이스홀더를 전용 컴포넌트로 교체
 
@@ -273,7 +274,7 @@ cd frontend && npm run test              # Vitest
 
 ## Codex에게 요청할 때 참고사항
 
-- **새 통계 페이지**: `navigation.ts`에 이미 10개 정의됨 → 전용 페이지 컴포넌트 작성 + `router.tsx` 라우트 교체 + 백엔드 API 구현
+- **새 통계 페이지**: `statsPages.ts`에 페이지 정의 → `navigation.ts` 상태/메뉴 반영 → 전용 페이지 컴포넌트 작성 + 도메인 `routes.ts` 등록 + 백엔드 API 구현
 - **새 차트**: Recharts 기반, shadcn `ChartContainer` 사용, `CHART_PALETTE` 색상 적용
 - **새 UI 컴포넌트**: `npx shadcn@latest add <name>` (설정: `components.json`)
 - **API 연동**: `api/client.ts` HTTP 클라이언트 사용, TanStack Query `useQuery`로 캐싱
