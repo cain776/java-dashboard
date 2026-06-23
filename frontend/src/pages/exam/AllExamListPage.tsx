@@ -158,7 +158,7 @@ export function AllExamListPage() {
 
   return (
     <div className="flex h-[calc(100vh-5rem)] min-h-[32rem] flex-col gap-3 overflow-hidden text-xs text-gray-800">
-      {/* 필터 바 */}
+      {/* 툴바: 기간 · 검색 · 조회건수 · 액션 */}
       <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/70 bg-white px-1.5 py-1.5 text-xs shadow-sm">
         <input
           aria-label="검사 시작일"
@@ -175,10 +175,6 @@ export function AllExamListPage() {
           onChange={(e) => setDraftTo(e.target.value)}
           className="h-8 w-[8.2rem] rounded-md border border-border/80 bg-white px-2 text-xs outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
         />
-        {filterGroup('검사', GROUP_FILTERS, examGroup, setExamGroup)}
-        {filterGroup('동기', INTRO_FILTERS, introType, setIntroType)}
-        {filterGroup('직업', JOB_FILTERS, jobBucket, setJobBucket)}
-        {filterGroup('환자', PATIENT_FILTERS, patientType, setPatientType)}
         <div className="flex h-8 overflow-hidden rounded-md border border-border/80 bg-white focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-100">
           <input
             type="text"
@@ -219,6 +215,14 @@ export function AllExamListPage() {
             CSV
           </Button>
         </div>
+      </div>
+
+      {/* 상세 필터 (토글) — 툴바 아래 한 줄 */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-md border border-border/60 bg-gray-50/70 px-2.5 py-2 text-xs shadow-sm">
+        {filterGroup('검사', GROUP_FILTERS, examGroup, setExamGroup)}
+        {filterGroup('동기', INTRO_FILTERS, introType, setIntroType)}
+        {filterGroup('직업', JOB_FILTERS, jobBucket, setJobBucket)}
+        {filterGroup('환자', PATIENT_FILTERS, patientType, setPatientType)}
       </div>
 
       {/* 상세 테이블 */}
