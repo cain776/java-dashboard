@@ -23,7 +23,7 @@ import {
  * 레포트 검사유입·검사수 수치와 정합한다. (상세 컬럼은 기존 개별 리스트 유지)
  */
 
-const GROUP_FILTERS = ['전체', '시력교정', '백내장'] as const
+const GROUP_FILTERS = ['전체', '시력교정', '드림렌즈', '백내장'] as const
 const INTRO_FILTERS = ['전체', '일반', '고객소개', '직원소개'] as const
 const JOB_FILTERS = ['전체', '직장인', '학생', '기타'] as const
 const PATIENT_FILTERS = ['전체', '신환', '구환'] as const

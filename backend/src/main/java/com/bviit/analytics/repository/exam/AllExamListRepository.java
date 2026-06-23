@@ -18,7 +18,8 @@ import java.util.Map;
  * (검사자 리스트/백내장 검사자 리스트는 테스트·백내장스텁을 제외하므로 그 단순 합과는 다르다 — 정합 우선.)
  *
  * 산출 필드:
- *   - examGroup  : 시력교정(EXAM) / 백내장(Cataract_Exam)
+ *   - examGroup  : 시력교정 / 드림렌즈 / 백내장. EXAM은 검사일 드림렌즈예약(RESERVE_FLAG='D')만 있고
+ *                  의료예약('M') 없으면 드림렌즈, 아니면 시력교정(검사자 리스트와 동일 기준). Cataract_Exam은 백내장.
  *   - introType  : 일반 / 고객소개(소개고객·소개미확인) / 직원소개(소개직원) — motiveL 기준(종합지표와 동일)
  *   - jobBucket  : 직장인 / 학생 / 기타 — CUSTOM.JOB 기준(종합지표와 동일 CASE, 정합 위해 동기화 유지)
  *
@@ -43,7 +44,9 @@ public class AllExamListRepository {
               ISNULL(LTRIM(RTRIM(src.cn)), '')             AS chartNo,
               ISNULL(cu.CUST_NAME, '')                     AS name,
               ISNULL(src.d, '')                            AS examDate,
-              src.examGroup                                AS examGroup,
+              CASE WHEN src.isCat = 1 THEN N'백내장'
+                   WHEN vis.hasDreamlens = 1 AND vis.hasMedical = 0 THEN N'드림렌즈'
+                   ELSE N'시력교정' END                     AS examGroup,
               CASE WHEN ISNULL(cu.FIRST_DAY, '') >= :from AND ISNULL(cu.FIRST_DAY, '') <= :to
                    THEN N'신환' ELSE N'구환' END            AS patientType,
               CASE WHEN mv.motiveL IN (N'소개고객', N'소개미확인') THEN N'고객소개'
@@ -81,15 +84,26 @@ public class AllExamListRepository {
               ISNULL(cu.LAST_DAY, '')                      AS lastVisit,
               ISNULL(cu.ETC, '')                           AS memo
             FROM (
-              SELECT e.CUST_NUM AS cn, e.EXAM_DATE AS d, N'시력교정' AS examGroup
+              SELECT e.CUST_NUM AS cn, e.EXAM_DATE AS d, 0 AS isCat
               FROM EXAM e WITH(NOLOCK)
               WHERE e.EXAM_DATE >= :from AND e.EXAM_DATE <= :to
               UNION ALL
-              SELECT ce.CUST_NUM AS cn, ce.EXAM_DATE AS d, N'백내장' AS examGroup
+              SELECT ce.CUST_NUM AS cn, ce.EXAM_DATE AS d, 1 AS isCat
               FROM Cataract_Exam ce WITH(NOLOCK)
               WHERE ce.EXAM_DATE >= :from AND ce.EXAM_DATE <= :to
             ) src
             LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = src.cn
+            OUTER APPLY (
+              -- 검사구분 드림렌즈/시력교정 분리: 검사일에 드림렌즈예약(RESERVE_FLAG='D')만 있고 의료예약('M') 없으면 드림렌즈
+              -- (검사자 리스트와 동일 기준). 백내장(isCat=1)은 이 플래그와 무관하게 '백내장'.
+              SELECT
+                CASE WHEN EXISTS (SELECT 1 FROM RESERVATION rd WITH(NOLOCK)
+                                   WHERE rd.CUST_NUM = src.cn AND rd.RESERVE_DATE = src.d
+                                     AND rd.RESERVE_STATE IN ('I','H') AND rd.RESERVE_FLAG = 'D') THEN 1 ELSE 0 END AS hasDreamlens,
+                CASE WHEN EXISTS (SELECT 1 FROM RESERVATION rm WITH(NOLOCK)
+                                   WHERE rm.CUST_NUM = src.cn AND rm.RESERVE_DATE = src.d
+                                     AND rm.RESERVE_STATE IN ('I','H') AND rm.RESERVE_FLAG = 'M') THEN 1 ELSE 0 END AS hasMedical
+            ) vis
             CROSS APPLY (SELECT LTRIM(RTRIM(ISNULL(cu.JOB, ''))) AS j) jj
             OUTER APPLY (
               SELECT TOP 1 ISNULL(m2.category01_name, '') AS motiveL,
@@ -102,7 +116,7 @@ public class AllExamListRepository {
             OUTER APPLY (SELECT TOP 1 ISNULL(EMP_NAME, '') AS nm FROM EMPLOYEE WITH(NOLOCK) WHERE EMP_NUM = cu.MY_COUNSELOR) ec
             OUTER APPLY (SELECT TOP 1 ISNULL(EMP_NAME, '') AS nm FROM EMPLOYEE WITH(NOLOCK) WHERE EMP_NUM = cu.MY_DOCTOR) ed
             OUTER APPLY (SELECT TOP 1 ISNULL(EMP_NAME, '') AS nm FROM EMPLOYEE WITH(NOLOCK) WHERE EMP_NUM = cu.MY_OPTOMETRIST) eo
-            ORDER BY src.d, src.examGroup, cu.CUST_NAME
+            ORDER BY src.d, src.isCat, cu.CUST_NAME
             """;
         return jdbc.queryForList(sql, new MapSqlParameterSource()
                 .addValue("from", from)
