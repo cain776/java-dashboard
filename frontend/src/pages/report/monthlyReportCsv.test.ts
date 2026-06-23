@@ -88,4 +88,25 @@ describe('buildMonthlyReportCsv', () => {
     expect(csv).not.toContain('중단사유')
     expect(csv).toContain('예약 종합(콜+온라인),건,2025,')
   })
+
+  it('출력 순서는 LNB 목차 순서를 따른다(비율→성공률→중단율→중단사유→수술→외래)', () => {
+    const csv = buildMonthlyReportCsv({
+      years: [2026],
+      currentYear: 2026,
+      charts: {
+        ratioGeneral: { 2026: blank12() },
+        stopRate: { 2026: blank12() },
+        cataractSurgery: { 2026: blank12() },
+        outpatient: { 2026: blank12() },
+      } as Record<string, unknown>,
+      success: { all: blank12(), oneday: blank12(), general: blank12() },
+      stopReasonByMonth: Array<StopReasonMonthlyItem | null>(12).fill(null),
+    })
+    const at = (s: string) => csv.indexOf(s)
+    expect(at('일반검사 비율')).toBeLessThan(at('상담성공률(전체)'))
+    expect(at('상담성공률(전체)')).toBeLessThan(at('중단율'))
+    expect(at('중단율')).toBeLessThan(at('중단사유-수술권유X'))
+    expect(at('중단사유-합계')).toBeLessThan(at('백내장 수술'))
+    expect(at('백내장 수술')).toBeLessThan(at('외래수'))
+  })
 })

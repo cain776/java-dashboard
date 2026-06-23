@@ -8,32 +8,42 @@ import type { StopReasonMonthlyItem } from '@/api/consultation'
 
 type YearSeries = Record<number, Array<number | null>>
 
-/** charts 키 순서 = 화면 도표 순서. success* 와 중단사유는 아래에서 별도 처리. */
-const SERIES: { group: string; label: string; unit: '건' | '%'; key: string }[] = [
-  { group: '예약', label: '예약 종합(콜+온라인)', unit: '건', key: 'reservations' },
-  { group: '예약', label: '콜 예약', unit: '건', key: 'call' },
-  { group: '예약', label: '온라인 예약', unit: '건', key: 'online' },
-  { group: '검사유입', label: '일반고객 검사', unit: '건', key: 'examGeneralCustomer' },
-  { group: '검사유입', label: '고객소개 검사', unit: '건', key: 'examReferralCustomer' },
-  { group: '검사유입', label: '직원소개 검사', unit: '건', key: 'examReferralStaff' },
-  { group: '검사유입', label: '직장인 검사', unit: '건', key: 'examWorker' },
-  { group: '검사유입', label: '학생 검사', unit: '건', key: 'examStudent' },
-  { group: '검사유입', label: '기타 검사', unit: '건', key: 'examEtc' },
-  { group: '검사수', label: '백내장 검사수', unit: '건', key: 'cataractExam' },
-  { group: '검사수', label: '시력교정 검사', unit: '건', key: 'visionExam' },
-  { group: '검사수', label: '검사수(전체)', unit: '건', key: 'examCount' },
-  { group: '검사수', label: '원데이 검사', unit: '건', key: 'oneDayExam' },
-  { group: '검사수', label: '일반 검사', unit: '건', key: 'examGeneral' },
-  { group: '비율', label: '일반검사 비율', unit: '%', key: 'ratioGeneral' },
-  { group: '비율', label: '백내장 예약률', unit: '%', key: 'cataractRate' },
-  { group: '비율', label: '시력교정 예약률', unit: '%', key: 'visionRate' },
-  { group: '비율', label: '시력교정 일반예약률', unit: '%', key: 'rateVisionGeneral' },
-  { group: '비율', label: '원데이 예약률', unit: '%', key: 'rateOneday' },
-  { group: '중단', label: '중단율', unit: '%', key: 'stopRate' },
-  { group: '수술', label: '백내장 수술', unit: '건', key: 'cataractSurgery' },
-  { group: '수술', label: '시력교정 수술', unit: '건', key: 'visionSurgery' },
-  { group: '수술', label: '총 수술수', unit: '건', key: 'totalSurgery' },
-  { group: '외래', label: '외래수', unit: '건', key: 'outpatient' },
+/**
+ * 출력 순서 = 화면 LNB 목차(MonthlyReportPage의 items) 순서.
+ * series = 연도별 차트, success/stopReason = 당해연도 전용 블록(목차 위치에 끼워 넣음).
+ */
+type RowSpec =
+  | { type: 'series'; group: string; label: string; unit: '건' | '%'; key: string }
+  | { type: 'success' }
+  | { type: 'stopReason' }
+
+const ROWS: RowSpec[] = [
+  { type: 'series', group: '예약', label: '예약 종합(콜+온라인)', unit: '건', key: 'reservations' },
+  { type: 'series', group: '예약', label: '콜 예약', unit: '건', key: 'call' },
+  { type: 'series', group: '예약', label: '온라인 예약', unit: '건', key: 'online' },
+  { type: 'series', group: '검사유입', label: '일반고객 검사', unit: '건', key: 'examGeneralCustomer' },
+  { type: 'series', group: '검사유입', label: '고객소개 검사', unit: '건', key: 'examReferralCustomer' },
+  { type: 'series', group: '검사유입', label: '직원소개 검사', unit: '건', key: 'examReferralStaff' },
+  { type: 'series', group: '검사유입', label: '직장인 검사', unit: '건', key: 'examWorker' },
+  { type: 'series', group: '검사유입', label: '학생 검사', unit: '건', key: 'examStudent' },
+  { type: 'series', group: '검사유입', label: '기타 검사', unit: '건', key: 'examEtc' },
+  { type: 'series', group: '검사수', label: '백내장 검사수', unit: '건', key: 'cataractExam' },
+  { type: 'series', group: '검사수', label: '시력교정 검사', unit: '건', key: 'visionExam' },
+  { type: 'series', group: '검사수', label: '검사수(전체)', unit: '건', key: 'examCount' },
+  { type: 'series', group: '검사수', label: '원데이 검사', unit: '건', key: 'oneDayExam' },
+  { type: 'series', group: '검사수', label: '일반 검사', unit: '건', key: 'examGeneral' },
+  { type: 'series', group: '비율', label: '일반검사 비율', unit: '%', key: 'ratioGeneral' },
+  { type: 'series', group: '비율', label: '백내장 예약률', unit: '%', key: 'cataractRate' },
+  { type: 'series', group: '비율', label: '시력교정 예약률', unit: '%', key: 'visionRate' },
+  { type: 'series', group: '비율', label: '시력교정 일반예약률', unit: '%', key: 'rateVisionGeneral' },
+  { type: 'series', group: '비율', label: '원데이 예약률', unit: '%', key: 'rateOneday' },
+  { type: 'success' },
+  { type: 'series', group: '중단', label: '중단율', unit: '%', key: 'stopRate' },
+  { type: 'stopReason' },
+  { type: 'series', group: '수술', label: '백내장 수술', unit: '건', key: 'cataractSurgery' },
+  { type: 'series', group: '수술', label: '시력교정 수술', unit: '건', key: 'visionSurgery' },
+  { type: 'series', group: '수술', label: '총 수술수', unit: '건', key: 'totalSurgery' },
+  { type: 'series', group: '외래', label: '외래수', unit: '건', key: 'outpatient' },
 ]
 
 const STOP_REASONS: { label: string; key: keyof StopReasonMonthlyItem }[] = [
@@ -98,23 +108,27 @@ export function buildMonthlyReportCsv({
     )
   }
 
-  for (const series of SERIES) {
-    const byYear = charts[series.key] as YearSeries | undefined
-    if (!byYear) continue
-    for (const year of sortedYears) {
-      pushRow(series.group, series.label, series.unit, year, byYear[year] ?? [])
-    }
-  }
-
   // 상담성공률·중단사유는 당해연도만 존재 → 선택 범위에 당해연도가 있을 때만 포함
-  if (sortedYears.includes(currentYear)) {
-    pushRow('전환&성공', '상담성공률(전체)', '%', currentYear, success.all)
-    pushRow('전환&성공', '상담성공률(원데이)', '%', currentYear, success.oneday)
-    pushRow('전환&성공', '상담성공률(일반)', '%', currentYear, success.general)
+  const includeCurrentYear = sortedYears.includes(currentYear)
 
-    for (const reason of STOP_REASONS) {
-      const values = stopReasonByMonth.map((item) => (item ? (item[reason.key] as number) : null))
-      pushRow('중단', reason.label, '건', currentYear, values)
+  for (const spec of ROWS) {
+    if (spec.type === 'series') {
+      const byYear = charts[spec.key] as YearSeries | undefined
+      if (!byYear) continue
+      for (const year of sortedYears) {
+        pushRow(spec.group, spec.label, spec.unit, year, byYear[year] ?? [])
+      }
+    } else if (spec.type === 'success') {
+      if (!includeCurrentYear) continue
+      pushRow('전환&성공', '상담성공률(전체)', '%', currentYear, success.all)
+      pushRow('전환&성공', '상담성공률(원데이)', '%', currentYear, success.oneday)
+      pushRow('전환&성공', '상담성공률(일반)', '%', currentYear, success.general)
+    } else {
+      if (!includeCurrentYear) continue
+      for (const reason of STOP_REASONS) {
+        const values = stopReasonByMonth.map((item) => (item ? (item[reason.key] as number) : null))
+        pushRow('중단', reason.label, '건', currentYear, values)
+      }
     }
   }
 
