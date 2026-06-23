@@ -139,10 +139,10 @@ project-root/
 | monthly-report | 월간 레포트 | /report/monthly | Report | 완료 |
 | overall-exam | 월별 검사자 종합지표 | /stats/overall-exam | 전체지표 | 완료 |
 | overall-exam-weekly | 주간 검사자 종합지표 | /stats/overall-exam-weekly | 전체지표 | 완료 |
-| intake-conversion | 유입(검사예약) | /stats/intake-conversion | 예약 | 미구현 |
-| reservation | 예약 건수 | /stats/reservation | 예약 | 완료 |
+| intake-conversion | 유입(검사예약) | /stats/intake-conversion | 예약 | 미구현 (메뉴 숨김) |
+| reservation | 예약 건수 | /stats/reservation | 예약 | 완료 (메뉴 숨김·라우트 유지) |
+| reservation-list | 예약자 리스트 | /stats/reservation-list | 예약 | 완료 (메뉴 순서: 예약 종합보다 앞) |
 | reservation-overall | 예약 종합 | /stats/reservation-overall | 예약 | 완료 (3탭: 종합/온라인/콜, 지표정의 §5.1) |
-| reservation-list | 예약자 리스트 | /stats/reservation-list | 예약 | 완료 |
 | exam-list | 검사자 리스트 | /stats/exam-list | 검사 | 완료 |
 | cataract-exam-list | 백내장 검사자 리스트 | /stats/cataract-exam-list | 검사 | 완료 |
 | examination | 시술별 | /stats/examination | 검사 | 완료 |

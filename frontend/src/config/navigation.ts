@@ -74,6 +74,13 @@ export const hasExplicitMenuStatus = (id: string): boolean =>
   Object.prototype.hasOwnProperty.call(MENU_STATUS, id)
 export const getMenuStatusIds = (): string[] => Object.keys(MENU_STATUS)
 
+/**
+ * 사이드바에서 숨기는 메뉴(페이지·라우트는 유지 — 직접 URL 접근은 가능).
+ * 예약 그룹을 '예약자 리스트 → 예약 종합'으로 단순화하며 유입(검사예약)·예약 건수 메뉴를 숨김(2026-06).
+ */
+const HIDDEN_MENU_IDS = new Set<string>(['intake-conversion', 'reservation'])
+export const isMenuHidden = (id: string): boolean => HIDDEN_MENU_IDS.has(id)
+
 const findPage = (id: string) => getStatsPageById(id)
 
 const link = (id: string): MenuLink => {
@@ -102,7 +109,8 @@ export const menuItems: MenuItem[] = [
     label: '예약',
     href: '#',
     icon: CalendarCheck,
-    children: [link('intake-conversion'), link('reservation'), link('reservation-overall'), link('reservation-list')],
+    // 유입(intake-conversion)·예약 건수(reservation)는 HIDDEN_MENU_IDS로 숨김. 예약자 리스트 → 예약 종합 순.
+    children: [link('reservation-list'), link('reservation-overall')],
   },
   {
     id: 'exam-group',
