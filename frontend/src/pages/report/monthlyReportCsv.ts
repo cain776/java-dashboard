@@ -62,10 +62,13 @@ const escapeCell = (value: string | number): string => {
   return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text
 }
 
-/** 비율은 소수 1자리로 정리, 건수는 그대로. null/undefined는 빈칸. */
+/**
+ * 비율은 화면 차트와 동일하게 정수 반올림(Math.round) — ReportLineChart format:'percent',
+ * 상담성공률 차트 모두 Math.round로 표시하므로 CSV도 일치시킨다. 건수는 원값, null은 빈칸.
+ */
 const formatValue = (value: number | null | undefined, unit: '건' | '%'): string => {
   if (value === null || value === undefined) return ''
-  return unit === '%' ? String(Math.round(value * 10) / 10) : String(value)
+  return unit === '%' ? String(Math.round(value)) : String(value)
 }
 
 export interface MonthlyReportCsvInput {

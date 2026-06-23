@@ -61,13 +61,14 @@ describe('buildMonthlyReportCsv', () => {
     expect(cells).toEqual(['200', '201', '', '', '', '', '', '', '', '', '', ''])
   })
 
-  it('비율(%)은 소수 1자리로 정리', () => {
+  it('비율(%)은 화면 차트와 동일하게 정수 반올림', () => {
     const cells = row('비율,일반검사 비율,%,2026,')!.split(',').slice(4)
-    expect(cells[0]).toBe('51.8')
+    // 51.8128 → Math.round → 52 (화면 차트 표시와 일치)
+    expect(cells[0]).toBe('52')
   })
 
   it('상담성공률·중단사유는 당해연도 행으로 포함', () => {
-    expect(row('전환&성공,상담성공률(전체),%,2026,')!.split(',')[4]).toBe('79.1')
+    expect(row('전환&성공,상담성공률(전체),%,2026,')!.split(',')[4]).toBe('79')
     expect(row('중단,중단사유-수술권유X,건,2026,')!.split(',')[4]).toBe('23')
     expect(row('중단,중단사유-합계,건,2026,')!.split(',')[4]).toBe('100')
   })
