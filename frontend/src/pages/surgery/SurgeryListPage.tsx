@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import { ChevronDown, RotateCcw, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -6,185 +6,28 @@ import { useSurgeryList } from '@/hooks/surgery/useSurgeryList'
 import { useWeeklyApproval } from '@/hooks/useWeeklyApproval'
 import { WeeklyApprovalPanel } from '@/components/stats/WeeklyApprovalPanel'
 import type { SurgeryListItem } from '@/api/surgery/surgeryList'
-
-const dash = (v: string) => (v && v.trim() ? v : '—')
-
-/** 주별 승인 패널의 주차 버킷 기준일 = 수술일 */
-const surgeryDateOf = (r: SurgeryListItem) => r.surgeryDate
-
-const calcAge = (birth: string) => {
-  if (!/^\d{4}-\d{2}-\d{2}/.test(birth)) return '—'
-  const b = new Date(birth)
-  const now = new Date()
-  let age = now.getFullYear() - b.getFullYear()
-  const m = now.getMonth() - b.getMonth()
-  if (m < 0 || (m === 0 && now.getDate() < b.getDate())) age -= 1
-  return age >= 0 && age < 130 ? String(age) : '—'
-}
-
-const SURGERY_CATEGORY_STYLE: Record<string, string> = {
-  시력교정: 'bg-sky-50 text-sky-700',
-  백내장: 'bg-amber-50 text-amber-700',
-}
-const PATIENT_TYPE_STYLE: Record<string, string> = {
-  신환: 'bg-emerald-50 text-emerald-700',
-  구환: 'bg-gray-100 text-gray-700',
-}
-const GRADE_STYLE: Record<string, string> = {
-  R: 'bg-emerald-50 text-emerald-700',
-  A: 'bg-blue-50 text-blue-700',
-  B: 'bg-amber-50 text-amber-700',
-  C: 'bg-gray-100 text-gray-600',
-  G: 'bg-gray-100 text-gray-500',
-}
-
-const Badge = ({ text, className }: { text: string; className?: string }) =>
-  text ? (
-    <span className={`inline-flex items-center rounded-md px-1.5 py-0.5 text-[11px] font-medium ${className ?? 'bg-gray-100 text-gray-600'}`}>{text}</span>
-  ) : (
-    <span className="text-gray-300">—</span>
-  )
-
-const truncate = (v: string, w = '14rem') => (
-  <span className="block truncate text-gray-700" style={{ maxWidth: w }} title={v}>{dash(v)}</span>
-)
-
-interface Column {
-  key: string
-  label: string
-  align?: 'left' | 'center' | 'right'
-  min?: string
-  render?: (r: SurgeryListItem, rowNumber: number) => ReactNode
-}
-
-type PeriodMode = 'daily' | 'monthly'
-type QuickRangeKey = '1w' | '2w' | '3w' | '4w' | 'monthly'
-type SortDirection = 'asc' | 'desc'
-type SortState = { key: string; direction: SortDirection } | null
-
-const CATEGORY_OPTIONS = ['전체', '시력교정', '백내장']
-const DEFAULT_FROM = '2026-04-01'
-const DEFAULT_TO = '2026-04-30'
-const PAGE_SIZE_OPTIONS = [25, 50, 100, 200]
-const SKELETON_ROWS = 50
-const QUICK_RANGES: Array<{ key: QuickRangeKey; label: string }> = [
-  { key: '1w', label: '1주' },
-  { key: '2w', label: '2주' },
-  { key: '3w', label: '3주' },
-  { key: '4w', label: '4주' },
-  { key: 'monthly', label: '월별' },
-]
-
-const COLUMNS: Column[] = [
-  { key: 'rowNo', label: 'No', align: 'right', min: '3.5rem', render: (_r, rowNumber) => rowNumber.toLocaleString('ko-KR') },
-  { key: 'surgeryDate', label: '수술일', align: 'center', min: '6rem' },
-  { key: 'examDate', label: '검사일', align: 'center', min: '6rem' },
-  { key: 'surgeryCategory', label: '수술분류', align: 'center', min: '5.5rem', render: (r) => <Badge text={r.surgeryCategory} className={SURGERY_CATEGORY_STYLE[r.surgeryCategory]} /> },
-  { key: 'patientType', label: '신/구환', align: 'center', min: '4.5rem', render: (r) => <Badge text={r.patientType} className={PATIENT_TYPE_STYLE[r.patientType]} /> },
-  { key: 'surgeryTime', label: '예약시간', align: 'center', min: '4.5rem', render: (r) => dash(r.surgeryTime) },
-  { key: 'chartNo', label: '차트번호', align: 'center', min: '6rem' },
-  { key: 'name', label: '고객명', align: 'center', min: '5rem', render: (r) => <span className="font-medium text-gray-900">{r.name}</span> },
-  { key: 'nameEng', label: '고객명(영)', align: 'left', min: '7rem' },
-  { key: 'surgeryR', label: '수술방법R', align: 'center', min: '7rem', render: (r) => dash(r.surgeryR) },
-  { key: 'surgeryL', label: '수술방법L', align: 'center', min: '7rem', render: (r) => dash(r.surgeryL) },
-  { key: 'surgeon', label: '집도의', align: 'center', min: '5rem', render: (r) => dash(r.surgeon) },
-  { key: 'recommendedR', label: '적절수술R', align: 'center', min: '7rem', render: (r) => dash(r.recommendedR) },
-  { key: 'recommendedL', label: '적절수술L', align: 'center', min: '7rem', render: (r) => dash(r.recommendedL) },
-  { key: 'surgeryReserveDate', label: '수술예약일', align: 'center', min: '6rem', render: (r) => dash(r.surgeryReserveDate) },
-  { key: 'surgeryRegDate', label: '수술예약등록일', align: 'center', min: '6rem', render: (r) => dash(r.surgeryRegDate) },
-  { key: 'estimate', label: '견적가', align: 'left', min: '12rem', render: (r) => truncate(r.estimate, '13rem') },
-  { key: 'surgeryRate', label: '수술가율', align: 'center', min: '4.5rem', render: (r) => dash(r.surgeryRate) },
-  { key: 'payment', label: '수납금액', align: 'right', min: '6rem', render: (r) => <span className="tabular-nums">{dash(r.payment)}</span> },
-  { key: 'counselor', label: '상담사', align: 'center', min: '5rem' },
-  { key: 'doctor', label: '상담의', align: 'center', min: '5rem' },
-  { key: 'optometrist', label: '검안사', align: 'center', min: '5rem' },
-  { key: 'grade', label: '등급', align: 'center', min: '3.5rem', render: (r) => <Badge text={r.grade} className={GRADE_STYLE[r.grade]} /> },
-  { key: 'birth', label: '생년월일', align: 'center', min: '6rem' },
-  { key: 'age', label: '만나이', align: 'right', min: '3.5rem', render: (r) => calcAge(r.birth) },
-  { key: 'lunar', label: '양/음', align: 'center', min: '3.5rem' },
-  { key: 'phone2', label: '휴대전화', align: 'left', min: '8rem' },
-  { key: 'phone1', label: '집전화', align: 'left', min: '7rem' },
-  { key: 'email', label: '이메일', align: 'left', min: '10rem', render: (r) => truncate(r.email, '11rem') },
-  { key: 'route', label: '예약경로', align: 'center', min: '5rem', render: (r) => dash(r.route) },
-  { key: 'section', label: '섹션', align: 'center', min: '3.5rem', render: (r) => dash(r.section) },
-  { key: 'motiveL', label: '내원동기(대)', align: 'center', min: '6rem', render: (r) => dash(r.motiveL) },
-  { key: 'motiveM', label: '내원동기(중)', align: 'center', min: '6rem', render: (r) => dash(r.motiveM) },
-  { key: 'motiveS', label: '내원동기(세)', align: 'center', min: '6rem', render: (r) => dash(r.motiveS) },
-  { key: 'motiveMemo', label: '동기메모', align: 'left', min: '7rem', render: (r) => truncate(r.motiveMemo, '7rem') },
-  { key: 'job', label: '직업', align: 'center', min: '6rem' },
-  { key: 'nationality', label: '국적', align: 'center', min: '4.5rem' },
-  { key: 'insurance', label: '보험사', align: 'center', min: '4.5rem' },
-  { key: 'zip', label: '우편번호', align: 'center', min: '4.5rem' },
-  { key: 'addr1', label: '주소1', align: 'left', min: '12rem', render: (r) => truncate(r.addr1, '14rem') },
-  { key: 'addr2', label: '주소2', align: 'left', min: '8rem', render: (r) => truncate(r.addr2, '9rem') },
-  { key: 'lastVisit', label: '최근내원일', align: 'center', min: '6rem' },
-  { key: 'examMemo', label: '검사특이사항', align: 'left', min: '16rem', render: (r) => truncate(r.examMemo, '18rem') },
-  { key: 'memo', label: '고객메모', align: 'left', min: '12rem', render: (r) => truncate(r.memo, '14rem') },
-]
-
-const ALIGN: Record<NonNullable<Column['align']>, string> = {
-  left: 'text-left',
-  center: 'text-center',
-  right: 'text-right tabular-nums',
-}
-const HEADER_ALIGN: Record<NonNullable<Column['align']>, string> = {
-  left: 'justify-start',
-  center: 'justify-center',
-  right: 'justify-end',
-}
-
-const formatCount = (count: number) => count.toLocaleString('ko-KR')
-const toMonthValue = (date: string) => date.slice(0, 7)
-const toMonthStart = (month: string) => `${month}-01`
-const toMonthEnd = (month: string) => {
-  const [year, monthNumber] = month.split('-').map(Number)
-  const lastDate = new Date(year, monthNumber, 0).getDate()
-  return `${month}-${String(lastDate).padStart(2, '0')}`
-}
-const toMonthWeekRange = (month: string, week: number) => {
-  const startDay = ((week - 1) * 7) + 1
-  const monthEnd = toMonthEnd(month)
-  const lastDay = Number(monthEnd.slice(-2))
-  const endDay = week === 4 ? lastDay : Math.min(startDay + 6, lastDay)
-
-  return {
-    from: `${month}-${String(startDay).padStart(2, '0')}`,
-    to: `${month}-${String(endDay).padStart(2, '0')}`,
-  }
-}
-
-const buildPaginationItems = (currentPage: number, pageMax: number): Array<number | string> => {
-  if (pageMax <= 7) return Array.from({ length: pageMax }, (_, index) => index + 1)
-
-  const pages = new Set([1, pageMax, currentPage - 1, currentPage, currentPage + 1])
-  const normalized = [...pages].filter((page) => page >= 1 && page <= pageMax).sort((a, b) => a - b)
-
-  return normalized.reduce<Array<number | string>>((items, page, index) => {
-    const prev = normalized[index - 1]
-    if (prev && page - prev > 1) items.push(`ellipsis-${prev}-${page}`)
-    items.push(page)
-    return items
-  }, [])
-}
-
-const getSortValue = (row: SurgeryListItem, key: string, originalIndex: number) => {
-  if (key === 'rowNo') return originalIndex
-  if (key === 'age') {
-    const age = Number(calcAge(row.birth))
-    return Number.isFinite(age) ? age : null
-  }
-  return String(row[key as keyof SurgeryListItem] ?? '').trim()
-}
-
-const compareSortValue = (a: string | number | null, b: string | number | null) => {
-  const aEmpty = a === null || a === ''
-  const bEmpty = b === null || b === ''
-  if (aEmpty && bEmpty) return 0
-  if (aEmpty) return 1
-  if (bEmpty) return -1
-  if (typeof a === 'number' && typeof b === 'number') return a - b
-  return String(a).localeCompare(String(b), 'ko-KR', { numeric: true, sensitivity: 'base' })
-}
+import { COLUMNS, ALIGN, HEADER_ALIGN } from './surgeryListColumns'
+import {
+  dash,
+  surgeryDateOf,
+  formatCount,
+  CATEGORY_OPTIONS,
+  DEFAULT_FROM,
+  DEFAULT_TO,
+  PAGE_SIZE_OPTIONS,
+  SKELETON_ROWS,
+  QUICK_RANGES,
+  toMonthValue,
+  toMonthStart,
+  toMonthEnd,
+  toMonthWeekRange,
+  buildPaginationItems,
+  getSortValue,
+  compareSortValue,
+  type PeriodMode,
+  type QuickRangeKey,
+  type SortState,
+} from './surgeryListUtils'
 
 export function SurgeryListPage() {
   const [draftPeriodMode, setDraftPeriodMode] = useState<PeriodMode>('daily')
