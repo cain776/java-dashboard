@@ -116,36 +116,29 @@ public class ExaminationStatsRepository {
     }
 
     /**
-     * 백내장 검사 — Cataract_Exam 기준, 눈(안) 단위.
-     * 레거시 백내장 검사건수와 맞춘 운영 기준:
-     *   1) 중단/취소/테스트 고객 제외
-     *   2) 같은 날 백내장 검사 예약(H)이 내원 상태로 존재
-     *   3) 적절한 수술방법(OPERATIONR/L)이 입력된 눈만 각각 1건
+     * 백내장 검사 — 레거시 BCRM "백내장_검사" 화면과 동일하게 RESERVATION 기준 **사람(고객)** 단위.
+     * RESERVE_FLAG='H'(백내장) + RESERVE_JINRYO='1'(검사진료) + STATE 내원(I/H), 고객·검사일별 1건.
+     * 전체 검사자 리스트(AllExamListRepository) 백내장과 동일 정의 → 리스트=레포트 정합.
+     * 2024·2025는 ExaminationStatsService.LEGACY_CATARACT 확정값으로 덮어쓰고 2026+만 이 라이브값 사용.
+     * 레거시 표시값과 ±10 안팎 잔차(라이브·다소스·시점차). 과거 눈(OPERATIONR/L) 정의에서 2026-06 전환.
      */
     public List<Map<String, Object>> findCataractMonthly(String from, String to) {
         String sql = """
-            SELECT CAST(SUBSTRING(ce.EXAM_DATE, 1, 4) AS INT) AS yr,
-                   CAST(SUBSTRING(ce.EXAM_DATE, 6, 2) AS INT) AS mo,
-                   SUM(CASE WHEN NULLIF(LTRIM(RTRIM(ISNULL(ce.OPERATIONR, ''))), '') IS NOT NULL THEN 1 ELSE 0 END)
-                 + SUM(CASE WHEN NULLIF(LTRIM(RTRIM(ISNULL(ce.OPERATIONL, ''))), '') IS NOT NULL THEN 1 ELSE 0 END) AS cnt
-            FROM Cataract_Exam ce WITH(NOLOCK)
-            JOIN CUSTOM cu WITH(NOLOCK) ON ce.CUST_NUM = cu.CUST_NUM
-            WHERE ce.EXAM_DATE >= :from AND ce.EXAM_DATE <= :to
-              AND (ce.Stop_YN IS NULL OR ce.Stop_YN <> 'Y')
-              AND (ce.Cancel_CD IS NULL OR LTRIM(RTRIM(ce.Cancel_CD)) = '')
-              AND NOT (
-                ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
-                OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
-              )
-              AND EXISTS (
-                SELECT 1
-                FROM RESERVATION r WITH(NOLOCK)
-                WHERE r.CUST_NUM = ce.CUST_NUM
-                  AND r.RESERVE_DATE = ce.EXAM_DATE
-                  AND r.RESERVE_STATE IN ('I','H')
-                  AND r.RESERVE_FLAG = 'H'
-              )
-            GROUP BY CAST(SUBSTRING(ce.EXAM_DATE, 1, 4) AS INT), CAST(SUBSTRING(ce.EXAM_DATE, 6, 2) AS INT)
+            SELECT yr, mo, COUNT(*) AS cnt
+            FROM (
+              SELECT CAST(SUBSTRING(a.RESERVE_DATE, 1, 4) AS INT) AS yr,
+                     CAST(SUBSTRING(a.RESERVE_DATE, 6, 2) AS INT) AS mo,
+                     a.CUST_NUM, a.RESERVE_DATE
+              FROM RESERVATION a WITH(NOLOCK)
+              WHERE a.RESERVE_DATE >= :from AND a.RESERVE_DATE <= :to
+                AND a.RESERVE_STATE IN ('I','H')
+                AND a.RESERVE_FLAG = 'H'
+                AND a.RESERVE_JINRYO = '1'
+              GROUP BY CAST(SUBSTRING(a.RESERVE_DATE, 1, 4) AS INT),
+                       CAST(SUBSTRING(a.RESERVE_DATE, 6, 2) AS INT),
+                       a.CUST_NUM, a.RESERVE_DATE
+            ) t
+            GROUP BY yr, mo
             ORDER BY yr, mo
             """;
         return jdbc.queryForList(sql, params(from, to));
