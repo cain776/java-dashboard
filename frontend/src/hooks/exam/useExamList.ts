@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { examListApi, type ExamListItem } from '@/api/exam/examList'
-import { EXAM_LIST_MOCK } from '@/mocks/examListData'
+import { EXAM_LIST_MOCK } from '@/data/examListData'
 import { useDataSourceStore } from '@/stores/dataSourceStore'
 
 /**

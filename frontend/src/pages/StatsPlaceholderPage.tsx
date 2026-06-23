@@ -77,7 +77,7 @@ export function StatsPlaceholderPage({ page }: { page: StatsPageDefinition }) {
             <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4">
               <p className="text-sm font-medium text-gray-900">2. mock 응답 연결</p>
               <p className="mt-1 text-sm text-gray-600">
-                MSW와 타입 정의를 먼저 연결해서 화면을 고정합니다.
+                타입 정의를 먼저 연결해서 화면을 고정합니다.
               </p>
             </div>
             <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4">

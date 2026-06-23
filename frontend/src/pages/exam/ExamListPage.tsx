@@ -34,7 +34,7 @@ import {
  * 검사자 리스트 — 성민CRM "검사자 리스트(상담사별)" 화면.
  * 소스: EXAM+CUSTOM+OPERATIONDATA+EMPLOYEE (docs/db/검사자리스트-컬럼정의.md).
  * 검사정보1~30(측정값) 제외, 비측정 48열(만나이는 생년월일에서 파생).
- * 데이터: useExamList(from,to) — 개발은 MSW 목업, 운영은 /api/exam-list.
+ * 데이터: useExamList(from,to) — 운영은 /api/exam-list (데이터소스 목 토글 시 정적 픽스처).
  */
 
 export function ExamListPage() {
