@@ -9,6 +9,7 @@ import {
 } from '@/components/ui/chart'
 import { MONTHS } from '@/constants/chart'
 import { formatAxisNumber } from '@/utils/stats'
+import { niceAxis, niceAxisFor } from './niceAxis'
 
 /**
  * 월간보고 PDF 색상 — 절대연도가 아닌 '당해연도 대비 위치'로 매핑(연도가 넘어가도 자동 유지).
@@ -27,9 +28,11 @@ export interface ReportLineChartProps {
   /** year → 12개월 값 배열 (없는 달은 null) */
   data: Record<number, (number | null)[]>
   format?: 'number' | 'percent'
+  /** Y축 범위 고정 [min, max](예: 예약종합 [800, 3000]). 미지정 시 데이터 스케일 자동. */
+  yDomain?: [number, number]
 }
 
-export function ReportLineChart({ title, suffix, years, data, format = 'number' }: ReportLineChartProps) {
+export function ReportLineChart({ title, suffix, years, data, format = 'number', yDomain }: ReportLineChartProps) {
   const sorted = useMemo(() => [...years].sort((a, b) => a - b), [years])
   const latest = sorted[sorted.length - 1]
 
@@ -63,6 +66,16 @@ export function ReportLineChart({ title, suffix, years, data, format = 'number' 
     [sorted, data],
   )
 
+  // Y축: yDomain 지정 시 그 범위로 고정, 아니면 데이터 스케일 자동 (음수 방지, PDF처럼 0·20·40…)
+  const { domain: axisDomain, ticks: yTicks } = useMemo(() => {
+    if (yDomain) return niceAxisFor(yDomain[0], yDomain[1])
+    const values: number[] = []
+    sorted.forEach((y) => (data[y] ?? []).forEach((v) => {
+      if (typeof v === 'number') values.push(v)
+    }))
+    return niceAxis(values)
+  }, [sorted, data, yDomain])
+
   return (
     <Card className="report-chart flex break-inside-avoid flex-col border-border/70 shadow-sm">
       <CardHeader className="items-center gap-1 pb-2">
@@ -94,11 +107,9 @@ export function ReportLineChart({ title, suffix, years, data, format = 'number' 
               tickLine={false}
               axisLine={false}
               tickMargin={6}
-              domain={
-                format === 'percent'
-                  ? ['dataMin - 5', 'dataMax + 5']
-                  : ['dataMin - 200', 'dataMax + 200']
-              }
+              domain={axisDomain}
+              ticks={yTicks}
+              allowDecimals={false}
               tickFormatter={(v) => fmt(Number(v))}
             />
             <ChartTooltip content={<ChartTooltipContent />} />

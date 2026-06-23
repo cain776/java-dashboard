@@ -160,10 +160,11 @@ export function ReportSurgeryTable({ dataMap }: { dataMap: Record<number, Surger
 }
 
 /* ── 시력교정 상담성공률 — 전체/원데이/일반 3계열 (당해연도, 라이브) ── */
-const SUCCESS_SERIES: { key: 'all' | 'oneday' | 'general'; label: string; color: string }[] = [
-  { key: 'all', label: '전체 성공률', color: '#E11D2E' },
-  { key: 'oneday', label: '원데이', color: '#7CB342' },
-  { key: 'general', label: '일반', color: '#5B9BD5' },
+// pos = 차트 라벨 위치(라인이 겹치지 않게: 상단 원데이↑ / 중간 전체↓ / 하단 일반↓)
+const SUCCESS_SERIES: { key: 'all' | 'oneday' | 'general'; label: string; color: string; pos: 'top' | 'bottom' }[] = [
+  { key: 'all', label: '전체 성공률', color: '#E11D2E', pos: 'bottom' },
+  { key: 'oneday', label: '원데이', color: '#7CB342', pos: 'top' },
+  { key: 'general', label: '일반', color: '#5B9BD5', pos: 'bottom' },
 ]
 const successChartConfig: ChartConfig = {
   all: { label: '전체 성공률', color: '#E11D2E' },
@@ -204,11 +205,15 @@ export function ReportSuccessRateChart({
             <CartesianGrid vertical={false} />
             <XAxis dataKey="month" scale="band" tickLine={false} axisLine={false} tickMargin={8} />
             <YAxis width={80} tickLine={false} axisLine={false} tickMargin={6}
-              domain={['dataMin - 5', 'dataMax + 5']} tickFormatter={(v) => pct(Number(v))} />
+              domain={[50, 100]} ticks={[50, 60, 70, 80, 90, 100]} allowDecimals={false}
+              tickFormatter={(v) => pct(Number(v))} />
             <ChartTooltip content={<ChartTooltipContent />} />
             {SUCCESS_SERIES.map((s) => (
               <Line key={s.key} type="monotone" dataKey={s.key} stroke={s.color} strokeWidth={2.5}
-                dot={false} connectNulls={false} activeDot={{ r: 4 }} />
+                dot={false} connectNulls={false} activeDot={{ r: 4 }}>
+                <LabelList dataKey={s.key} position={s.pos} offset={10} fontSize={12} fontWeight={700}
+                  fill={s.color} formatter={(v) => (typeof v === 'number' ? pct(v) : '')} />
+              </Line>
             ))}
           </LineChart>
         </ChartContainer>
