@@ -66,6 +66,50 @@ export function ReportLineChart({ title, suffix, years, data, format = 'number',
     [sorted, data],
   )
 
+  // 데이터 라벨 겹침 회피: 최신연도(빨강) 라벨이 다른 연도 선과 겹쳐도 읽히도록
+  //  ① 곡선의 정점(이웃보다 큼)은 점 위, 골은 점 아래로 자동 배치 → 라벨이 선 바깥쪽으로 이동
+  //  ② 흰색 헤일로(stroke + paint-order)로 선 위에 겹쳐도 숫자가 또렷하게 보이게 함
+  const renderLatestLabel = (props: {
+    x?: number | string
+    y?: number | string
+    value?: unknown
+    index?: number
+  }) => {
+    const { value, index } = props
+    const x = Number(props.x)
+    const y = Number(props.y)
+    if (
+      typeof value !== 'number' ||
+      typeof index !== 'number' ||
+      !Number.isFinite(x) ||
+      !Number.isFinite(y)
+    ) {
+      return <g />
+    }
+    const values = data[latest] ?? []
+    const neighbors = [values[index - 1], values[index + 1]].filter(
+      (v): v is number => typeof v === 'number',
+    )
+    const avg = neighbors.length ? neighbors.reduce((a, b) => a + b, 0) / neighbors.length : value
+    const above = value >= avg
+    return (
+      <text
+        x={x}
+        y={y + (above ? -12 : 20)}
+        textAnchor="middle"
+        fontSize={14}
+        fontWeight={700}
+        fill={colorOf(latest, latest)}
+        stroke="#ffffff"
+        strokeWidth={3.5}
+        strokeLinejoin="round"
+        style={{ paintOrder: 'stroke' }}
+      >
+        {fmt(value)}
+      </text>
+    )
+  }
+
   // Y축: yDomain 지정 시 그 범위로 고정, 아니면 데이터 스케일 자동 (음수 방지, PDF처럼 0·20·40…)
   const { domain: axisDomain, ticks: yTicks } = useMemo(() => {
     if (yDomain) return niceAxisFor(yDomain[0], yDomain[1])
@@ -123,19 +167,7 @@ export function ReportLineChart({ title, suffix, years, data, format = 'number',
                 dot={false}
                 connectNulls={false}
                 activeDot={{ r: 4 }}
-                label={
-                  y === latest
-                    ? {
-                        position: 'bottom',
-                        offset: 16,
-                        fill: colorOf(y, latest),
-                        fontSize: 14,
-                        fontWeight: 700,
-                        formatter: (value: unknown) =>
-                          typeof value === 'number' ? fmt(value) : '',
-                      }
-                    : undefined
-                }
+                label={y === latest ? renderLatestLabel : undefined}
               />
             ))}
           </LineChart>
