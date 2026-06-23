@@ -10,8 +10,8 @@ import type { ReservationListItem } from '@/api/reservation/reservationList'
 /**
  * 예약자 리스트 — "예약 종합(콜·온라인)" 월간 건수를 구성하는 검사예약 인원 명단.
  * 등록일 기준 월 단위 조회 → 주별 승인 → 월별 체크(마감) 워크플로우.
- * 월 합계 + 카카오(해피톡, 명단 외) = 예약 종합 값. 카카오는 RESERVATION에 행이 없어 명단 제외 → 건수만 표시.
- * 승인/체크는 화면 상태(저장X) — 새로고침 시 초기화.
+ * 월 합계 = 예약 종합 값(둘 다 카카오 미포함). 카카오(해피톡)는 RESERVATION에 행이 없고 종합에서도 빠지므로
+ * 참고용 건수만 표시한다. 승인/체크는 화면 상태(저장X) — 새로고침 시 초기화.
  */
 
 /* ── 표시 헬퍼 ── */
@@ -334,7 +334,7 @@ export function ReservationListPage() {
               승인 합계 <strong className="tabular-nums text-gray-900">{formatCount(approvedCount)}</strong> / 월 합계 {formatCount(totalCount)}건
               {channel !== '콜' && subChannel === null && kakaoCount > 0 && (
                 <span className="ml-1 text-amber-600">
-                  · 카카오 +{formatCount(kakaoCount)}건<span className="text-muted-foreground">(해피톡, 명단 외)</span>
+                  · 카카오 {formatCount(kakaoCount)}건<span className="text-muted-foreground">(해피톡·종합 외, 참고)</span>
                 </span>
               )}
             </span>

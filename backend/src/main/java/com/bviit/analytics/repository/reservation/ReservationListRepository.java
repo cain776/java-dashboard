@@ -20,8 +20,8 @@ import java.util.Map;
  *     (예약 종합과 동일. 과거 온라인 미적용 시 중복예약이 월 12~54건 과대계상되던 것 보정 — 2026-06)
  *   - 제외: 테스트/TEST 이름, 공용 더미 고객 8888888888888 (CRM 플레이스홀더)
  *   - 상태(RESERVE_STATE) 필터 없음 — 종합은 등록 시점 기준이라 사후 취소도 포함.
- * 행 1개 = RESERVE_NUM 1개(PK). 카카오는 RESERVATION에 행이 없어(해피톡 소스) 명단 제외 →
- * **명단 행 합계 + countKakao() = 예약 종합 월 값**.
+ * 행 1개 = RESERVE_NUM 1개(PK). **명단 행 합계 = 예약 종합 월 값**(둘 다 카카오 미포함).
+ * 카카오(countKakao)는 RESERVATION에 행이 없어(해피톡 소스) 명단·종합 모두 제외 → 화면에 참고용으로만 표시.
  *
  * READ-ONLY · MSSQL 2014 호환(TRIM 금지). 날짜 범위는 등록일(InsertedDateTime) 기준.
  */
@@ -88,10 +88,10 @@ public class ReservationListRepository {
     }
 
     /**
-     * 카카오(해피톡 대분류 '수술전' + 중분류 '★신환' = 레거시 RSS '카카오톡_예약') 건수.
-     * 카카오 예약은 RESERVE_PATH가 없어 RESERVATION(=명단)엔 안 잡히지만 예약 종합엔 포함되므로,
-     * 명단 합계와 예약 종합의 차이를 메우는 표시용. 정의는 ReservationOverallStatsRepository.KAKAO_SQL 와 동일
-     * (등록일 기준, ms 단위 등록시각 distinct). 명단 행 범위와 같은 날짜창(< to+1일)으로 센다.
+     * 카카오(해피톡 대분류 '수술전' + 중분류 '★신환' = 레거시 RSS '카카오톡_예약') 건수 — 참고용.
+     * 카카오 예약은 RESERVE_PATH가 없어 RESERVATION(=명단)엔 안 잡힌다. 예약 종합도 카카오를 빼므로
+     * (레거시가 월마다 포함/미포함 불일치) 합산하지 않고 화면에 참고 수치로만 보여준다.
+     * 등록일 기준 ms 단위 등록시각 distinct, 명단 행 범위와 같은 날짜창(< to+1일).
      */
     public int countKakao(String from, String to) {
         String sql = """
