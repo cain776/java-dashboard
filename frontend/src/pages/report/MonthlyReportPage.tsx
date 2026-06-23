@@ -1,5 +1,5 @@
 import { useMemo, Fragment, type ReactNode } from 'react'
-import { Printer } from 'lucide-react'
+import { Download, Printer } from 'lucide-react'
 import { ReportLineChart } from '@/components/report/ReportLineChart'
 import { useReservationOverallTrend } from '@/hooks/reservation/useReservationOverallTrend'
 import { useOutpatientCountTrend } from '@/hooks/outpatient/useOutpatientCountTrend'
@@ -25,6 +25,7 @@ import {
   CATARACT_RATE_LEGACY,
   type OverallMonthSums,
 } from './monthlyReportUtils'
+import { buildMonthlyReportCsv } from './monthlyReportCsv'
 
 export function MonthlyReportPage() {
   const resv = useReservationOverallTrend(YEARS)
@@ -226,6 +227,26 @@ export function MonthlyReportPage() {
   ]
   const doneCount = items.filter((it) => it.node).length
 
+  const handleDownloadCsv = () => {
+    const csv = buildMonthlyReportCsv({
+      years: YEARS,
+      charts: charts as unknown as Record<string, unknown>,
+      currentYear: CURRENT_YEAR,
+      success: { all: charts.successAll, oneday: charts.successOneday, general: charts.successGeneral },
+      stopReasonByMonth: stopReason.dataMap[CURRENT_YEAR] ?? [],
+    })
+    // Excel 한글 보존을 위해 UTF-8 BOM 선두 부착
+    const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `월간레포트_${periodLabel.replace(/\s+/g, '').replace('년', '-').replace('월', '')}.csv`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="flex justify-center gap-6">
       {/* 좌측 컬럼: 목차를 콘텐츠 왼쪽 끝에. 우측 spacer와 함께 본문을 정중앙 정렬 (화면 전용) */}
@@ -274,14 +295,25 @@ export function MonthlyReportPage() {
               {CURRENT_YEAR - 2}·{CURRENT_YEAR - 1} 확정값 + {CURRENT_YEAR} 운영 DB 라이브
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => window.print()}
-            className="inline-flex items-center gap-2 rounded-md bg-slate-800 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-700"
-          >
-            <Printer className="h-4 w-4" />
-            PDF로 저장
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleDownloadCsv}
+              disabled={isLoading}
+              className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Download className="h-4 w-4" />
+              CSV
+            </button>
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-2 rounded-md bg-slate-800 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-slate-700"
+            >
+              <Printer className="h-4 w-4" />
+              PDF로 저장
+            </button>
+          </div>
         </div>
 
         {isLoading ? (
