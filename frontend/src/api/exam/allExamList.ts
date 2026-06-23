@@ -5,15 +5,16 @@ import { withQuery } from '@/api/_shared'
 /**
  * 전체 검사자 리스트 — 시력교정(EXAM) + 백내장(Cataract_Exam) 통합 행 목록.
  * 백엔드: GET /api/all-exam-list?from&to → ApiResponse<List<Map>> (camelCase 키).
- * 모집단은 월별 검사자 종합지표와 동일(EXAM ∪ Cataract, 등록 제외 없음) → 검사구분·내원동기·직업
- * 토글 조회건수가 레포트 검사유입·검사수와 정합. 전 컬럼 문자열.
- *   examGroup: 시력교정/백내장 · introType: 일반/고객소개/직원소개 · jobBucket: 직장인/학생/기타
+ * 시력교정(EXAM)은 사람 단위, 백내장(Cataract_Exam)은 눈(안구) 단위(수술방법 입력된 눈만, 좌/우 각 1행).
+ * 시력교정 검사유입은 종합지표(사람)와 정합, 백내장은 눈 단위라 종합지표와 다름. 전 컬럼 문자열.
+ *   examGroup: 시력교정/드림렌즈/백내장 · eye: 백내장 안구(R/L) · introType: 일반/고객소개/직원소개 · jobBucket: 직장인/학생/기타
  */
 const allExamListItemSchema = z.object({
   chartNo: z.string(),
   name: z.string(),
   examDate: z.string(),
   examGroup: z.string(),
+  eye: z.string(),
   patientType: z.string(),
   introType: z.string(),
   motiveL: z.string(),

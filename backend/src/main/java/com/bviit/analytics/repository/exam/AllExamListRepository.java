@@ -12,14 +12,14 @@ import java.util.Map;
 /**
  * 전체 검사자 리스트 — 시력교정(EXAM) + 백내장(Cataract_Exam) 통합 행 목록.
  *
- * ⚠️ 모집단은 "월별 검사자 종합지표"(OverallExamWeeklyRepository.findDemographicsDaily)와 **동일**하게
- * EXAM ∪ Cataract_Exam 을 EXAM_DATE 기준으로 그대로 센다(테스트/중복 미제외). 따라서 검사구분·내원동기·
- * 직업 토글의 조회건수가 월간레포트 검사유입·검사수 수치와 정합한다.
- * (검사자 리스트/백내장 검사자 리스트는 테스트·백내장스텁을 제외하므로 그 단순 합과는 다르다 — 정합 우선.)
+ * ⚠️ 시력교정(EXAM)은 사람(행) 단위, **백내장(Cataract_Exam)은 눈(안구) 단위**다(팀 결정).
+ * EXAM_DATE 기준, 테스트/중복 미제외. 시력교정 검사유입(일반/소개/직장인/학생)은 월별 검사자 종합지표
+ * (사람 단위)와 정합하나, **백내장은 눈 단위라 종합지표(사람)와 다르다**(백내장 = 레거시 검사수·예약률의 눈 정의).
  *
  * 산출 필드:
  *   - examGroup  : 시력교정 / 드림렌즈 / 백내장. EXAM은 검사일 드림렌즈예약(RESERVE_FLAG='D')만 있고
  *                  의료예약('M') 없으면 드림렌즈, 아니면 시력교정(검사자 리스트와 동일 기준). Cataract_Exam은 백내장.
+ *   - eye        : 백내장 행의 안구(R/L). 시력교정·드림렌즈는 빈값.
  *   - introType  : 일반 / 고객소개(소개고객·소개미확인) / 직원소개(소개직원) — motiveL 기준(종합지표와 동일)
  *   - jobBucket  : 직장인 / 학생 / 기타 — CUSTOM.JOB 기준(종합지표와 동일 CASE, 정합 위해 동기화 유지)
  *
@@ -47,6 +47,7 @@ public class AllExamListRepository {
               CASE WHEN src.isCat = 1 THEN N'백내장'
                    WHEN vis.hasDreamlens = 1 AND vis.hasMedical = 0 THEN N'드림렌즈'
                    ELSE N'시력교정' END                     AS examGroup,
+              ISNULL(src.eye, '')                          AS eye,
               CASE WHEN ISNULL(cu.FIRST_DAY, '') >= :from AND ISNULL(cu.FIRST_DAY, '') <= :to
                    THEN N'신환' ELSE N'구환' END            AS patientType,
               CASE WHEN mv.motiveL IN (N'소개고객', N'소개미확인') THEN N'고객소개'
@@ -84,12 +85,19 @@ public class AllExamListRepository {
               ISNULL(cu.LAST_DAY, '')                      AS lastVisit,
               ISNULL(cu.ETC, '')                           AS memo
             FROM (
-              SELECT e.CUST_NUM AS cn, e.EXAM_DATE AS d, 0 AS isCat
+              SELECT e.CUST_NUM AS cn, e.EXAM_DATE AS d, 0 AS isCat, '' AS eye
               FROM EXAM e WITH(NOLOCK)
               WHERE e.EXAM_DATE >= :from AND e.EXAM_DATE <= :to
               UNION ALL
-              SELECT ce.CUST_NUM AS cn, ce.EXAM_DATE AS d, 1 AS isCat
+              -- 백내장은 눈(안구) 단위: 적절 수술방법(OPERATIONR/L)이 입력된 눈만 좌/우 각각 1행.
+              -- 레거시 백내장 검사수·예약률 분모와 동일 정의(수술방법 미입력 검사자는 제외됨).
+              SELECT ce.CUST_NUM AS cn, ce.EXAM_DATE AS d, 1 AS isCat, eye.side AS eye
               FROM Cataract_Exam ce WITH(NOLOCK)
+              CROSS APPLY (
+                SELECT 'R' AS side WHERE NULLIF(LTRIM(RTRIM(ISNULL(ce.OPERATIONR, ''))), '') IS NOT NULL
+                UNION ALL
+                SELECT 'L' AS side WHERE NULLIF(LTRIM(RTRIM(ISNULL(ce.OPERATIONL, ''))), '') IS NOT NULL
+              ) eye
               WHERE ce.EXAM_DATE >= :from AND ce.EXAM_DATE <= :to
             ) src
             LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = src.cn
