@@ -75,4 +75,17 @@ describe('buildMonthlyReportCsv', () => {
   it('charts에 없는 지표는 건너뛴다', () => {
     expect(lines().some((line) => line.includes('검사수(전체)'))).toBe(false)
   })
+
+  it('선택 범위에 당해연도가 없으면 성공률·중단사유를 제외', () => {
+    const csv = buildMonthlyReportCsv({
+      years: [2025],
+      currentYear: 2026,
+      charts: { reservations: { 2025: Array.from({ length: 12 }, (_, i) => i) } } as Record<string, unknown>,
+      success: { all: blank12(), oneday: blank12(), general: blank12() },
+      stopReasonByMonth: Array<StopReasonMonthlyItem | null>(12).fill(null),
+    })
+    expect(csv).not.toContain('상담성공률')
+    expect(csv).not.toContain('중단사유')
+    expect(csv).toContain('예약 종합(콜+온라인),건,2025,')
+  })
 })
