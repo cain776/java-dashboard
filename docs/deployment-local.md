@@ -42,6 +42,10 @@ C:\workspace\java_dashboard\
 이 파일은 git에 포함되지 않습니다. 최초 1회 직접 생성해야 합니다.
 
 ```
+APP_JWT_SECRET=32자-이상의-임의-시크릿
+APP_SEED_ENABLED=true
+APP_SEED_ADMIN_LOGIN_ID=admin
+APP_SEED_ADMIN_PASSWORD=로컬-로그인-비밀번호
 STATS_DB_URL=jdbc:jtds:sqlserver://220.85.109.247:1433/SOFTCRM
 STATS_DB_USERNAME=계정명
 STATS_DB_PASSWORD=비밀번호
@@ -49,6 +53,10 @@ STATS_DB_PASSWORD=비밀번호
 
 | 변수 | 설명 |
 | --- | --- |
+| APP_JWT_SECRET | JWT 서명 키. 32자 이상 필수 |
+| APP_SEED_ENABLED | 로컬 H2 인증 DB에 관리자 계정을 만들지 여부 |
+| APP_SEED_ADMIN_LOGIN_ID | 로컬 관리자 로그인 ID |
+| APP_SEED_ADMIN_PASSWORD | 로컬 관리자 비밀번호 |
 | STATS_DB_URL | MSSQL 접속 주소 (SOFTCRM 데이터베이스) |
 | STATS_DB_USERNAME | DB 읽기 전용 계정 |
 | STATS_DB_PASSWORD | DB 비밀번호 |
@@ -81,7 +89,7 @@ VITE_USE_MSW=false
 ### 접속
 
 - 대시보드: http://localhost:15173
-- 기본 계정: `admin / 1234`
+- 로그인 계정: `APP_SEED_ADMIN_LOGIN_ID / APP_SEED_ADMIN_PASSWORD`
 
 > 이 방식은 운영 배포용이 아니라 개발/검증용 실행 흐름입니다.
 
@@ -120,7 +128,9 @@ netstat -aon | findstr :15173
 
 ### 로그인 안 됨
 
-- 최초 실행 시 H2 인메모리 DB에 admin 계정이 자동 생성됩니다
+- `APP_SEED_ENABLED=true`인지 확인
+- `APP_SEED_ADMIN_PASSWORD`가 비어 있지 않은지 확인
+- 최초 실행 시 H2 인메모리 DB에 로컬 관리자 계정이 자동 생성됩니다
 - 백엔드가 완전히 뜰 때까지 10~15초 대기 후 로그인 시도
 
 ### 백엔드만 재시작
@@ -139,7 +149,7 @@ gradlew.bat bootRun --args="--spring.profiles.active=mssql"
 ```
 VITE_USE_MSW=true
 ```
-프론트 재시작하면 Mock 데이터로 동작합니다.
+프론트 재시작 시 MSW worker가 React 렌더 전에 시작되고, `/api` 호출을 브라우저에서 가로채 Mock 데이터로 응답합니다.
 
 ---
 
@@ -147,6 +157,7 @@ VITE_USE_MSW=true
 
 - `backend/.env` 파일을 다른 사람에게 공유하지 마세요
 - `.env` 파일은 git에 커밋되지 않습니다 (`.gitignore` 설정됨)
+- 운영/외부 노출 환경에서는 `APP_SEED_ENABLED=false`를 사용하고, `APP_JWT_SECRET`은 환경별로 다른 임의 문자열을 사용하세요
 - DB 계정은 읽기 전용(SELECT만)을 사용하세요
 - 외부 네트워크에서 접근 시 방화벽 설정을 확인하세요
 

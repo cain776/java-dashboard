@@ -11,7 +11,7 @@
 - **폼**: react-hook-form + Zod
 - **DB**: H2 (개발, 기본) / PostgreSQL (운영, `application-postgres.properties`)
 - **인증**: Spring Security + JWT (jjwt, HMAC-SHA256)
-- **모킹**: MSW (개발 환경 API 목업)
+- **모킹**: MSW (`VITE_USE_MSW=true`일 때만 opt-in)
 - **언어**: 한국어 UI
 
 ## 디렉토리 구조
@@ -45,7 +45,7 @@ project-root/
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── main.tsx                     # 진입점 (MSW 초기화 → React 렌더)
+│   │   ├── main.tsx                     # 진입점 (VITE_USE_MSW=true면 MSW 초기화 → React 렌더)
 │   │   ├── App.tsx                      # QueryClientProvider + RouterProvider
 │   │   ├── router.tsx                   # TanStack Router (인증 가드 + statsPages 기반 자동 라우트)
 │   │   ├── index.css                    # Tailwind 4 + OKLCH 테마 변수
@@ -121,7 +121,7 @@ project-root/
 - DashboardPage (KPI 카드 4개 + 차트 5개, 하드코딩 목업)
 - ReservationPage (월별/연도별 비교, TanStack Query 기반 API/MSW 연동)
 - 인증 라우트 가드 (미인증 시 /login 리다이렉트)
-- MSW 개발 목킹
+- MSW opt-in 개발 목킹 (`VITE_USE_MSW=true`)
 - 통계 전용 페이지 20종 + MSSQL(prod) 연동 통계 API (검사·수술·전환율·리스트·B2B 등, 아래 표 참조)
 - 도메인별 `routes.ts` + `pageRegistry.ts` 기반 라우트 자동 생성
 - PROD pending 메뉴 숨김 및 직접 URL placeholder 차단 정책

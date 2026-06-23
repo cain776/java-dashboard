@@ -20,6 +20,8 @@ npm run dev
 VITE_USE_MSW=true
 ```
 
+이 값이 true이면 `src/main.tsx`에서 MSW worker를 React 렌더 전에 시작합니다.
+
 ## 스크립트
 
 ```bash
@@ -34,7 +36,7 @@ npm run preview
 
 - 로그인 페이지와 인증 레이아웃이 동작합니다.
 - 주요 통계 화면은 screen-first 방식으로 목업/샘플 데이터가 들어가 있습니다.
-- 예약 통계 API는 MSW 응답 스키마와 타입 검증이 연결돼 있습니다.
+- 프론트 API 호출 경로는 MSW 핸들러 누락 방지 테스트와 연결돼 있습니다.
 - 실제 PostgreSQL 기반 통계 API는 아직 연결 전입니다.
 
 ## 연동 메모

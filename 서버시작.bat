@@ -31,9 +31,14 @@ if exist %PROJECT_DIR%backend\.env (
     set BOOT_PROFILE=mssql
 )
 
+if not defined APP_JWT_SECRET set APP_JWT_SECRET=bviit-analytics-local-launch-secret-key-%RANDOM%-%RANDOM%
+if not defined APP_SEED_ENABLED set APP_SEED_ENABLED=true
+if not defined APP_SEED_ADMIN_LOGIN_ID set APP_SEED_ADMIN_LOGIN_ID=admin
+if not defined APP_SEED_ADMIN_PASSWORD set APP_SEED_ADMIN_PASSWORD=Local-%RANDOM%-%RANDOM%
+
 echo [Backend]  http://localhost:%BACKEND_PORT%
 echo [Frontend] http://localhost:%FRONTEND_PORT%
-echo [Login]    admin / 1234
+if /I "%APP_SEED_ENABLED%"=="true" echo [Login]    %APP_SEED_ADMIN_LOGIN_ID% / %APP_SEED_ADMIN_PASSWORD%
 echo.
 echo ========================================
 

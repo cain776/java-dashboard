@@ -42,6 +42,51 @@ const getReservationMonthlyData = (years: number[]) =>
     return months.map((m, i) => ({ year, month: i + 1, ...m, total: m.surgery + m.outpatient + m.dreamlens }))
   })
 
+const getReservationOverallData = (years: number[]) =>
+  years.flatMap((year) =>
+    Array.from({ length: 12 }, (_, i) => {
+      const online = 210 + ((year + i * 13) % 80)
+      const call = 140 + ((year + i * 9) % 60)
+      return {
+        year,
+        month: i + 1,
+        reservations: online + call,
+        online,
+        call,
+        total: online + call,
+      }
+    }),
+  )
+
+const getReservationListData = (from: string, to: string) => {
+  const channels = [
+    { channel: '인콜', channelGroup: '콜' },
+    { channel: '아웃콜', channelGroup: '콜' },
+    { channel: '홈페이지', channelGroup: '온라인' },
+    { channel: '네이버', channelGroup: '온라인' },
+  ]
+
+  return createDateRange(from, to).flatMap((date, dateIndex) =>
+    Array.from({ length: 3 }, (_, rowIndex) => {
+      const channel = channels[(dateIndex + rowIndex) % channels.length]
+      return {
+        registeredAt: date,
+        registeredTime: `${String(9 + ((dateIndex + rowIndex) % 8)).padStart(2, '0')}:00`,
+        reserveDate: date,
+        reserveTime: `${String(10 + ((dateIndex + rowIndex) % 7)).padStart(2, '0')}:30`,
+        chartNo: `R${date.replaceAll('-', '')}${rowIndex + 1}`,
+        name: `예약자${dateIndex + 1}-${rowIndex + 1}`,
+        reserveState: rowIndex % 5 === 0 ? 'C' : 'Y',
+        channel: channel.channel,
+        channelGroup: channel.channelGroup,
+        doctor: rowIndex % 2 === 0 ? '김보이' : '강은민',
+        counselor: rowIndex % 2 === 0 ? '유혜진' : '양다영',
+        comment: 'MSW 예약자 목업',
+      }
+    }),
+  )
+}
+
 export const reservationHandlers = [
   http.get('/api/stats/reservation', ({ request }) => {
     const url = new URL(request.url)
@@ -115,6 +160,10 @@ export const reservationHandlers = [
     return HttpResponse.json({ success: true, data: getReservationMonthlyData(parseYears(request)) })
   }),
 
+  http.get('/api/stats/reservation-overall/monthly', ({ request }) => {
+    return HttpResponse.json({ success: true, data: getReservationOverallData(parseYears(request)) })
+  }),
+
   http.get('/api/stats/reservation/kpi', async ({ request }) => {
     await delay(200)
     const years = parseYears(request)
@@ -140,5 +189,13 @@ export const reservationHandlers = [
   http.get('/api/stats/reservation/composition', async ({ request }) => {
     await delay(350)
     return HttpResponse.json({ success: true, data: getReservationMonthlyData(parseYears(request)) })
+  }),
+
+  http.get('/api/reservation-list', async ({ request }) => {
+    await delay(250)
+    const url = new URL(request.url)
+    const from = url.searchParams.get('from') ?? '2026-04-01'
+    const to = url.searchParams.get('to') ?? '2026-04-30'
+    return HttpResponse.json({ success: true, data: getReservationListData(from, to) })
   }),
 ]

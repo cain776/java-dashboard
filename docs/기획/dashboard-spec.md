@@ -103,7 +103,7 @@ MSSQL DataSource (mssql)  → JdbcTemplate      → RESERVATION, ExamCount 등 (
 `POST /api/auth/login` — Request: `{ loginId, password }`
 
 - 응답: `{ success, data: { token, user: { id, loginId, email, name } } }`
-- 로컬 시드 계정: `admin / 1234`
+- 로컬 시드 계정은 `APP_SEED_ADMIN_LOGIN_ID` / `APP_SEED_ADMIN_PASSWORD` 환경변수로 지정
 - 프론트 `authApi.login()` 이 `ApiResponse.data` 를 내부에서 언랩
 
 ### 5.2 응답 포맷

@@ -144,7 +144,7 @@ Request:
 }
 ```
 
-- Default local seed account: `admin / 1234`
+- Default local seed account was removed; local credentials now come from `APP_SEED_ADMIN_LOGIN_ID` / `APP_SEED_ADMIN_PASSWORD`.
 - Frontend `authApi.login()` unwraps `res.data` internally.
 
 ---

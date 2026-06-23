@@ -16,13 +16,21 @@ import {
  */
 describe('통계 페이지 라우트 정책 불변식', () => {
   const ids = statsPages.map((p) => p.id)
-  const liveIds = ids.filter((id) => getMenuStatus(id) !== 'pending')
+  const completeIds = ids.filter((id) => getMenuStatus(id) === 'complete')
+  const backendOnlyIds = ids.filter((id) => getMenuStatus(id) === 'backend-only')
   const pendingIds = ids.filter((id) => getMenuStatus(id) === 'pending')
 
-  it('complete/backend-only 페이지는 도메인 레지스트리에 컴포넌트가 등록돼 있어야 한다', () => {
+  it('complete 페이지는 도메인 레지스트리에 컴포넌트가 등록돼 있어야 한다', () => {
     // 'complete'로 표시됐는데 컴포넌트가 없으면 운영에서 빈 placeholder가 노출됨 → 금지.
-    const missing = liveIds.filter((id) => !PAGE_COMPONENTS[id])
+    const missing = completeIds.filter((id) => !PAGE_COMPONENTS[id])
     expect(missing).toEqual([])
+  })
+
+  it('backend-only 페이지는 모든 환경에서 placeholder로 차단된다', () => {
+    for (const id of backendOnlyIds) {
+      expect(isRouteBlocked(id, true)).toBe(true)
+      expect(isRouteBlocked(id, false)).toBe(true)
+    }
   })
 
   it('pending 페이지는 운영(PROD)에서 차단되고 개발(DEV)에서는 허용된다', () => {
@@ -34,7 +42,7 @@ describe('통계 페이지 라우트 정책 불변식', () => {
   })
 
   it('완료(live) 페이지는 운영에서도 차단되지 않는다', () => {
-    for (const id of liveIds) {
+    for (const id of completeIds) {
       expect(isRouteBlocked(id, true)).toBe(false)
     }
   })

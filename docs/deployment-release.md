@@ -79,7 +79,7 @@ java -jar .\analytics-0.0.1-SNAPSHOT.jar
 실행 후 접속:
 
 - 대시보드: `http://localhost:18080`
-- 기본 계정: `admin / 1234`
+- 운영 환경에는 기본 계정을 두지 않습니다. 관리자 계정은 운영 절차에 따라 별도 생성하고, `APP_SEED_ENABLED=false`를 유지하세요.
 
 ---
 
