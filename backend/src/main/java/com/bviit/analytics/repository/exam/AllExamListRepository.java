@@ -12,15 +12,15 @@ import java.util.Map;
 /**
  * 전체 검사자 리스트 — 시력교정(EXAM) + 백내장(Cataract_Exam) 통합 행 목록.
  *
- * ⚠️ 시력교정(EXAM)은 사람(행) 단위, **백내장(Cataract_Exam)은 눈(안구) 단위**다(팀 결정).
- * EXAM_DATE 기준. 시력교정(EXAM)은 리포트(findVisionCorrectionMonthly)와 1:1로 테스트 고객·백내장스텁을
- * 제외한다(중복은 미제외). 시력교정 검사유입(일반/소개/직장인/학생)은 월별 검사자 종합지표
- * (사람 단위)와 정합하나, **백내장은 눈 단위라 종합지표(사람)와 다르다**(백내장 = 레거시 검사수·예약률의 눈 정의).
+ * ⚠️ 시력교정(EXAM)·백내장 모두 **사람 단위**다.
+ * - 시력교정(EXAM): 리포트 findVisionCorrectionMonthly와 1:1(테스트·백내장스텁 제외), EXAM_DATE 기준.
+ *   검사유입(일반/소개/직장인/학생)은 월별 검사자 종합지표(사람)와 정합.
+ * - 백내장: 레거시 BCRM "백내장_검사" 화면과 동일하게 **RESERVATION**(FLAG='H' 백내장 + JINRYO='1' 검사진료 +
+ *   STATE 내원 I/H) 사람 단위(고객·검사일별 1행). 라이브라 레거시 월값과 ±10 안팎 잔차(다소스·시점차).
  *
  * 산출 필드:
  *   - examGroup  : 시력교정 / 드림렌즈 / 백내장. EXAM은 검사일 드림렌즈예약(RESERVE_FLAG='D')만 있고
- *                  의료예약('M') 없으면 드림렌즈, 아니면 시력교정(검사자 리스트와 동일 기준). Cataract_Exam은 백내장.
- *   - eye        : 백내장 행의 안구(R/L). 시력교정·드림렌즈는 빈값.
+ *                  의료예약('M') 없으면 드림렌즈, 아니면 시력교정. 백내장은 RESERVATION(FLAG='H', JINRYO='1') 사람.
  *   - introType  : 일반 / 고객소개(소개고객·소개미확인) / 직원소개(소개직원) — motiveL 기준(종합지표와 동일)
  *   - jobBucket  : 직장인 / 학생 / 기타 — CUSTOM.JOB 기준(종합지표와 동일 CASE, 정합 위해 동기화 유지)
  *
@@ -48,7 +48,6 @@ public class AllExamListRepository {
               CASE WHEN src.isCat = 1 THEN N'백내장'
                    WHEN vis.hasDreamlens = 1 AND vis.hasMedical = 0 THEN N'드림렌즈'
                    ELSE N'시력교정' END                     AS examGroup,
-              ISNULL(src.eye, '')                          AS eye,
               CASE WHEN ISNULL(cu.FIRST_DAY, '') >= :from AND ISNULL(cu.FIRST_DAY, '') <= :to
                    THEN N'신환' ELSE N'구환' END            AS patientType,
               CASE WHEN mv.motiveL IN (N'소개고객', N'소개미확인') THEN N'고객소개'
@@ -86,7 +85,7 @@ public class AllExamListRepository {
               ISNULL(cu.LAST_DAY, '')                      AS lastVisit,
               ISNULL(cu.ETC, '')                           AS memo
             FROM (
-              SELECT e.CUST_NUM AS cn, e.EXAM_DATE AS d, 0 AS isCat, '' AS eye
+              SELECT e.CUST_NUM AS cn, e.EXAM_DATE AS d, 0 AS isCat
               FROM EXAM e WITH(NOLOCK)
               JOIN CUSTOM cux WITH(NOLOCK) ON e.CUST_NUM = cux.CUST_NUM
               WHERE e.EXAM_DATE >= :from AND e.EXAM_DATE <= :to
@@ -98,24 +97,15 @@ public class AllExamListRepository {
                   AND __EXAM_MEASUREMENTS_BLANK__
                 )
               UNION ALL
-              -- 백내장은 눈(안구) 단위: 적절 수술방법(OPERATIONR/L)이 입력된 눈만 좌/우 각각 1행.
-              -- ExaminationStatsRepository.findCataractMonthly(월간레포트 백내장 검사수)와 동일 필터:
-              -- 중단(Stop_YN)·취소(Cancel_CD)·테스트 제외 + 같은 날 백내장검사 예약(RESERVE_FLAG='H') 내원 EXISTS.
-              SELECT ce.CUST_NUM AS cn, ce.EXAM_DATE AS d, 1 AS isCat, eye.side AS eye
-              FROM Cataract_Exam ce WITH(NOLOCK)
-              JOIN CUSTOM cuc WITH(NOLOCK) ON ce.CUST_NUM = cuc.CUST_NUM
-              CROSS APPLY (
-                SELECT 'R' AS side WHERE NULLIF(LTRIM(RTRIM(ISNULL(ce.OPERATIONR, ''))), '') IS NOT NULL
-                UNION ALL
-                SELECT 'L' AS side WHERE NULLIF(LTRIM(RTRIM(ISNULL(ce.OPERATIONL, ''))), '') IS NOT NULL
-              ) eye
-              WHERE ce.EXAM_DATE >= :from AND ce.EXAM_DATE <= :to
-                AND (ce.Stop_YN IS NULL OR ce.Stop_YN <> 'Y')
-                AND (ce.Cancel_CD IS NULL OR LTRIM(RTRIM(ce.Cancel_CD)) = '')
-                AND NOT (ISNULL(cuc.CUST_NAME, '') LIKE N'%테스트%' OR LOWER(ISNULL(cuc.CUST_NAME, '')) LIKE '%test%')
-                AND EXISTS (SELECT 1 FROM RESERVATION r WITH(NOLOCK)
-                            WHERE r.CUST_NUM = ce.CUST_NUM AND r.RESERVE_DATE = ce.EXAM_DATE
-                              AND r.RESERVE_STATE IN ('I','H') AND r.RESERVE_FLAG = 'H')
+              -- 백내장은 사람(고객) 단위: 레거시 BCRM "백내장_검사" 화면과 동일하게 RESERVATION 기준.
+              -- FLAG='H'(백내장) + JINRYO='1'(백내장검사 진료) + STATE 내원(I/H), 고객·검사일별 1행.
+              SELECT a.CUST_NUM AS cn, a.RESERVE_DATE AS d, 1 AS isCat
+              FROM RESERVATION a WITH(NOLOCK)
+              WHERE a.RESERVE_DATE >= :from AND a.RESERVE_DATE <= :to
+                AND a.RESERVE_STATE IN ('I','H')
+                AND a.RESERVE_FLAG = 'H'
+                AND a.RESERVE_JINRYO = '1'
+              GROUP BY a.CUST_NUM, a.RESERVE_DATE
             ) src
             LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = src.cn
             OUTER APPLY (
