@@ -1,4 +1,4 @@
-import { useMemo, Fragment, type ReactNode } from 'react'
+import { useMemo, useState, Fragment, type ReactNode } from 'react'
 import { Download, Printer } from 'lucide-react'
 import { ReportLineChart } from '@/components/report/ReportLineChart'
 import { useReservationOverallTrend } from '@/hooks/reservation/useReservationOverallTrend'
@@ -227,9 +227,18 @@ export function MonthlyReportPage() {
   ]
   const doneCount = items.filter((it) => it.node).length
 
-  const handleDownloadCsv = () => {
+  // CSV 다운로드 연도 선택 팝업
+  const [csvOpen, setCsvOpen] = useState(false)
+  const [csvScope, setCsvScope] = useState<'all' | number>('all')
+  const csvYearOptions: { value: 'all' | number; label: string }[] = [
+    { value: 'all', label: '전체' },
+    ...[...YEARS].sort((a, b) => a - b).map((year) => ({ value: year, label: `${year}년` })),
+  ]
+
+  const handleDownloadCsv = (scope: 'all' | number) => {
+    const selectedYears = scope === 'all' ? YEARS : [scope]
     const csv = buildMonthlyReportCsv({
-      years: YEARS,
+      years: selectedYears,
       charts: charts as unknown as Record<string, unknown>,
       currentYear: CURRENT_YEAR,
       success: { all: charts.successAll, oneday: charts.successOneday, general: charts.successGeneral },
@@ -240,11 +249,12 @@ export function MonthlyReportPage() {
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `월간레포트_${periodLabel.replace(/\s+/g, '').replace('년', '-').replace('월', '')}.csv`
+    link.download = `월간레포트_${scope === 'all' ? '전체' : scope}.csv`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
     URL.revokeObjectURL(url)
+    setCsvOpen(false)
   }
 
   return (
@@ -298,7 +308,7 @@ export function MonthlyReportPage() {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={handleDownloadCsv}
+              onClick={() => setCsvOpen(true)}
               disabled={isLoading}
               className="inline-flex items-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -338,6 +348,58 @@ export function MonthlyReportPage() {
 
       {/* 우측 spacer: 좌측 목차와 동일 폭으로 본문을 정중앙에 고정 */}
       <div className="hidden w-0 flex-1 min-[1520px]:block" aria-hidden />
+
+      {csvOpen && (
+        <div
+          className="report-no-print fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="CSV 다운로드 연도 선택"
+          onClick={() => setCsvOpen(false)}
+        >
+          <div
+            className="w-full max-w-xs rounded-lg border border-border/70 bg-white p-5 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-base font-bold text-foreground">CSV 다운로드</h2>
+            <p className="mt-1 text-sm text-muted-foreground">내려받을 연도를 선택하세요.</p>
+            <div className="mt-4 space-y-1.5">
+              {csvYearOptions.map((opt) => (
+                <label
+                  key={String(opt.value)}
+                  className="flex cursor-pointer items-center gap-2.5 rounded-md border border-border/70 px-3 py-2 text-sm transition-colors hover:bg-gray-50 has-[:checked]:border-blue-400 has-[:checked]:bg-blue-50"
+                >
+                  <input
+                    type="radio"
+                    name="csv-year"
+                    className="accent-blue-600"
+                    checked={csvScope === opt.value}
+                    onChange={() => setCsvScope(opt.value)}
+                  />
+                  <span className="font-medium text-gray-800">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setCsvOpen(false)}
+                className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDownloadCsv(csvScope)}
+                className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+              >
+                <Download className="h-4 w-4" />
+                다운로드
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

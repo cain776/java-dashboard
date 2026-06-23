@@ -106,15 +106,16 @@ export function buildMonthlyReportCsv({
     }
   }
 
-  // 상담성공률 — 당해연도만 (전체/원데이/일반)
-  pushRow('전환&성공', '상담성공률(전체)', '%', currentYear, success.all)
-  pushRow('전환&성공', '상담성공률(원데이)', '%', currentYear, success.oneday)
-  pushRow('전환&성공', '상담성공률(일반)', '%', currentYear, success.general)
+  // 상담성공률·중단사유는 당해연도만 존재 → 선택 범위에 당해연도가 있을 때만 포함
+  if (sortedYears.includes(currentYear)) {
+    pushRow('전환&성공', '상담성공률(전체)', '%', currentYear, success.all)
+    pushRow('전환&성공', '상담성공률(원데이)', '%', currentYear, success.oneday)
+    pushRow('전환&성공', '상담성공률(일반)', '%', currentYear, success.general)
 
-  // 중단 사유 — 당해연도 월별
-  for (const reason of STOP_REASONS) {
-    const values = stopReasonByMonth.map((item) => (item ? (item[reason.key] as number) : null))
-    pushRow('중단', reason.label, '건', currentYear, values)
+    for (const reason of STOP_REASONS) {
+      const values = stopReasonByMonth.map((item) => (item ? (item[reason.key] as number) : null))
+      pushRow('중단', reason.label, '건', currentYear, values)
+    }
   }
 
   return lines.join('\r\n')
