@@ -1,27 +1,14 @@
 import { useMemo, useState } from 'react'
 import {
-  Line,
-  LineChart,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-} from 'recharts'
-import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from '@/components/ui/chart'
+import { type ChartConfig } from '@/components/ui/chart'
 import { PanelShell } from '@/components/PanelShell'
+import { TrendLineChart, type TrendLine } from '@/components/stats/TrendLineChart'
 import {
   METRICS,
   EMPTY,
@@ -115,6 +102,17 @@ export function YearTrendPanel({
     [activeMetrics, years, dataMap],
   )
 
+  const lines = useMemo<TrendLine[]>(() => {
+    const strokeWidth = activeMetrics.includes('overallConsultation') ? 2.75 : 2.25
+    const dot = yearChartSeries.length <= 4 ? { r: 4 } : false
+    return yearChartSeries.map((series) => ({
+      key: series.key,
+      strokeWidth,
+      strokeDasharray: series.strokeDasharray,
+      dot,
+    }))
+  }, [yearChartSeries, activeMetrics])
+
   const toggleMetric = (metricKey: MetricKey) => {
     if (metricKey === 'overallConsultation') {
       setSelectedMetrics(['overallConsultation'])
@@ -165,32 +163,13 @@ export function YearTrendPanel({
         </div>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={yearLineConfig} className="h-80 w-full">
-          <LineChart data={yearChartData}>
-            <CartesianGrid vertical={false} />
-            <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tickMargin={8}
-              tickFormatter={formatAxisPercent}
-            />
-            <ChartLegend content={<ChartLegendContent />} />
-            <ChartTooltip content={<ChartTooltipContent formatter={(value) => formatRate(Number(value))} />} />
-            {yearChartSeries.map((series) => (
-              <Line
-                key={series.key}
-                type="monotone"
-                dataKey={series.key}
-                stroke={`var(--color-${series.key})`}
-                strokeWidth={activeMetrics.includes('overallConsultation') ? 2.75 : 2.25}
-                strokeDasharray={series.strokeDasharray || undefined}
-                dot={yearChartSeries.length <= 4 ? { r: 4 } : false}
-                activeDot={{ r: 6 }}
-              />
-            ))}
-          </LineChart>
-        </ChartContainer>
+        <TrendLineChart
+          config={yearLineConfig}
+          data={yearChartData}
+          lines={lines}
+          yTickFormatter={formatAxisPercent}
+          tooltipFormatter={(value) => formatRate(Number(value))}
+        />
       </CardContent>
     </Card>
   )

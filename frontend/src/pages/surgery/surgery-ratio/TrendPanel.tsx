@@ -1,27 +1,14 @@
 import { useMemo } from 'react'
 import {
-  Line,
-  LineChart,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-} from 'recharts'
-import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from '@/components/ui/chart'
+import { type ChartConfig } from '@/components/ui/chart'
 import { PanelShell } from '@/components/PanelShell'
+import { TrendLineChart, type TrendLine } from '@/components/stats/TrendLineChart'
 import {
   SURGERY_TYPES,
   EMPTY_DATA,
@@ -93,6 +80,8 @@ export function TrendPanel({
     [trendYear, topTrendKeys, dataMap],
   )
 
+  const lines = useMemo<TrendLine[]>(() => topTrendKeys.map((key) => ({ key })), [topTrendKeys])
+
   const renderChart = () => (
     <Card className="border-border/70 shadow-sm">
       <CardHeader>
@@ -100,26 +89,12 @@ export function TrendPanel({
         <CardDescription>{trendYear}년 기준 상위 4개 수술의 월별 추이입니다.</CardDescription>
       </CardHeader>
       <CardContent>
-        <ChartContainer config={topTrendConfig} className="h-80 w-full">
-          <LineChart data={trendData}>
-            <CartesianGrid vertical={false} />
-            <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} />
-            <YAxis tickLine={false} axisLine={false} tickMargin={8} tickFormatter={formatAxisNumber} />
-            <ChartLegend content={<ChartLegendContent />} />
-            <ChartTooltip content={<ChartTooltipContent />} />
-            {topTrendKeys.map((key) => (
-              <Line
-                key={key}
-                type="monotone"
-                dataKey={key}
-                stroke={`var(--color-${key})`}
-                strokeWidth={2.5}
-                dot={{ r: 4 }}
-                activeDot={{ r: 6 }}
-              />
-            ))}
-          </LineChart>
-        </ChartContainer>
+        <TrendLineChart
+          config={topTrendConfig}
+          data={trendData}
+          lines={lines}
+          yTickFormatter={formatAxisNumber}
+        />
       </CardContent>
     </Card>
   )
