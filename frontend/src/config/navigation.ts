@@ -423,10 +423,13 @@ const MENU_STATUS: Record<string, MenuStatus> = {
 
 /** 메뉴 구현 상태 조회 (router의 운영 빌드 pending 라우트 차단 등에 사용). */
 export const getMenuStatus = (id: string): MenuStatus => MENU_STATUS[id] ?? 'pending'
+export const hasExplicitMenuStatus = (id: string): boolean =>
+  Object.prototype.hasOwnProperty.call(MENU_STATUS, id)
+export const getMenuStatusIds = (): string[] => Object.keys(MENU_STATUS)
 
 const link = (id: string): MenuLink => {
   const page = findPage(id)
-  return { label: page.label, href: page.path, status: MENU_STATUS[id] }
+  return { label: page.label, href: page.path, status: getMenuStatus(id) }
 }
 
 export const menuItems: MenuItem[] = [
@@ -499,7 +502,7 @@ export const menuItems: MenuItem[] = [
     icon: Ban,
     children: [link('cancel-rate'), link('no-show-rate')],
   },
-  { id: 'unit-price', label: '객단가', href: findPage('unit-price').path, icon: BadgeDollarSign, status: MENU_STATUS['unit-price'] },
+  { id: 'unit-price', label: '객단가', href: findPage('unit-price').path, icon: BadgeDollarSign, status: getMenuStatus('unit-price') },
   {
     id: 'etc',
     label: '기타',

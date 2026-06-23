@@ -1,6 +1,11 @@
 import { describe, it, expect } from 'vitest'
 import { PAGE_COMPONENTS, isRouteBlocked } from './pageRegistry'
-import { statsPages, getMenuStatus } from '../config/navigation'
+import {
+  getMenuStatus,
+  getMenuStatusIds,
+  hasExplicitMenuStatus,
+  statsPages,
+} from '../config/navigation'
 
 /**
  * 통계 페이지 라우트 정책 불변식 가드.
@@ -36,5 +41,12 @@ describe('통계 페이지 라우트 정책 불변식', () => {
 
   it('statsPages id는 중복이 없어야 한다', () => {
     expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  it('statsPages와 MENU_STATUS id는 서로 누락 없이 맞아야 한다', () => {
+    const statusIds = getMenuStatusIds()
+
+    expect(ids.filter((id) => !hasExplicitMenuStatus(id))).toEqual([])
+    expect(statusIds.filter((id) => !ids.includes(id))).toEqual([])
   })
 })

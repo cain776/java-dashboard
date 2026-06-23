@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { api } from '@/api/client'
+import { withQuery } from '@/api/_shared'
 
 /**
  * 예약자 리스트 — "예약 종합(콜·온라인)" 월간 건수를 구성하는 검사예약 행 목록.
@@ -32,7 +33,7 @@ const reservationListResponseSchema = z.object({
 
 export const reservationListApi = {
   getReservationList: async (from: string, to: string): Promise<ReservationListItem[]> => {
-    const res = await api.get<unknown>(`/reservation-list?from=${from}&to=${to}`)
+    const res = await api.get<unknown>(withQuery('/reservation-list', { from, to }))
     return reservationListResponseSchema.parse(res).data
   },
 }

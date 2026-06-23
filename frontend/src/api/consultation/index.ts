@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { api } from '@/api/client'
-import { apiResponseOf } from '@/api/_shared'
+import { apiResponseOf, withQuery } from '@/api/_shared'
 
 /* ── Monthly (검사 중단 사유 페이지용) ── */
 
@@ -62,20 +62,20 @@ export type ConsultationRateItem = z.infer<typeof consultationRateItemSchema>
 
 export const consultationApi = {
   getConsultationRate: async (years: number[]) =>
-    consultationRateResponseSchema.parse(await api.get<unknown>(`/stats/consultation-rate?years=${years.join(',')}`)).data,
+    consultationRateResponseSchema.parse(await api.get<unknown>(withQuery('/stats/consultation-rate', { years }))).data,
 
   getStopReasonMonthly: async (years: number[]) =>
-    stopReasonResponseSchema.parse(await api.get<unknown>(`/stats/stop-reason/monthly?years=${years.join(',')}`)).data,
+    stopReasonResponseSchema.parse(await api.get<unknown>(withQuery('/stats/stop-reason/monthly', { years }))).data,
 
   getCataractReservationRateTrend: async (years: number[], category: 'vision' | 'cataract' = 'cataract') =>
-    cataractReservationRateResponseSchema.parse(await api.get<unknown>(`/stats/cataract-reservation-rate/trend?years=${years.join(',')}&category=${category}`)).data,
+    cataractReservationRateResponseSchema.parse(await api.get<unknown>(withQuery('/stats/cataract-reservation-rate/trend', { years, category }))).data,
 
   getConsultationRateKpi: async (years: number[], mock = true) =>
-    consultationRateResponseSchema.parse(await api.get<unknown>(`/stats/consultation-rate/kpi?years=${years.join(',')}&mock=${mock}`)).data,
+    consultationRateResponseSchema.parse(await api.get<unknown>(withQuery('/stats/consultation-rate/kpi', { years, mock }))).data,
 
   getConsultationRateTrend: async (years: number[], mock = true) =>
-    consultationRateResponseSchema.parse(await api.get<unknown>(`/stats/consultation-rate/trend?years=${years.join(',')}&mock=${mock}`)).data,
+    consultationRateResponseSchema.parse(await api.get<unknown>(withQuery('/stats/consultation-rate/trend', { years, mock }))).data,
 
   getConsultationRateComposition: async (years: number[], mock = true) =>
-    consultationRateResponseSchema.parse(await api.get<unknown>(`/stats/consultation-rate/composition?years=${years.join(',')}&mock=${mock}`)).data,
+    consultationRateResponseSchema.parse(await api.get<unknown>(withQuery('/stats/consultation-rate/composition', { years, mock }))).data,
 }

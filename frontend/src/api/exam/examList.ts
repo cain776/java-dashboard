@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { api } from '@/api/client'
+import { withQuery } from '@/api/_shared'
 
 /**
  * 검사자 리스트(상담사별) — 성민CRM 화면 소스(EXAM+CUSTOM+OPERATIONDATA+EMPLOYEE)의 행 목록.
@@ -68,7 +69,7 @@ const examListResponseSchema = z.object({
 
 export const examListApi = {
   getExamList: async (from: string, to: string): Promise<ExamListItem[]> => {
-    const res = await api.get<unknown>(`/exam-list?from=${from}&to=${to}`)
+    const res = await api.get<unknown>(withQuery('/exam-list', { from, to }))
     return examListResponseSchema.parse(res).data
   },
 }

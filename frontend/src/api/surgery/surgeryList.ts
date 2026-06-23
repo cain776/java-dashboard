@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { api } from '@/api/client'
+import { withQuery } from '@/api/_shared'
 
 /**
  * 수술자 리스트 — 기준일은 수술일자, 보조일은 검사일자.
@@ -60,7 +61,7 @@ const surgeryListResponseSchema = z.object({
 
 export const surgeryListApi = {
   getSurgeryList: async (from: string, to: string): Promise<SurgeryListItem[]> => {
-    const res = await api.get<unknown>(`/surgery-list?from=${from}&to=${to}`)
+    const res = await api.get<unknown>(withQuery('/surgery-list', { from, to }))
     return surgeryListResponseSchema.parse(res).data
   },
 }

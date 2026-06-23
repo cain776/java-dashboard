@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { api } from '@/api/client'
+import { withQuery } from '@/api/_shared'
 
 /**
  * 백내장 검사자 리스트 — 성민CRM "백내장 검사자 리스트"(FrmCataract_ExamList).
@@ -68,7 +69,7 @@ const cataractExamListResponseSchema = z.object({
 
 export const cataractExamListApi = {
   getCataractExamList: async (from: string, to: string): Promise<CataractExamListItem[]> => {
-    const res = await api.get<unknown>(`/cataract-exam-list?from=${from}&to=${to}`)
+    const res = await api.get<unknown>(withQuery('/cataract-exam-list', { from, to }))
     return cataractExamListResponseSchema.parse(res).data
   },
 }

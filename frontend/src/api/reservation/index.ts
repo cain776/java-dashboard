@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { api } from '@/api/client'
-import { apiResponseOf } from '@/api/_shared'
+import { apiResponseOf, withQuery } from '@/api/_shared'
 
 export interface ReservationStatsParams {
   from: string
@@ -50,12 +50,6 @@ const reservationStatsResponseSchema = z.object({
 
 export type ReservationStatsResponse = z.infer<typeof reservationStatsResponseSchema>
 
-const buildQueryString = (params: ReservationStatsParams) =>
-  new URLSearchParams({
-    from: params.from,
-    to: params.to,
-  }).toString()
-
 /* ── KPI (예약 KPI 카드용) ── */
 
 const reservationKpiItemSchema = z.object({
@@ -91,22 +85,24 @@ export const reservationApi = {
   getReservationStats: async (
     params: ReservationStatsParams
   ): Promise<ReservationStatsResponse> => {
-    const response = await api.get<unknown>(`/stats/reservation?${buildQueryString(params)}`)
+    const response = await api.get<unknown>(
+      withQuery('/stats/reservation', { from: params.from, to: params.to }),
+    )
     return reservationStatsResponseSchema.parse(response)
   },
 
   getReservationMonthly: async (years: number[]) =>
-    reservationMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/reservation/monthly?years=${years.join(',')}`)).data,
+    reservationMonthlyResponseSchema.parse(await api.get<unknown>(withQuery('/stats/reservation/monthly', { years }))).data,
 
   getReservationKpi: async (years: number[], mock = true) =>
-    reservationKpiResponseSchema.parse(await api.get<unknown>(`/stats/reservation/kpi?years=${years.join(',')}&mock=${mock}`)).data,
+    reservationKpiResponseSchema.parse(await api.get<unknown>(withQuery('/stats/reservation/kpi', { years, mock }))).data,
 
   getReservationTrend: async (years: number[], mock = true) =>
-    reservationMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/reservation/trend?years=${years.join(',')}&mock=${mock}`)).data,
+    reservationMonthlyResponseSchema.parse(await api.get<unknown>(withQuery('/stats/reservation/trend', { years, mock }))).data,
 
   getReservationComposition: async (years: number[], mock = true) =>
-    reservationMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/reservation/composition?years=${years.join(',')}&mock=${mock}`)).data,
+    reservationMonthlyResponseSchema.parse(await api.get<unknown>(withQuery('/stats/reservation/composition', { years, mock }))).data,
 
   getReservationOverallMonthly: async (years: number[]) =>
-    reservationOverallResponseSchema.parse(await api.get<unknown>(`/stats/reservation-overall/monthly?years=${years.join(',')}`)).data,
+    reservationOverallResponseSchema.parse(await api.get<unknown>(withQuery('/stats/reservation-overall/monthly', { years }))).data,
 }

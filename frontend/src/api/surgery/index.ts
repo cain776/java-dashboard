@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { api } from '@/api/client'
-import { apiResponseOf } from '@/api/_shared'
+import { apiResponseOf, withQuery } from '@/api/_shared'
 
 /* ── Monthly (수술 건수 페이지용) ── */
 
@@ -21,22 +21,22 @@ const surgeryMonthlyResponseSchema = apiResponseOf(z.array(surgeryMonthlyItemSch
 
 export const surgeryApi = {
   getSurgeryMonthly: async (years: number[]) =>
-    surgeryMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/surgery/monthly?years=${years.join(',')}`)).data,
+    surgeryMonthlyResponseSchema.parse(await api.get<unknown>(withQuery('/stats/surgery/monthly', { years }))).data,
 
   /** 수술별 비중 — real은 전용 API, mock은 panel composition 응답 재사용 */
   getSurgeryRatio: async (years: number[], mock = false) => {
     const endpoint = mock
-      ? `/stats/surgery/composition?years=${years.join(',')}&mock=true`
-      : `/stats/surgery-ratio?years=${years.join(',')}`
+      ? withQuery('/stats/surgery/panel/composition', { years, mock: true })
+      : withQuery('/stats/surgery-ratio', { years })
     return surgeryMonthlyResponseSchema.parse(await api.get<unknown>(endpoint)).data
   },
 
   getSurgeryKpi: async (years: number[], mock = true) =>
-    surgeryMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/surgery/kpi?years=${years.join(',')}&mock=${mock}`)).data,
+    surgeryMonthlyResponseSchema.parse(await api.get<unknown>(withQuery('/stats/surgery/kpi', { years, mock }))).data,
 
   getSurgeryTrend: async (years: number[], mock = true) =>
-    surgeryMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/surgery/panel/trend?years=${years.join(',')}&mock=${mock}`)).data,
+    surgeryMonthlyResponseSchema.parse(await api.get<unknown>(withQuery('/stats/surgery/panel/trend', { years, mock }))).data,
 
   getSurgeryComposition: async (years: number[], mock = true) =>
-    surgeryMonthlyResponseSchema.parse(await api.get<unknown>(`/stats/surgery/panel/composition?years=${years.join(',')}&mock=${mock}`)).data,
+    surgeryMonthlyResponseSchema.parse(await api.get<unknown>(withQuery('/stats/surgery/panel/composition', { years, mock }))).data,
 }

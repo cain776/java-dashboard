@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { api } from '@/api/client'
-import { apiResponseOf } from '@/api/_shared'
+import { apiResponseOf, withQuery } from '@/api/_shared'
 
 /* ── Weekly (주간 검사자 종합지표 페이지용) ── */
 
@@ -33,5 +33,5 @@ const overallExamWeeklyResponseSchema = apiResponseOf(z.array(overallExamWeeklyI
 
 export const overallApi = {
   getOverallExamWeekly: async (years: number[]) =>
-    overallExamWeeklyResponseSchema.parse(await api.get<unknown>(`/stats/overall-exam/weekly?years=${years.join(',')}`)).data,
+    overallExamWeeklyResponseSchema.parse(await api.get<unknown>(withQuery('/stats/overall-exam/weekly', { years }))).data,
 }
