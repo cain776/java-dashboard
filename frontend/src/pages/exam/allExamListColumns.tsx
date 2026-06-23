@@ -6,6 +6,7 @@ import { calcAge, dash } from './examListUtils'
 
 const GROUP_STYLE: Record<string, string> = {
   시력교정: 'bg-sky-50 text-sky-700',
+  드림렌즈: 'bg-fuchsia-50 text-fuchsia-700',
   백내장: 'bg-amber-50 text-amber-700',
 }
 const INTRO_STYLE: Record<string, string> = {
