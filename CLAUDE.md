@@ -135,7 +135,7 @@ project-root/
 
 | ID | 메뉴명 | 경로 | 그룹 | 상태 |
 |----|------|------|------|------|
-| weekly-report | 주간 레포트 | /report/weekly | Report | 완료 |
+| weekly-report | 주간 레포트 | /report/weekly | Report | 완료 (메뉴 숨김·라우트 유지) |
 | monthly-report | 월간 레포트 | /report/monthly | Report | 완료 |
 | overall-exam | 월별 검사자 종합지표 | /stats/overall-exam | 전체지표 | 완료 |
 | overall-exam-weekly | 주간 검사자 종합지표 | /stats/overall-exam-weekly | 전체지표 | 완료 |
@@ -171,6 +171,8 @@ project-root/
 | daily-reception | 일일 접수/응대 건수 | /stats/daily-reception | 기타 | 미구현 |
 
 > ⚠️ **메뉴명 주의**: `검사건수` 메뉴 = `procedure-exam`(전체 검사수 = EXAM 행 + Cataract_Exam 세션), `시술별` 메뉴 = `examination`(시력교정/드림렌즈/백내장 탭). id·경로와 라벨이 어긋나니 혼동 주의.
+
+> 🙈 **메뉴 숨김(`navigation.ts`의 `HIDDEN_MENU_IDS`)**: 사이드바에서만 숨기고 페이지·라우트는 유지(직접 URL 접근 가능). 현재 숨김 — `weekly-report`(주간 레포트), `intake-conversion`·`reservation`(예약), 그리고 **마케팅·취소&부도·객단가·기타 그룹 전체**(overseas·marketing·cancel-rate·no-show-rate·unit-price·dreamlens-revenue·b2b-revenue·staff-point·prp-rate·reoperation-rate·same-day-op·designated-doctor·visit-reason·daily-reception). 자식이 모두 숨겨진 그룹은 menuItems에서 자동 제거. 재노출은 `HIDDEN_MENU_IDS`에서 빼면 됨.
 
 ## 백엔드 컨벤션
 

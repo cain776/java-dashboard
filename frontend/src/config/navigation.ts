@@ -75,10 +75,21 @@ export const hasExplicitMenuStatus = (id: string): boolean =>
 export const getMenuStatusIds = (): string[] => Object.keys(MENU_STATUS)
 
 /**
- * 사이드바에서 숨기는 메뉴(페이지·라우트는 유지 — 직접 URL 접근은 가능).
- * 예약 그룹을 '예약자 리스트 → 예약 종합'으로 단순화하며 유입(검사예약)·예약 건수 메뉴를 숨김(2026-06).
+ * 사이드바에서 숨기는 메뉴(페이지·라우트는 유지 — 직접 URL 접근은 가능). 여기만 수정하면
+ * 빈 그룹·숨김 단일 메뉴는 menuItems에서 자동 제거된다(kids() + 아래 filter).
+ *   - 예약: 유입(검사예약)·예약 건수 숨김(예약자 리스트 → 예약 종합만 노출)
+ *   - Report: 주간 레포트 숨김(월간만 노출)
+ *   - 외래 아래: 마케팅·취소&부도·객단가·기타 그룹 전체 숨김
  */
-const HIDDEN_MENU_IDS = new Set<string>(['intake-conversion', 'reservation'])
+const HIDDEN_MENU_IDS = new Set<string>([
+  'weekly-report',
+  'intake-conversion', 'reservation',
+  'overseas', 'marketing',
+  'cancel-rate', 'no-show-rate',
+  'unit-price',
+  'dreamlens-revenue', 'b2b-revenue', 'staff-point', 'prp-rate',
+  'reoperation-rate', 'same-day-op', 'designated-doctor', 'visit-reason', 'daily-reception',
+])
 export const isMenuHidden = (id: string): boolean => HIDDEN_MENU_IDS.has(id)
 
 const findPage = (id: string) => getStatsPageById(id)
@@ -88,76 +99,74 @@ const link = (id: string): MenuLink => {
   return { label: page.label, href: page.path, status: getMenuStatus(id) }
 }
 
-export const menuItems: MenuItem[] = [
+/** 그룹 자식 링크 생성 — 숨김(HIDDEN_MENU_IDS) 대상은 제외. */
+const kids = (...ids: string[]): MenuLink[] => ids.filter((id) => !isMenuHidden(id)).map(link)
+
+const rawMenuItems: MenuItem[] = [
   { id: 'home', label: 'HOME', href: '/', icon: Home },
   {
     id: 'report-group',
     label: 'Report',
     href: '#',
     icon: FileText,
-    children: [link('weekly-report'), link('monthly-report')],
+    children: kids('weekly-report', 'monthly-report'),
   },
   {
     id: 'overall-group',
     label: '전체지표',
     href: '#',
     icon: Table2,
-    children: [link('overall-exam'), link('overall-exam-weekly')],
+    children: kids('overall-exam', 'overall-exam-weekly'),
   },
   {
     id: 'reservation-group',
     label: '예약',
     href: '#',
     icon: CalendarCheck,
-    // 유입(intake-conversion)·예약 건수(reservation)는 HIDDEN_MENU_IDS로 숨김. 예약자 리스트 → 예약 종합 순.
-    children: [link('reservation-list'), link('reservation-overall')],
+    // 유입(intake-conversion)·예약 건수(reservation)는 숨김. 예약자 리스트 → 예약 종합 순.
+    children: kids('reservation-list', 'reservation-overall'),
   },
   {
     id: 'exam-group',
     label: '검사',
     href: '#',
     icon: Microscope,
-    children: [
-      link('exam-list'),
-      link('cataract-exam-list'),
-      link('examination'),
-      link('procedure-exam'),
-    ],
+    children: kids('exam-list', 'cataract-exam-list', 'examination', 'procedure-exam'),
   },
   {
     id: 'consultation',
     label: '전환&성공률',
     href: '#',
     icon: Stethoscope,
-    children: [link('consultation-rate'), link('cataract-reservation-rate'), link('stop-reason')],
+    children: kids('consultation-rate', 'cataract-reservation-rate', 'stop-reason'),
   },
   {
     id: 'surgery-group',
     label: '수술',
     href: '#',
     icon: Syringe,
-    children: [link('surgery-list'), link('surgery'), link('surgery-ratio'), link('surgery-composition')],
+    children: kids('surgery-list', 'surgery', 'surgery-ratio', 'surgery-composition'),
   },
   {
     id: 'outpatient',
     label: '외래',
     href: '#',
     icon: Hospital,
-    children: [link('outpatient-count')],
+    children: kids('outpatient-count'),
   },
   {
     id: 'marketing-group',
     label: '마케팅',
     href: '#',
     icon: Megaphone,
-    children: [link('overseas'), link('marketing')],
+    children: kids('overseas', 'marketing'),
   },
   {
     id: 'cancel-noshow',
     label: '취소&부도',
     href: '#',
     icon: Ban,
-    children: [link('cancel-rate'), link('no-show-rate')],
+    children: kids('cancel-rate', 'no-show-rate'),
   },
   {
     id: 'unit-price',
@@ -171,10 +180,18 @@ export const menuItems: MenuItem[] = [
     label: '기타',
     href: '#',
     icon: MoreHorizontal,
-    children: [
-      link('dreamlens-revenue'), link('b2b-revenue'), link('staff-point'),
-      link('prp-rate'), link('reoperation-rate'), link('same-day-op'),
-      link('designated-doctor'), link('visit-reason'), link('daily-reception'),
-    ],
+    children: kids(
+      'dreamlens-revenue', 'b2b-revenue', 'staff-point',
+      'prp-rate', 'reoperation-rate', 'same-day-op',
+      'designated-doctor', 'visit-reason', 'daily-reception',
+    ),
   },
 ]
+
+/**
+ * 숨김 반영: 숨김 대상 단일 메뉴(unit-price 등)와, 자식이 모두 숨겨져 비어버린 그룹을 제거.
+ * (children 없는 단일 항목 home·unit-price는 isMenuHidden(id)로 판정)
+ */
+export const menuItems: MenuItem[] = rawMenuItems.filter(
+  (item) => !isMenuHidden(item.id) && !(item.children !== undefined && item.children.length === 0),
+)
