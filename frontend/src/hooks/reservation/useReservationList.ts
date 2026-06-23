@@ -3,7 +3,7 @@ import { reservationListApi, type ReservationListItem } from '@/api/reservation/
 
 /**
  * 예약자 리스트 조회 훅. 예약일 범위(from~to)로 서버 조회 (월 또는 주 단위).
- * rows(명단) + kakaoCount(해피톡 카카오, 명단 외)를 반환한다 — 명단 합계 + kakaoCount = 예약 종합.
+ * rows(명단) + kakaoCount(해피톡 카카오, 참고용)를 반환한다 — 명단 합계 = 예약 종합(카카오 미포함).
  * 주차 그룹·진료구분·검색 필터는 페이지에서 클라이언트 사이드로 적용한다.
  * 실 데이터 전용(mock 없음) — RESERVATION 대용량이라 좁은 범위로만 조회한다.
  */
