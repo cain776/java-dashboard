@@ -13,7 +13,8 @@ import java.util.Map;
  * 전체 검사자 리스트 — 시력교정(EXAM) + 백내장(Cataract_Exam) 통합 행 목록.
  *
  * ⚠️ 시력교정(EXAM)은 사람(행) 단위, **백내장(Cataract_Exam)은 눈(안구) 단위**다(팀 결정).
- * EXAM_DATE 기준, 테스트/중복 미제외. 시력교정 검사유입(일반/소개/직장인/학생)은 월별 검사자 종합지표
+ * EXAM_DATE 기준. 시력교정(EXAM)은 리포트(findVisionCorrectionMonthly)와 1:1로 테스트 고객·백내장스텁을
+ * 제외한다(중복은 미제외). 시력교정 검사유입(일반/소개/직장인/학생)은 월별 검사자 종합지표
  * (사람 단위)와 정합하나, **백내장은 눈 단위라 종합지표(사람)와 다르다**(백내장 = 레거시 검사수·예약률의 눈 정의).
  *
  * 산출 필드:
@@ -87,18 +88,34 @@ public class AllExamListRepository {
             FROM (
               SELECT e.CUST_NUM AS cn, e.EXAM_DATE AS d, 0 AS isCat, '' AS eye
               FROM EXAM e WITH(NOLOCK)
+              JOIN CUSTOM cux WITH(NOLOCK) ON e.CUST_NUM = cux.CUST_NUM
               WHERE e.EXAM_DATE >= :from AND e.EXAM_DATE <= :to
+                -- 리포트(findVisionCorrectionMonthly)와 1:1 정합: 테스트 고객 + 백내장스텁(같은날 백내장검사 존재 & EXAM 측정값 전무) 제외
+                AND NOT (ISNULL(cux.CUST_NAME, '') LIKE N'%테스트%' OR LOWER(ISNULL(cux.CUST_NAME, '')) LIKE '%test%')
+                AND NOT (
+                  EXISTS (SELECT 1 FROM Cataract_Exam ce WITH(NOLOCK)
+                          WHERE ce.CUST_NUM = e.CUST_NUM AND ce.EXAM_DATE = e.EXAM_DATE)
+                  AND __EXAM_MEASUREMENTS_BLANK__
+                )
               UNION ALL
               -- 백내장은 눈(안구) 단위: 적절 수술방법(OPERATIONR/L)이 입력된 눈만 좌/우 각각 1행.
-              -- 레거시 백내장 검사수·예약률 분모와 동일 정의(수술방법 미입력 검사자는 제외됨).
+              -- ExaminationStatsRepository.findCataractMonthly(월간레포트 백내장 검사수)와 동일 필터:
+              -- 중단(Stop_YN)·취소(Cancel_CD)·테스트 제외 + 같은 날 백내장검사 예약(RESERVE_FLAG='H') 내원 EXISTS.
               SELECT ce.CUST_NUM AS cn, ce.EXAM_DATE AS d, 1 AS isCat, eye.side AS eye
               FROM Cataract_Exam ce WITH(NOLOCK)
+              JOIN CUSTOM cuc WITH(NOLOCK) ON ce.CUST_NUM = cuc.CUST_NUM
               CROSS APPLY (
                 SELECT 'R' AS side WHERE NULLIF(LTRIM(RTRIM(ISNULL(ce.OPERATIONR, ''))), '') IS NOT NULL
                 UNION ALL
                 SELECT 'L' AS side WHERE NULLIF(LTRIM(RTRIM(ISNULL(ce.OPERATIONL, ''))), '') IS NOT NULL
               ) eye
               WHERE ce.EXAM_DATE >= :from AND ce.EXAM_DATE <= :to
+                AND (ce.Stop_YN IS NULL OR ce.Stop_YN <> 'Y')
+                AND (ce.Cancel_CD IS NULL OR LTRIM(RTRIM(ce.Cancel_CD)) = '')
+                AND NOT (ISNULL(cuc.CUST_NAME, '') LIKE N'%테스트%' OR LOWER(ISNULL(cuc.CUST_NAME, '')) LIKE '%test%')
+                AND EXISTS (SELECT 1 FROM RESERVATION r WITH(NOLOCK)
+                            WHERE r.CUST_NUM = ce.CUST_NUM AND r.RESERVE_DATE = ce.EXAM_DATE
+                              AND r.RESERVE_STATE IN ('I','H') AND r.RESERVE_FLAG = 'H')
             ) src
             LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = src.cn
             OUTER APPLY (
@@ -125,9 +142,30 @@ public class AllExamListRepository {
             OUTER APPLY (SELECT TOP 1 ISNULL(EMP_NAME, '') AS nm FROM EMPLOYEE WITH(NOLOCK) WHERE EMP_NUM = cu.MY_DOCTOR) ed
             OUTER APPLY (SELECT TOP 1 ISNULL(EMP_NAME, '') AS nm FROM EMPLOYEE WITH(NOLOCK) WHERE EMP_NUM = cu.MY_OPTOMETRIST) eo
             ORDER BY src.d, src.isCat, cu.CUST_NAME
-            """;
+            """.replace("__EXAM_MEASUREMENTS_BLANK__", examMeasurementsBlankPredicate("e"));
         return jdbc.queryForList(sql, new MapSqlParameterSource()
                 .addValue("from", from)
                 .addValue("to", to));
+    }
+
+    /**
+     * EXAM 측정값(RIGHT01~30·LEFT01~30)이 모두 비었는지 판정하는 술어.
+     * 백내장스텁(같은 날 Cataract_Exam이 있고 EXAM 측정값은 전무한 행) 제외에 사용 —
+     * ExaminationStatsRepository.findVisionCorrectionMonthly(리포트)와 동일 기준.
+     */
+    private String examMeasurementsBlankPredicate(String alias) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 1; i <= 30; i++) {
+            if (!sb.isEmpty()) {
+                sb.append("\n                  AND ");
+            }
+            String index = String.format("%02d", i);
+            sb.append("NULLIF(LTRIM(RTRIM(ISNULL(")
+                    .append(alias).append(".RIGHT").append(index)
+                    .append(", ''))), '') IS NULL\n                  AND NULLIF(LTRIM(RTRIM(ISNULL(")
+                    .append(alias).append(".LEFT").append(index)
+                    .append(", ''))), '') IS NULL");
+        }
+        return sb.toString();
     }
 }
