@@ -42,16 +42,20 @@ export interface Column {
   align?: 'left' | 'center' | 'right'
   min?: string
   render?: (r: SurgeryListItem, rowNumber: number) => ReactNode
+  /** CSV 출력값(표시 변환이 다른 칼럼만). 미지정 시 r[key] 원값. */
+  csv?: (r: SurgeryListItem, rowNumber: number) => string | number
+  /** CSV에서 Excel 숫자 변환 방지(텍스트 강제) — 차트번호·전화·우편번호. */
+  text?: boolean
 }
 
 export const COLUMNS: Column[] = [
-  { key: 'rowNo', label: 'No', align: 'right', min: '3.5rem', render: (_r, rowNumber) => rowNumber.toLocaleString('ko-KR') },
+  { key: 'rowNo', label: 'No', align: 'right', min: '3.5rem', render: (_r, rowNumber) => rowNumber.toLocaleString('ko-KR'), csv: (_r, rowNumber) => rowNumber },
   { key: 'surgeryDate', label: '수술일', align: 'center', min: '6rem' },
   { key: 'examDate', label: '검사일', align: 'center', min: '6rem' },
   { key: 'surgeryCategory', label: '수술분류', align: 'center', min: '5.5rem', render: (r) => cell.badge(r.surgeryCategory, SURGERY_CATEGORY_STYLE[r.surgeryCategory]) },
   { key: 'patientType', label: '신/구환', align: 'center', min: '4.5rem', render: (r) => cell.badge(r.patientType, PATIENT_TYPE_STYLE[r.patientType]) },
   { key: 'surgeryTime', label: '예약시간', align: 'center', min: '4.5rem', render: (r) => dash(r.surgeryTime) },
-  { key: 'chartNo', label: '차트번호', align: 'center', min: '6rem' },
+  { key: 'chartNo', label: '차트번호', align: 'center', min: '6rem', text: true },
   { key: 'name', label: '고객명', align: 'center', min: '5rem', render: (r) => <span className="font-medium text-gray-900">{r.name}</span> },
   { key: 'nameEng', label: '고객명(영)', align: 'left', min: '7rem' },
   { key: 'surgeryR', label: '수술방법R', align: 'center', min: '7rem', render: (r) => dash(r.surgeryR) },
@@ -69,10 +73,10 @@ export const COLUMNS: Column[] = [
   { key: 'optometrist', label: '검안사', align: 'center', min: '5rem' },
   { key: 'grade', label: '등급', align: 'center', min: '3.5rem', render: (r) => cell.badge(r.grade, GRADE_STYLE[r.grade]) },
   { key: 'birth', label: '생년월일', align: 'center', min: '6rem' },
-  { key: 'age', label: '만나이', align: 'right', min: '3.5rem', render: (r) => calcAge(r.birth) },
+  { key: 'age', label: '만나이', align: 'right', min: '3.5rem', csv: (r) => calcAge(r.birth), render: (r) => calcAge(r.birth) },
   { key: 'lunar', label: '양/음', align: 'center', min: '3.5rem' },
-  { key: 'phone2', label: '휴대전화', align: 'left', min: '8rem' },
-  { key: 'phone1', label: '집전화', align: 'left', min: '7rem' },
+  { key: 'phone2', label: '휴대전화', align: 'left', min: '8rem', text: true },
+  { key: 'phone1', label: '집전화', align: 'left', min: '7rem', text: true },
   { key: 'email', label: '이메일', align: 'left', min: '10rem', render: (r) => cell.truncate(r.email, '11rem') },
   { key: 'route', label: '예약경로', align: 'center', min: '5rem', render: (r) => dash(r.route) },
   { key: 'section', label: '섹션', align: 'center', min: '3.5rem', render: (r) => dash(r.section) },
@@ -83,7 +87,7 @@ export const COLUMNS: Column[] = [
   { key: 'job', label: '직업', align: 'center', min: '6rem' },
   { key: 'nationality', label: '국적', align: 'center', min: '4.5rem' },
   { key: 'insurance', label: '보험사', align: 'center', min: '4.5rem' },
-  { key: 'zip', label: '우편번호', align: 'center', min: '4.5rem' },
+  { key: 'zip', label: '우편번호', align: 'center', min: '4.5rem', text: true },
   { key: 'addr1', label: '주소1', align: 'left', min: '12rem', render: (r) => cell.truncate(r.addr1, '14rem') },
   { key: 'addr2', label: '주소2', align: 'left', min: '8rem', render: (r) => cell.truncate(r.addr2, '9rem') },
   { key: 'lastVisit', label: '최근내원일', align: 'center', min: '6rem' },

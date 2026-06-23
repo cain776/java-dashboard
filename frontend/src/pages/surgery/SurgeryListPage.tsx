@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { ChevronDown, RotateCcw, Search } from 'lucide-react'
+import { ChevronDown, Download, RotateCcw, Search } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { columnsToCsv, downloadCsv } from '@/utils/csv'
 import { useSurgeryList } from '@/hooks/surgery/useSurgeryList'
 import { useWeeklyApproval } from '@/hooks/useWeeklyApproval'
 import { WeeklyApprovalPanel } from '@/components/stats/WeeklyApprovalPanel'
@@ -115,6 +116,11 @@ export function SurgeryListPage() {
     setCurrentPage(1)
     approval.reset()
     setHasSearched(false)
+  }
+
+  // 현재 조회·필터·정렬 결과 전체(페이지 무관)를 CSV로 — 표에 보이는 칼럼/값 그대로.
+  const handleDownloadCsv = () => {
+    downloadCsv(`수술자리스트_${queryFrom}_${queryTo}.csv`, columnsToCsv(COLUMNS, sortedRows))
   }
 
   const handleSort = (key: string) => {
@@ -269,6 +275,17 @@ export function SurgeryListPage() {
           >
             <Search className="h-3.5 w-3.5" />
             조회 (F1)
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={!hasSearched || sortedRows.length === 0}
+            className="bg-emerald-600 text-xs text-white hover:bg-emerald-700"
+            onClick={handleDownloadCsv}
+            title="조회 결과 전체를 CSV로 내려받기"
+          >
+            <Download className="h-3.5 w-3.5" />
+            CSV
           </Button>
         </div>
       </div>

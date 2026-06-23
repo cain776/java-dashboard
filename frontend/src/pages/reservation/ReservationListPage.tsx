@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react'
-import { RotateCcw, Search, Check, Lock, CheckCircle2, ChevronDown, ChevronUp, ChevronsUpDown } from 'lucide-react'
+import { RotateCcw, Search, Check, Lock, CheckCircle2, ChevronDown, ChevronUp, ChevronsUpDown, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { columnsToCsv, downloadCsv, type CsvColumn } from '@/utils/csv'
 import { useReservationList } from '@/hooks/reservation/useReservationList'
 import { weekOf, weeksInRange, shortDate, weekSpillNote, type WeekRef } from '@/utils/weekBucket'
 import type { ReservationListItem } from '@/api/reservation/reservationList'
@@ -79,6 +80,21 @@ const COLUMNS: { label: string; key: SortKey | null }[] = [
   { label: '담당의', key: 'doctor' },
   { label: '상담사', key: 'counselor' },
   { label: '메모', key: 'comment' },
+]
+
+/** CSV 출력 칼럼 — 표 칼럼/순서와 동일. 상태는 코드(Y/I/H/C) 대신 표시 라벨로. */
+const CSV_COLUMNS: CsvColumn<ReservationListItem>[] = [
+  { key: 'rowNo', label: 'No', csv: (_r, n) => n },
+  { key: 'registeredAt', label: '등록일' },
+  { key: 'registeredTime', label: '등록시간' },
+  { key: 'channel', label: '채널' },
+  { key: 'chartNo', label: '차트번호', text: true },
+  { key: 'name', label: '고객명' },
+  { key: 'reserveDate', label: '예약일' },
+  { key: 'reserveState', label: '상태', csv: (r) => STATE_STYLE[r.reserveState.trim()]?.label ?? r.reserveState },
+  { key: 'doctor', label: '담당의' },
+  { key: 'counselor', label: '상담사' },
+  { key: 'comment', label: '메모' },
 ]
 
 interface WeekGroup {
@@ -193,6 +209,11 @@ export function ReservationListPage() {
     setPage(1)
   }
 
+  // 현재 조회·필터·정렬 결과 전체(페이지 무관)를 CSV로 — 표에 보이는 칼럼/값 그대로.
+  const handleDownloadCsv = () => {
+    downloadCsv(`예약자리스트_${queryMonth}.csv`, columnsToCsv(CSV_COLUMNS, sorted))
+  }
+
   // 헤더 클릭: 오름차순 → 내림차순 → 해제 순환. 다른 칼럼 클릭 시 오름차순부터.
   const toggleSort = (key: SortKey) => {
     setSort((prev) => {
@@ -276,6 +297,17 @@ export function ReservationListPage() {
           >
             <Search className="h-3.5 w-3.5" />
             조회
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={!hasSearched || sorted.length === 0}
+            className="bg-emerald-600 text-xs text-white hover:bg-emerald-700"
+            onClick={handleDownloadCsv}
+            title="조회 결과 전체를 CSV로 내려받기"
+          >
+            <Download className="h-3.5 w-3.5" />
+            CSV
           </Button>
         </div>
       </div>
