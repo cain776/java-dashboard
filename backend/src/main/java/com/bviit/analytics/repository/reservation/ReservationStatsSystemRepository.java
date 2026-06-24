@@ -112,7 +112,8 @@ public class ReservationStatsSystemRepository {
                 a.DBCust_num AS PK
               FROM DB_CUSTOM a WITH(NOLOCK)
               WHERE a.assign_date >= :from AND a.assign_date < DATEADD(DAY,1,CONVERT(datetime,:to))
-                AND NOT TM_EMP IN('KC0307','BV1119','BV1207','BV0067')
+                -- 백내장 TM팀 4명 제외(나머지=시력교정 TM). TM_EMP NULL은 4명이 아니므로 포함(NULL NOT IN → unknown 누락 방지).
+                AND (TM_EMP IS NULL OR TM_EMP NOT IN('KC0307','BV1119','BV1207','BV0067'))
             ),
             CH_05 AS (
               SELECT DISTINCT
@@ -141,13 +142,15 @@ public class ReservationStatsSystemRepository {
                 AND R.RESERVE_FLAG = 'M'
                 AND R.RESERVE_JINRYO IN ('','5','6','7')
                 AND RH.MEMO = '예약저장'
-                AND ( C.ETC IS NULL OR NOT (
-                     R.CUST_NAME LIKE '%테스트%' OR R.CUST_NAME LIKE '%TEST%' OR R.COMMENT LIKE '%시뮬레이션%' OR R.COMMENT LIKE '%중복DB%'
-                  OR R.COMMENT LIKE '%중복예약%' OR R.COMMENT LIKE '%차트있음%' OR R.COMMENT LIKE '%재검%'
-                  OR C.ETC LIKE '%홍보실 가상계정%' OR C.ETC LIKE '%가상계정%' OR C.ETC LIKE '%가상데이터%' OR C.ETC LIKE '%시뮬레이션%'
-                  OR C.ETC LIKE '%테스트%' OR C.ETC LIKE '%TEST%' OR C.ETC LIKE '%차트있음%' OR R.RESERVE_SEQ='8' OR R.RESERVE_SEQ='5'
-                  OR R.COMMENT LIKE '%테스트%' OR R.COMMENT LIKE '%TEST%' OR R.COMMENT LIKE '%B2B(군인)%'
-                  OR R.CUST_NUM='8888888888888' ) )
+                -- 제외 마커(테스트/재검/차트있음/가상계정/B2B군인/더미고객). NULL 컬럼은 ISNULL로 ''치환해
+                -- NULL 전파(unknown)로 정상행이 누락되거나 ETC=NULL이라고 마커행이 통과되던 버그를 막는다.
+                AND NOT (
+                     ISNULL(R.CUST_NAME,'') LIKE '%테스트%' OR ISNULL(R.CUST_NAME,'') LIKE '%TEST%' OR ISNULL(R.COMMENT,'') LIKE '%시뮬레이션%' OR ISNULL(R.COMMENT,'') LIKE '%중복DB%'
+                  OR ISNULL(R.COMMENT,'') LIKE '%중복예약%' OR ISNULL(R.COMMENT,'') LIKE '%차트있음%' OR ISNULL(R.COMMENT,'') LIKE '%재검%'
+                  OR ISNULL(C.ETC,'') LIKE '%홍보실 가상계정%' OR ISNULL(C.ETC,'') LIKE '%가상계정%' OR ISNULL(C.ETC,'') LIKE '%가상데이터%' OR ISNULL(C.ETC,'') LIKE '%시뮬레이션%'
+                  OR ISNULL(C.ETC,'') LIKE '%테스트%' OR ISNULL(C.ETC,'') LIKE '%TEST%' OR ISNULL(C.ETC,'') LIKE '%차트있음%' OR R.RESERVE_SEQ='8' OR R.RESERVE_SEQ='5'
+                  OR ISNULL(R.COMMENT,'') LIKE '%테스트%' OR ISNULL(R.COMMENT,'') LIKE '%TEST%' OR ISNULL(R.COMMENT,'') LIKE '%B2B(군인)%'
+                  OR R.CUST_NUM='8888888888888' )
             ),
             -- 네이버 접수: RESERVATION(NAVER 경로) 등록일 카운트(#naver, 1회 스캔). 사용자취소(네이버취소)만 별도 마킹.
             CH_07 AS (
@@ -196,13 +199,15 @@ public class ReservationStatsSystemRepository {
                 AND R.RESERVE_FLAG = 'M'
                 AND R.RESERVE_JINRYO IN ('','5','6','7')
                 AND RH.MEMO = '예약저장'
-                AND ( C.ETC IS NULL OR NOT (
-                     R.CUST_NAME LIKE '%테스트%' OR R.CUST_NAME LIKE '%TEST%' OR R.COMMENT LIKE '%시뮬레이션%' OR R.COMMENT LIKE '%중복DB%'
-                  OR R.COMMENT LIKE '%중복예약%' OR R.COMMENT LIKE '%차트있음%' OR R.COMMENT LIKE '%재검%'
-                  OR C.ETC LIKE '%홍보실 가상계정%' OR C.ETC LIKE '%가상계정%' OR C.ETC LIKE '%가상데이터%' OR C.ETC LIKE '%시뮬레이션%'
-                  OR C.ETC LIKE '%테스트%' OR C.ETC LIKE '%TEST%' OR C.ETC LIKE '%차트있음%' OR R.RESERVE_SEQ='8' OR R.RESERVE_SEQ='5'
-                  OR R.COMMENT LIKE '%테스트%' OR R.COMMENT LIKE '%TEST%' OR R.COMMENT LIKE '%B2B(군인)%'
-                  OR R.CUST_NUM='8888888888888' ) )
+                -- 제외 마커(테스트/재검/차트있음/가상계정/B2B군인/더미고객). NULL 컬럼은 ISNULL로 ''치환해
+                -- NULL 전파(unknown)로 정상행이 누락되거나 ETC=NULL이라고 마커행이 통과되던 버그를 막는다.
+                AND NOT (
+                     ISNULL(R.CUST_NAME,'') LIKE '%테스트%' OR ISNULL(R.CUST_NAME,'') LIKE '%TEST%' OR ISNULL(R.COMMENT,'') LIKE '%시뮬레이션%' OR ISNULL(R.COMMENT,'') LIKE '%중복DB%'
+                  OR ISNULL(R.COMMENT,'') LIKE '%중복예약%' OR ISNULL(R.COMMENT,'') LIKE '%차트있음%' OR ISNULL(R.COMMENT,'') LIKE '%재검%'
+                  OR ISNULL(C.ETC,'') LIKE '%홍보실 가상계정%' OR ISNULL(C.ETC,'') LIKE '%가상계정%' OR ISNULL(C.ETC,'') LIKE '%가상데이터%' OR ISNULL(C.ETC,'') LIKE '%시뮬레이션%'
+                  OR ISNULL(C.ETC,'') LIKE '%테스트%' OR ISNULL(C.ETC,'') LIKE '%TEST%' OR ISNULL(C.ETC,'') LIKE '%차트있음%' OR R.RESERVE_SEQ='8' OR R.RESERVE_SEQ='5'
+                  OR ISNULL(R.COMMENT,'') LIKE '%테스트%' OR ISNULL(R.COMMENT,'') LIKE '%TEST%' OR ISNULL(R.COMMENT,'') LIKE '%B2B(군인)%'
+                  OR R.CUST_NUM='8888888888888' )
             ),
             CH_ALL AS (
               SELECT GB, GB2, PK, [예약날짜] FROM CH_03
@@ -271,6 +276,8 @@ public class ReservationStatsSystemRepository {
                 SUM(CASE WHEN CH.GB='예약부도' THEN 1 ELSE 0 END) AS CH23,
                 SUM(CASE WHEN CH.GB='취소' THEN 1 ELSE 0 END) AS CH24
               FROM R
+              -- PK+예약날짜 조인. 소스 간 PK 충돌(2026-06 검증: 전부 RSV↔HIST=같은 예약의 RESERVE_NUM≡HISTORY_NUM)이
+              -- 있어도 각 CH 행은 자기 GB 컬럼에 1회만 집계되어 합계 불변 → SRC 분리 불필요(검증 완료).
               LEFT JOIN CH_ALL CH ON CH.PK = R.PK AND CH.예약날짜 = R.RESERVE_DATE
               LEFT JOIN CH_01 ON R.RESERVE_DATE = CH_01.예약날짜
               GROUP BY R.RESERVE_DATE
