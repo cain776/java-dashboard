@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { reservationStatsCataractApi } from '@/api/reservation/reservationStatsCataract'
 
 /**
@@ -17,19 +17,31 @@ export function useReservationStatsCataract(from: string, to: string, enabled = 
 }
 
 /**
- * 확정 스냅샷 목록 조회 — "확정됨"·"PDF 고정" 뱃지 표시용.
- * (백내장은 라이브 소스가 없어 확정 저장/호출은 지원하지 않는다 — PDF 스냅샷 JSON으로 채운다.)
+ * 확정 스냅샷 목록 조회 + 호출(증분 채움) 뮤테이션.
+ * 호출은 라이브(mssql)로 D-1까지 비어있는 날짜만 적재 — 성공 시 스냅샷·통계 쿼리 무효화로 즉시 갱신.
  */
 export function useReservationStatsCataractSnapshots() {
+  const qc = useQueryClient()
+
   const { data: snapshots = [] } = useQuery({
     queryKey: ['reservation-stats-cataract-snapshots'],
     queryFn: () => reservationStatsCataractApi.getSnapshots(),
   })
 
+  const fill = useMutation({
+    mutationFn: (period: string) => reservationStatsCataractApi.fillSnapshot(period),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reservation-stats-cataract-snapshots'] })
+      qc.invalidateQueries({ queryKey: ['reservation-stats-cataract'] })
+    },
+  })
+
   return {
     snapshots,
     isConfirmed: (period: string) => snapshots.some((s) => s.period === period),
-    /** PDF 고정 스냅샷 — 재확정(덮어쓰기) 금지. */
+    /** PDF 고정 스냅샷 — 재확정(덮어쓰기)·호출 금지. */
     isLocked: (period: string) => snapshots.some((s) => s.period === period && s.locked),
+    fillSnapshot: fill.mutateAsync,
+    isFilling: fill.isPending,
   }
 }

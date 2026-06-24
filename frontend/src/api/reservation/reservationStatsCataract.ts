@@ -54,4 +54,9 @@ export const reservationStatsCataractApi = {
     const res = await api.get<unknown>('/stats/reservation-stats-cataract/snapshots')
     return snapshotsSchema.parse(res).data
   },
+
+  /** 호출(증분 채움): 해당 월을 D-1까지 라이브 조회해 비어있는 날짜만 채운다(있으면 보존). */
+  fillSnapshot: async (period: string): Promise<void> => {
+    await api.post<unknown>(withQuery('/stats/reservation-stats-cataract/fill', { period }), {})
+  },
 }
