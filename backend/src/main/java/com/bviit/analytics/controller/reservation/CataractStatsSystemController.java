@@ -10,6 +10,7 @@ import com.bviit.analytics.service.reservation.CataractStatsDiagnosticDiffServic
 import com.bviit.analytics.service.reservation.CataractStatsSnapshotStore;
 import com.bviit.analytics.service.reservation.CataractStatsSystemService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -27,6 +28,7 @@ import java.util.Optional;
  * 예약통계_백내장 API (백내장=RESERVE_FLAG='H').
  *
  *   GET  /api/stats/reservation-stats-cataract?from&to              확정 스냅샷 우선, 없으면 라이브 집계.
+ *        조회=호출 통합: 당월·미잠금이고 오늘 아직 안 채웠으면 D-1까지 1회 증분 채움(있으면 보존) 후 반환.
  *   POST /api/stats/reservation-stats-cataract/snapshot?period      해당 월 1회 조회해 확정 저장(월 전체 덮어쓰기).
  *   POST /api/stats/reservation-stats-cataract/fill?period          호출(증분 채움) — D-1까지 비어있는 날짜만 적재.
  *   GET  /api/stats/reservation-stats-cataract/snapshots            확정된 월 목록.
@@ -37,6 +39,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/stats/reservation-stats-cataract")
 @RequiredArgsConstructor
+@Slf4j
 public class CataractStatsSystemController {
 
     private static final int MAX_RANGE_DAYS = 92;
@@ -48,10 +51,20 @@ public class CataractStatsSystemController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<CataractStatsDailyRow>>> getDailyCounts(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            Authentication authentication
     ) {
         StatsRequestValidator.validateDateRange(from, to, MAX_RANGE_DAYS);
         String period = from.toString().substring(0, 7);
+
+        // 조회=호출 통합: 당월·미잠금이고 오늘 아직 안 채웠으면 D-1까지 1회 증분 채움(있으면 보존).
+        if (service.isPresent() && needsAutoFill(period)) {
+            try {
+                service.get().fillSnapshot(period, authentication != null ? authentication.getName() : "auto");
+            } catch (RuntimeException e) {
+                log.warn("조회 중 자동 채움 실패(기존 데이터로 계속): period={}, err={}", period, e.getMessage());
+            }
+        }
 
         Optional<CataractStatsSnapshot> snapshot = snapshotStore.find(period);
         if (snapshot.isPresent()) {
@@ -65,6 +78,18 @@ public class CataractStatsSystemController {
         return service
                 .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.getDailyCounts(from.toString(), to.toString()))))
                 .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("확정 스냅샷·라이브 소스(MSSQL)가 없습니다.")));
+    }
+
+    /** 조회 시 자동 채움 필요 여부 — 당월·미잠금이고 오늘 아직 안 채운 경우만(하루 1회). */
+    private boolean needsAutoFill(String period) {
+        LocalDate today = LocalDate.now();
+        if (!period.equals(today.toString().substring(0, 7))) return false; // 당월만
+        if (snapshotStore.isLocked(period)) return false;                   // PDF 고정월 제외
+        Optional<CataractStatsSnapshot> snap = snapshotStore.find(period);
+        if (snap.isEmpty()) return true;                                    // 스냅샷 없으면 채움
+        String confirmedAt = snap.get().confirmedAt();
+        String confirmedDate = confirmedAt != null && confirmedAt.length() >= 10 ? confirmedAt.substring(0, 10) : "";
+        return confirmedDate.compareTo(today.toString()) < 0;               // 오늘 안 채웠으면 채움
     }
 
     @PostMapping("/snapshot")
