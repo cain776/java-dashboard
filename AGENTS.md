@@ -9,7 +9,7 @@
 - **상태관리**: Zustand (인증) + TanStack Query (서버 상태)
 - **라우팅**: TanStack Router
 - **폼**: react-hook-form + Zod
-- **DB**: H2 (개발, 기본) / PostgreSQL (운영, `application-postgres.properties`)
+- **DB**: H2 (개발, 기본) / PostgreSQL (`application-postgres.properties`) / MSSQL 통계 운영 연동 (`application-mssql.properties`)
 - **인증**: Spring Security + JWT (jjwt, HMAC-SHA256)
 - **모킹**: MSW (`VITE_USE_MSW=true`일 때만 opt-in)
 - **언어**: 한국어 UI
@@ -61,8 +61,8 @@ project-root/
 │   │   ├── pages/
 │   │   │   ├── LoginPage.tsx            # 로그인 (react-hook-form + Zod)
 │   │   │   ├── DashboardPage.tsx        # 메인 대시보드 (KPI 카드 + 차트, 목업 데이터)
-│   │   │   ├── ReservationPage.tsx      # 예약 비교 (월별/연도별 토글, 목업 데이터)
-│   │   │   └── StatsPlaceholderPage.tsx # 미구현 통계 페이지 템플릿
+│   │   │   ├── ReservationPage.tsx      # 예약 비교 (TanStack Query API 연동)
+│   │   │   └── StatsPlaceholderPage.tsx # 미구현/보류 통계 페이지 템플릿
 │   │   ├── stores/
 │   │   │   └── authStore.ts             # Zustand 인증 (token + user, localStorage 연동)
 │   │   ├── mocks/
@@ -88,19 +88,23 @@ project-root/
 - JWT 기반 로그인/인증 (백엔드 + 프론트)
 - 메인 대시보드 레이아웃 (Sidebar + Topbar + Content)
 - DashboardPage (KPI 카드 4개 + 차트 5개, 하드코딩 목업)
-- ReservationPage (월별/연도별 비교, 하드코딩 목업)
+- ReservationPage (월별/연도별 비교, TanStack Query API 연동)
+- 예약통계_시력교정 / 예약통계_백내장 (스냅샷 우선 + MSSQL 라이브 집계)
+- 예약자 리스트 및 주요 예약/검사/상담/수술 통계 API 일부
 - 인증 라우트 가드 (미인증 시 /login 리다이렉트)
 - MSW opt-in 개발 목킹 (`VITE_USE_MSW=true`)
 
 ### 미구현 (플레이스홀더)
 
-9개 통계 페이지 + 백엔드 통계 API 전체
+일부 통계 페이지와 고급 진단/diff 기능. 전체 페이지 목록의 기준은 `frontend/src/config/statsPages.ts`.
 
-## 통계 페이지 목록
+## 대표 통계 페이지 목록
+
+실제 전체 목록과 라우팅 기준은 `frontend/src/config/statsPages.ts`와 `frontend/src/pages/pageRegistry.ts`를 우선한다.
 
 | ID | 이름 | 경로 | 섹션 | 상태 |
 |----|------|------|------|------|
-| reservation | 예약 건수 | /stats/reservation | 유입 | 구현됨 (목업) |
+| reservation | 예약 건수 | /stats/reservation | 유입 | 구현됨 (API 연동) |
 | examination | 검사 건수 | /stats/examination | 유입 | 플레이스홀더 |
 | consultation-rate | 상담 전환율 | /stats/consultation-rate | 상담 | 플레이스홀더 |
 | surgery | 수술 건수 | /stats/surgery | 수술 | 플레이스홀더 |
@@ -278,5 +282,5 @@ cd frontend && npm run test              # Vitest
 - **새 차트**: Recharts 기반, shadcn `ChartContainer` 사용, `CHART_PALETTE` 색상 적용
 - **새 UI 컴포넌트**: `npx shadcn@latest add <name>` (설정: `components.json`)
 - **API 연동**: `api/client.ts` HTTP 클라이언트 사용, TanStack Query `useQuery`로 캐싱
-- **DashboardPage/ReservationPage 데이터는 하드코딩 목업** — API 연동 시 교체 필요
+- **DashboardPage 데이터는 하드코딩 목업**이며, `ReservationPage`는 API 연동 상태다.
 - **MSW 핸들러**: 새 API 개발 전 `mocks/handlers.ts`에 목 추가하면 프론트 선행 개발 가능

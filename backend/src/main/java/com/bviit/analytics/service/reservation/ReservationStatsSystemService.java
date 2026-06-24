@@ -50,8 +50,8 @@ public class ReservationStatsSystemService {
         if (to.isBefore(first)) to = first;
 
         LocalDate snapshotTo = to;
+        List<ReservationStatsDailyRow> days = repository.findDailyCounts(first.toString(), snapshotTo.toString());
         return periodLock.withPeriodLock(period, () -> {
-            List<ReservationStatsDailyRow> days = repository.findDailyCounts(first.toString(), snapshotTo.toString());
             // 라이브로 저장한 스냅샷은 고정(locked) 아님 — 언제든 재확정 가능.
             ReservationStatsSnapshot snapshot =
                     new ReservationStatsSnapshot(period, LocalDateTime.now().toString(), by, false, days);
@@ -77,6 +77,8 @@ public class ReservationStatsSystemService {
         if (to.isBefore(first)) to = first;
 
         LocalDate snapshotTo = to;
+        // 라이브 조회는 무거울 수 있으므로 period lock 밖에서 끝내고, 파일 read/merge/save만 잠근다.
+        List<ReservationStatsDailyRow> fetched = repository.findDailyCounts(first.toString(), snapshotTo.toString());
         return periodLock.withPeriodLock(period, () -> {
             // 기존 스냅샷의 날짜는 보존(머지 기준).
             Optional<ReservationStatsSnapshot> existing = snapshotStore.find(period);
@@ -84,7 +86,6 @@ public class ReservationStatsSystemService {
             existing.ifPresent(s -> s.days().forEach(d -> byDate.put(d.date(), d)));
 
             // D-1까지 라이브 조회 후 "없는 날짜만" 채운다(있으면 보존).
-            List<ReservationStatsDailyRow> fetched = repository.findDailyCounts(first.toString(), snapshotTo.toString());
             for (ReservationStatsDailyRow d : fetched) {
                 byDate.putIfAbsent(d.date(), d);
             }

@@ -66,7 +66,7 @@
 - 컬럼 정의, 시드 데이터, 공식, row builder, CSV가 한 파일에 섞여 있다.
 - 화면 컴포넌트가 테이블, 상태, 이벤트, 데이터 변환을 함께 처리한다.
 - 일부 `colSpan`과 UI 수치가 하드코딩되어 있다.
-- 구 시드 상수/함수(`CHANNEL_ROWS`·`SUMMARY_ROWS`·`SEED_WEEKLY`·`getDisplayRows` 등)가 아직 파일에 남아 있다(dead code, 폴백 제거로 미사용·트리셰이킹 제외) → shared core 추출 때 정리 필요.
+- 구 시드 상수/함수(`CHANNEL_ROWS`·`SUMMARY_ROWS`·`SEED_WEEKLY`·`getDisplayRows` 등)는 제거 완료. 남은 정리는 공식/row builder/CSV 계층 분리다.
 - 데이터 출처(스냅샷/라이브/PDF 고정)는 응답에 미포함 — 단, 출처 구분 표시는 §6 결정으로 **보류**(미연결 표시만 유지)이므로 이번 범위 밖이다.
 
 ### 백엔드
@@ -119,15 +119,17 @@
 
 **본 계획 작성 후 추가로 반영된 것**(재구현 금지 — "테스트 추가" 대상으로만):
 
-- **시드 폴백 제거**(commit c30e36c): 미연결/503 시 시드 미표시·‘미연결’ 안내만(잘못된 수치 방지). 시드 상수는 dead code(트리셰이킹 제외). `new Date()` 모듈 상단 고정 해제(periodRange/currentMonth가 매 호출 평가). 시력교정 2026-06 스냅샷 git 추적(gitignore 예외).
+- **시드 폴백 제거**(commit c30e36c): 미연결/503 시 시드 미표시·‘미연결’ 안내만(잘못된 수치 방지). `new Date()` 모듈 상단 고정 해제(periodRange/currentMonth가 매 호출 평가). 시력교정 2026-06 스냅샷 git 추적(gitignore 예외).
 - **시력교정 RSS 제외필터·TM_EMP NULL 정정**(commit 3ab17bc — §2 비범위의 처리 완료 항목 참조).
 - **백내장 예약통계 캘리브레이션**(commit c1cf057·04f31a7): 내원 = `Cataract_Exam` ∩ 같은날 백내장(FLAG='H' I/H) 예약(협진/타과 의뢰 제외) · 부도/취소 = 수술당일(`JINRYO='13'`) 슬롯 제외 · 아웃바운드 TM 라이브(`DB_CUSTOM` TM팀 4명) · 예약 종합 **총예약건 = 내원+부도+취소**.
 - **월 단위 lock 적용**(이번 작업): `saveSnapshot`/`fillSnapshot`의 read-merge-save 경합을 period별 lock으로 보호하고 동시성 테스트를 추가.
 - **골든마스터 테스트 구축**(이번 작업): locked 스냅샷(시력교정·백내장 2026-01~05)을 입력으로 DisplayRow/CSV 스냅샷 테스트 추가. 2026-06은 `locked: false`라 제외.
-- **프론트 shared core 1차 추출**(이번 작업): 조회 단위 타입, 월 라벨, 요일, 주차, 분배, 퍼센트 계산 공통 유틸을 `shared/reservationStatsCore.ts`로 이동. 도메인별 공식(`computeChannelRow`, 네이버 clamp, 백내장 총예약)은 그대로 보존.
+- **프론트 shared core 1차 추출**(이번 작업): 조회 단위 타입, 월 라벨, 요일, 주차, 퍼센트 계산, count 합산 공통 유틸을 `shared/reservationStatsCore.ts`로 이동. 도메인별 공식(`computeChannelRow`, 네이버 clamp, 백내장 총예약)은 그대로 보존.
 - **테이블 colSpan 1차 자동화**(이번 작업): 수동 `colSpan` 숫자를 컬럼 그룹 길이 기반으로 치환하고 `shared/reservationStatsTable.ts` 단위 테스트 추가. 헤더 메타 전체 데이터화는 다음 단계.
+- **스냅샷 lock 개선**(이번 작업): period lock map 엔트리를 사용 후 회수하고, 무거운 라이브 조회는 lock 밖으로 이동. 파일 read/merge/save는 계속 lock 안에서 보호.
+- **시드 dead code 제거**(이번 작업): 시드 폴백 제거 후 미사용이던 `CHANNEL_ROWS`/`SEED_WEEKLY`/구 `getDisplayRows` 경로와 stale export 제거.
 
-아직 남은 것(계획대로 진행): row builder/CSV/formulas 추가 공통화, 헤더 메타 전체 데이터화, SQL 파일 분리, 진단/diff, 시드 dead code 정리. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~colSpan 1차~~·~~source/메타 응답~~은 각각 완료/완료/완료/완료/완료/보류 — 위·§6 참조.)
+아직 남은 것(계획대로 진행): row builder/CSV/formulas 추가 공통화, 헤더 메타 전체 데이터화, SQL 파일 분리, 진단/diff. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~lock map 회수~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~colSpan 1차~~·~~시드 dead code 정리~~·~~source/메타 응답~~은 각각 완료/완료/완료/완료/완료/완료/완료/보류 — 위·§6 참조.)
 
 ## 4. 코드 품질 원칙
 

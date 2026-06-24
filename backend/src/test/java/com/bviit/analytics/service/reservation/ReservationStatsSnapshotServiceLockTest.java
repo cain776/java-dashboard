@@ -54,10 +54,12 @@ class ReservationStatsSnapshotServiceLockTest {
                 new ReservationStatsPeriodLock()
         );
         AtomicInteger findCalls = new AtomicInteger();
+        AtomicInteger repositoryCalls = new AtomicInteger();
         AtomicBoolean firstSaveFinished = new AtomicBoolean(false);
         AtomicBoolean secondFindBeforeFirstSave = new AtomicBoolean(false);
         CountDownLatch firstFindEntered = new CountDownLatch(1);
         CountDownLatch releaseFirstFind = new CountDownLatch(1);
+        CountDownLatch secondRepositoryEntered = new CountDownLatch(1);
 
         when(reservationSnapshotStore.find(period)).thenAnswer(invocation -> {
             int call = findCalls.incrementAndGet();
@@ -70,7 +72,12 @@ class ReservationStatsSnapshotServiceLockTest {
             return Optional.empty();
         });
         when(reservationRepository.findDailyCounts(anyString(), anyString()))
-                .thenAnswer(invocation -> List.of(reservationRow(invocation.getArgument(0))));
+                .thenAnswer(invocation -> {
+                    if (repositoryCalls.incrementAndGet() == 2) {
+                        secondRepositoryEntered.countDown();
+                    }
+                    return List.of(reservationRow(invocation.getArgument(0)));
+                });
         doAnswer(invocation -> {
             firstSaveFinished.compareAndSet(false, true);
             return null;
@@ -87,6 +94,8 @@ class ReservationStatsSnapshotServiceLockTest {
                 return service.fillSnapshot(period, "worker-2");
             });
             assertThat(secondTaskStarted.await(1, TimeUnit.SECONDS)).isTrue();
+            assertThat(secondRepositoryEntered.await(1, TimeUnit.SECONDS)).isTrue();
+            assertThat(repositoryCalls).hasValue(2);
             assertThat(findCalls.get()).isEqualTo(1);
 
             releaseFirstFind.countDown();
@@ -111,27 +120,32 @@ class ReservationStatsSnapshotServiceLockTest {
                 new ReservationStatsPeriodLock()
         );
         AtomicInteger repositoryCalls = new AtomicInteger();
-        AtomicBoolean firstSaveFinished = new AtomicBoolean(false);
+        AtomicInteger saveCalls = new AtomicInteger();
+        AtomicBoolean saveStoreFinished = new AtomicBoolean(false);
         AtomicBoolean fillReadBeforeSaveFinished = new AtomicBoolean(false);
-        CountDownLatch saveRepositoryEntered = new CountDownLatch(1);
-        CountDownLatch releaseSaveRepository = new CountDownLatch(1);
+        CountDownLatch saveStoreEntered = new CountDownLatch(1);
+        CountDownLatch releaseSaveStore = new CountDownLatch(1);
+        CountDownLatch fillRepositoryEntered = new CountDownLatch(1);
 
         when(reservationRepository.findDailyCounts(anyString(), anyString())).thenAnswer(invocation -> {
             int call = repositoryCalls.incrementAndGet();
-            if (call == 1) {
-                saveRepositoryEntered.countDown();
-                await(releaseSaveRepository);
+            if (call == 2) {
+                fillRepositoryEntered.countDown();
             }
             return List.of(reservationRow(invocation.getArgument(0)));
         });
         when(reservationSnapshotStore.find(period)).thenAnswer(invocation -> {
-            if (!firstSaveFinished.get()) {
+            if (!saveStoreFinished.get()) {
                 fillReadBeforeSaveFinished.set(true);
             }
             return Optional.empty();
         });
         doAnswer(invocation -> {
-            firstSaveFinished.compareAndSet(false, true);
+            if (saveCalls.incrementAndGet() == 1) {
+                saveStoreEntered.countDown();
+                await(releaseSaveStore);
+                saveStoreFinished.set(true);
+            }
             return null;
         }).when(reservationSnapshotStore).save(any(ReservationStatsSnapshot.class));
 
@@ -139,16 +153,18 @@ class ReservationStatsSnapshotServiceLockTest {
         CountDownLatch fillTaskStarted = new CountDownLatch(1);
         try {
             Future<ReservationStatsSnapshot> save = executor.submit(() -> service.saveSnapshot(period, "save-worker"));
-            assertThat(saveRepositoryEntered.await(1, TimeUnit.SECONDS)).isTrue();
+            assertThat(saveStoreEntered.await(1, TimeUnit.SECONDS)).isTrue();
 
             Future<ReservationStatsSnapshot> fill = executor.submit(() -> {
                 fillTaskStarted.countDown();
                 return service.fillSnapshot(period, "fill-worker");
             });
             assertThat(fillTaskStarted.await(1, TimeUnit.SECONDS)).isTrue();
-            assertThat(repositoryCalls).hasValue(1);
+            assertThat(fillRepositoryEntered.await(1, TimeUnit.SECONDS)).isTrue();
+            assertThat(repositoryCalls).hasValue(2);
+            assertThat(fillReadBeforeSaveFinished.get()).isFalse();
 
-            releaseSaveRepository.countDown();
+            releaseSaveStore.countDown();
 
             save.get(2, TimeUnit.SECONDS);
             fill.get(2, TimeUnit.SECONDS);
@@ -158,6 +174,7 @@ class ReservationStatsSnapshotServiceLockTest {
 
         assertThat(fillReadBeforeSaveFinished.get()).isFalse();
         assertThat(repositoryCalls).hasValue(2);
+        assertThat(saveCalls).hasValue(2);
     }
 
     @Test
@@ -169,10 +186,12 @@ class ReservationStatsSnapshotServiceLockTest {
                 new ReservationStatsPeriodLock()
         );
         AtomicInteger findCalls = new AtomicInteger();
+        AtomicInteger repositoryCalls = new AtomicInteger();
         AtomicBoolean firstSaveFinished = new AtomicBoolean(false);
         AtomicBoolean secondFindBeforeFirstSave = new AtomicBoolean(false);
         CountDownLatch firstFindEntered = new CountDownLatch(1);
         CountDownLatch releaseFirstFind = new CountDownLatch(1);
+        CountDownLatch secondRepositoryEntered = new CountDownLatch(1);
 
         when(cataractSnapshotStore.find(period)).thenAnswer(invocation -> {
             int call = findCalls.incrementAndGet();
@@ -185,7 +204,12 @@ class ReservationStatsSnapshotServiceLockTest {
             return Optional.empty();
         });
         when(cataractRepository.findDailyCounts(anyString(), anyString()))
-                .thenAnswer(invocation -> List.of(cataractRow(invocation.getArgument(0))));
+                .thenAnswer(invocation -> {
+                    if (repositoryCalls.incrementAndGet() == 2) {
+                        secondRepositoryEntered.countDown();
+                    }
+                    return List.of(cataractRow(invocation.getArgument(0)));
+                });
         doAnswer(invocation -> {
             firstSaveFinished.compareAndSet(false, true);
             return null;
@@ -202,6 +226,8 @@ class ReservationStatsSnapshotServiceLockTest {
                 return service.fillSnapshot(period, "worker-2");
             });
             assertThat(secondTaskStarted.await(1, TimeUnit.SECONDS)).isTrue();
+            assertThat(secondRepositoryEntered.await(1, TimeUnit.SECONDS)).isTrue();
+            assertThat(repositoryCalls).hasValue(2);
             assertThat(findCalls).hasValue(1);
 
             releaseFirstFind.countDown();
