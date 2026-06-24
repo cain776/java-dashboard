@@ -18,7 +18,7 @@ import java.util.List;
  *   - 온라인예약: RESERVATION(FLAG='H') + RESERVE_HISTORY(예약저장) RESERVE_PATH 온라인/네이버
  *   - 아웃바운드 TM: DB_CUSTOM(TM팀 4명 KC0307·BV1119·BV1207·BV0067 = 시력교정이 제외하던 직원, B2B 군 제외) — PDF값과 일치
  *   - 총예약(백내장): 채널 예약 합(콜 ★신환 + TM 예약 + 카톡 검사예약 + 온라인예약) — PDF 정의와 일치(캘리브레이션)
- *   - 내원(종합): Cataract_Exam(실제 검사기록, EXAM_DATE, 중단 제외) — PDF '내원' 정의와 일치(캘리브레이션)
+ *   - 내원(종합): Cataract_Exam(실제 검사기록, EXAM_DATE, 중단 제외) 중 같은 날 백내장 예약(FLAG='H' I/H) 보유분 — 협진/타과 의뢰 제외, PDF '내원'과 일치
  *   - 부도/취소(종합)·취소(온라인/CRM): RESERVATION(FLAG='H') 예약일 기준
  *
  * 데이터 미보유로 0 고정인 칸: inboundCall·answeredCall(EICN 백내장 큐 미확인), totalPresbyopia(노안 구분자 부재).
@@ -100,15 +100,20 @@ public class CataractStatsSystemRepository {
                 R.RESERVE_DATE AS [예약날짜], CONVERT(VARCHAR(100), R.RESERVE_NUM) AS PK
               FROM RESERVATION R WITH(NOLOCK) INNER JOIN RESERVE_HISTORY RH WITH(NOLOCK) ON R.RESERVE_NUM = RH.RESERVE_NUM
               WHERE R.RESERVE_DATE >= :from AND R.RESERVE_DATE < DATEADD(DAY,1,CONVERT(datetime,:to))
-                AND R.RESERVE_FLAG='H' AND R.RESERVE_JINRYO<>'16' AND RH.MEMO='예약저장'
+                AND R.RESERVE_FLAG='H' AND R.RESERVE_JINRYO NOT IN ('16','13') AND RH.MEMO='예약저장'
+                -- 수술당일(JINRYO='13') 슬롯은 검사 예약 funnel이 아니므로 부도/취소 집계에서 제외
                 AND R.CUST_NUM<>'8888888888888' AND NOT (R.CUST_NAME LIKE '%테스트%' OR R.CUST_NAME LIKE '%TEST%')
             ),
-            -- 내원: 실제 백내장 검사기록(Cataract_Exam, EXAM_DATE 기준, 중단 제외) — PDF '내원' 정의와 일치(RESERVATION STATE보다 정확).
+            -- 내원: 실제 백내장 검사기록(Cataract_Exam, EXAM_DATE, 중단 제외) 중 같은 날 백내장 예약(FLAG='H' 내원 I/H) 보유분만.
+            --       백내장 예약 없이 기록된 협진/타과 의뢰 검사는 제외(PDF '내원' 정의와 일치, RESERVATION STATE보다 정확).
             CH_EXAM AS (
               SELECT DISTINCT '백내장_내원' AS GB, '' AS GB2, e.EXAM_DATE AS [예약날짜],
                      CONVERT(VARCHAR(100), e.CUST_NUM) + '_' + CONVERT(VARCHAR(20), e.SEQ) AS PK
               FROM Cataract_Exam e WITH(NOLOCK)
               WHERE e.EXAM_DATE >= :from AND e.EXAM_DATE <= :to AND ISNULL(e.Stop_YN,'') <> 'Y'
+                AND EXISTS (SELECT 1 FROM RESERVATION r WITH(NOLOCK)
+                            WHERE LTRIM(RTRIM(r.CUST_NUM)) = LTRIM(RTRIM(e.CUST_NUM))
+                              AND r.RESERVE_DATE = e.EXAM_DATE AND r.RESERVE_FLAG='H' AND r.RESERVE_STATE IN ('I','H'))
             ),
             -- 아웃바운드 TM: DB_CUSTOM(백내장 TM팀 4명 = 시력교정이 제외하던 직원, B2B 군 제외). TM_Gubun 단계: 1000=예약·2000=유효DB.
             CH_TM AS (
@@ -138,6 +143,9 @@ public class CataractStatsSystemRepository {
                WHERE RESERVE_DATE >= :from AND RESERVE_DATE < DATEADD(DAY,1,CONVERT(datetime,:to))
               UNION SELECT e.EXAM_DATE, CONVERT(VARCHAR(100), e.CUST_NUM) + '_' + CONVERT(VARCHAR(20), e.SEQ) FROM Cataract_Exam e WITH(NOLOCK)
                WHERE e.EXAM_DATE >= :from AND e.EXAM_DATE <= :to AND ISNULL(e.Stop_YN,'') <> 'Y'
+                 AND EXISTS (SELECT 1 FROM RESERVATION r WITH(NOLOCK)
+                             WHERE LTRIM(RTRIM(r.CUST_NUM)) = LTRIM(RTRIM(e.CUST_NUM))
+                               AND r.RESERVE_DATE = e.EXAM_DATE AND r.RESERVE_FLAG='H' AND r.RESERVE_STATE IN ('I','H'))
               UNION SELECT CONVERT(VARCHAR(10), assign_date, 23), CONVERT(VARCHAR(100), DBCust_num) FROM DB_CUSTOM WITH(NOLOCK)
                WHERE assign_date >= :from AND assign_date < DATEADD(DAY,1,CONVERT(datetime,:to))
                  AND TM_EMP IN ('KC0307','BV1119','BV1207','BV0067') AND ISNULL(Gubun,'') NOT LIKE 'B2B%'

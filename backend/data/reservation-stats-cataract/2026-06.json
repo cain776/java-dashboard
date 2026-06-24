@@ -527,10 +527,10 @@
     "onlineReservation" : 0,
     "onlineNoShow" : 0,
     "cancelOnline" : 0,
-    "cancelCrm" : 1,
+    "cancelCrm" : 0,
     "cancelKakao" : 0,
-    "visit" : 10,
+    "visit" : 9,
     "noShowReservation" : 0,
-    "cancel" : 1
+    "cancel" : 0
   } ]
 }

@@ -40,6 +40,9 @@ public class ReservationStatsSystemService {
     @Transactional(readOnly = true)
     public ReservationStatsSnapshot saveSnapshot(String period, String by) {
         LocalDate first = LocalDate.parse(period + "-01");
+        if (first.isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("미래 월은 스냅샷을 저장할 수 없습니다: " + period);
+        }
         LocalDate monthEnd = first.withDayOfMonth(first.lengthOfMonth());
         LocalDate yesterday = LocalDate.now().minusDays(1);
         LocalDate to = monthEnd.isBefore(yesterday) ? monthEnd : yesterday;
@@ -61,6 +64,9 @@ public class ReservationStatsSystemService {
     @Transactional(readOnly = true)
     public ReservationStatsSnapshot fillSnapshot(String period, String by) {
         LocalDate first = LocalDate.parse(period + "-01");
+        if (first.isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("미래 월은 호출(채움)할 수 없습니다: " + period);
+        }
         LocalDate monthEnd = first.withDayOfMonth(first.lengthOfMonth());
         LocalDate yesterday = LocalDate.now().minusDays(1);
         LocalDate to = monthEnd.isBefore(yesterday) ? monthEnd : yesterday;

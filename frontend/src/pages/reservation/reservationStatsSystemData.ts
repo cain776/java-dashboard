@@ -1,10 +1,11 @@
 /**
- * 예약통계시스템 — 월간 채널별 예약 현황 시드 데이터.
+ * 예약통계시스템 — 월간 채널별 예약 현황 집계/표시 로직.
  *
  * 콜(검사 인입콜·TM) / 온라인(홈페이지·네이버) / 채팅(카카오톡) / 취소 채널을 주차(週) 단위로
- * 분해한 회의자료용 종합표. 채널 원천이 CTI·콜센터(MySQL)·네이버·홈페이지로 흩어져 있어
- * MSSQL 단독 라이브 집계가 불가하므로, 우선 2026-03 대표 수치를 시드로 고정해 화면을 구성한다.
+ * 분해한 회의자료용 종합표. 운영 라이브(getDisplayRowsFromCounts) 또는 확정 스냅샷으로 표시한다.
  * (퍼센트 값은 원본 산출식이 시점·분모가 달라 일부 100% 초과가 존재 — 원자료를 그대로 표기한다.)
+ *
+ * ※ CHANNEL_ROWS·SUMMARY_ROWS·getDisplayRows는 구(舊) 시드/폴백 코드 — 시드 폴백 제거(2026-06)로 현재 미사용.
  */
 
 import { toCsv } from '@/utils/csv'
@@ -316,8 +317,8 @@ const buildDailyRows = (period: string): DisplayRow[] => {
 
   const now = new Date()
   const isCurrentMonth = now.getFullYear() === year && now.getMonth() + 1 === month
-  // 진행 중인 달은 전일까지만(오늘 데이터는 미집계). 지난 달은 말일까지.
-  const lastDay = isCurrentMonth ? Math.min(daysInMonth, now.getDate() - 1) : daysInMonth
+  // 진행 중인 달은 전일까지만(오늘 데이터는 미집계). 지난 달은 말일까지. 1일엔 최소 1로 보정(빈 화면 방지).
+  const lastDay = isCurrentMonth ? Math.max(1, Math.min(daysInMonth, now.getDate() - 1)) : daysInMonth
 
   const firstWeekday = new Date(year, month - 1, 1).getDay() // 0=일
   const weekOf = (day: number) => Math.floor((day - 1 + firstWeekday) / 7) // 0-based 캘린더 주

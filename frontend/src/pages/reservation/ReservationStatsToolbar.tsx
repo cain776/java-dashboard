@@ -43,7 +43,10 @@ export function ReservationStatsToolbar({
   const year = Number(draftMonth.slice(0, 4))
   const month = Number(draftMonth.slice(5, 7))
   const currentYear = Number(maxMonth.slice(0, 4))
+  const maxMonthNum = Number(maxMonth.slice(5, 7))
   const yearOptions = [currentYear - 2, currentYear - 1, currentYear].map((y) => ({ value: y, label: `${y}년` }))
+  // 현재 연도에선 이번 달(maxMonth)까지만 선택 가능 — 미래 월 차단.
+  const monthOptions = year >= currentYear ? MONTH_OPTIONS.filter((o) => o.value <= maxMonthNum) : MONTH_OPTIONS
 
   const setYear = (y: number) => onDraftMonthChange(`${y}-${pad2(month)}`)
   const setMonth = (m: number) => onDraftMonthChange(`${year}-${pad2(m)}`)
@@ -53,7 +56,7 @@ export function ReservationStatsToolbar({
       <div className="flex items-center gap-1.5">
         <span className="text-muted-foreground">기준 월</span>
         <Select value={year} onChange={setYear} title="년 선택" options={yearOptions} />
-        <Select value={month} onChange={setMonth} title="월 선택" options={MONTH_OPTIONS} />
+        <Select value={month} onChange={setMonth} title="월 선택" options={monthOptions} />
       </div>
 
       <div className="flex h-8 gap-1 rounded-md bg-gray-100 p-1">

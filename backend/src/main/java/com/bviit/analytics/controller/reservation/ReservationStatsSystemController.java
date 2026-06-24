@@ -19,7 +19,6 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
-import java.util.regex.Pattern;
 
 /**
  * 예약통계시스템(BCRM RSS 컨택통계) API.
@@ -36,7 +35,6 @@ import java.util.regex.Pattern;
 public class ReservationStatsSystemController {
 
     private static final int MAX_RANGE_DAYS = 92;
-    private static final Pattern PERIOD = Pattern.compile("\\d{4}-\\d{2}");
 
     private final ReservationStatsSnapshotStore snapshotStore;
     private final Optional<ReservationStatsSystemService> service;
@@ -51,7 +49,12 @@ public class ReservationStatsSystemController {
 
         Optional<ReservationStatsSnapshot> snapshot = snapshotStore.find(period);
         if (snapshot.isPresent()) {
-            return ResponseEntity.ok(ApiResponse.ok(snapshot.get().days()));
+            String fromStr = from.toString();
+            String toStr = to.toString();
+            List<ReservationStatsDailyRow> days = snapshot.get().days().stream()
+                    .filter(d -> d.date().compareTo(fromStr) >= 0 && d.date().compareTo(toStr) <= 0)
+                    .toList();
+            return ResponseEntity.ok(ApiResponse.ok(days));
         }
         return service
                 .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.getDailyCounts(from.toString(), to.toString()))))
@@ -63,9 +66,7 @@ public class ReservationStatsSystemController {
             @RequestParam String period,
             Authentication authentication
     ) {
-        if (period == null || !PERIOD.matcher(period).matches()) {
-            throw new IllegalArgumentException("period must be YYYY-MM: " + period);
-        }
+        StatsRequestValidator.validatePeriod(period);
         // PDF 고정 스냅샷(예: 2026-01~05)은 라이브 재확정으로 덮어쓰지 않는다.
         if (snapshotStore.isLocked(period)) {
             return ResponseEntity.status(409).body(ApiResponse.error("PDF 고정 스냅샷이라 재확정(덮어쓰기)할 수 없습니다: " + period));
@@ -85,9 +86,7 @@ public class ReservationStatsSystemController {
             @RequestParam String period,
             Authentication authentication
     ) {
-        if (period == null || !PERIOD.matcher(period).matches()) {
-            throw new IllegalArgumentException("period must be YYYY-MM: " + period);
-        }
+        StatsRequestValidator.validatePeriod(period);
         if (snapshotStore.isLocked(period)) {
             return ResponseEntity.status(409).body(ApiResponse.error("PDF 고정 스냅샷이라 호출(채움)할 수 없습니다: " + period));
         }
