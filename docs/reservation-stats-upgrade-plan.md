@@ -122,8 +122,12 @@
 - **시드 폴백 제거**(commit c30e36c): 미연결/503 시 시드 미표시·‘미연결’ 안내만(잘못된 수치 방지). 시드 상수는 dead code(트리셰이킹 제외). `new Date()` 모듈 상단 고정 해제(periodRange/currentMonth가 매 호출 평가). 시력교정 2026-06 스냅샷 git 추적(gitignore 예외).
 - **시력교정 RSS 제외필터·TM_EMP NULL 정정**(commit 3ab17bc — §2 비범위의 처리 완료 항목 참조).
 - **백내장 예약통계 캘리브레이션**(commit c1cf057·04f31a7): 내원 = `Cataract_Exam` ∩ 같은날 백내장(FLAG='H' I/H) 예약(협진/타과 의뢰 제외) · 부도/취소 = 수술당일(`JINRYO='13'`) 슬롯 제외 · 아웃바운드 TM 라이브(`DB_CUSTOM` TM팀 4명) · 예약 종합 **총예약건 = 내원+부도+취소**.
+- **월 단위 lock 적용**(이번 작업): `saveSnapshot`/`fillSnapshot`의 read-merge-save 경합을 period별 lock으로 보호하고 동시성 테스트를 추가.
+- **골든마스터 테스트 구축**(이번 작업): locked 스냅샷(시력교정·백내장 2026-01~05)을 입력으로 DisplayRow/CSV 스냅샷 테스트 추가. 2026-06은 `locked: false`라 제외.
+- **프론트 shared core 1차 추출**(이번 작업): 조회 단위 타입, 월 라벨, 요일, 주차, 분배, 퍼센트 계산 공통 유틸을 `shared/reservationStatsCore.ts`로 이동. 도메인별 공식(`computeChannelRow`, 네이버 clamp, 백내장 총예약)은 그대로 보존.
+- **테이블 colSpan 1차 자동화**(이번 작업): 수동 `colSpan` 숫자를 컬럼 그룹 길이 기반으로 치환하고 `shared/reservationStatsTable.ts` 단위 테스트 추가. 헤더 메타 전체 데이터화는 다음 단계.
 
-아직 남은 것(계획대로 진행): `colSpan` 자동화, 월 단위 lock, SQL 파일 분리, shared core 추출, 진단/diff. (~~시드 폴백 제거~~·~~source/메타 응답~~은 각각 완료/보류 — 위·§6 참조.)
+아직 남은 것(계획대로 진행): row builder/CSV/formulas 추가 공통화, 헤더 메타 전체 데이터화, SQL 파일 분리, 진단/diff, 시드 dead code 정리. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~colSpan 1차~~·~~source/메타 응답~~은 각각 완료/완료/완료/완료/완료/보류 — 위·§6 참조.)
 
 ## 4. 코드 품질 원칙
 
@@ -370,6 +374,7 @@ backend/src/main/resources/sql/reservation-stats/
 목적:
 
 - 리팩토링 전후 출력 불변을 자동 검증한다.
+- 이번 작업에서 1차 구축 완료. 이후 shared core 추출 시 이 테스트를 드리프트 가드로 사용한다.
 
 입력:
 
@@ -593,7 +598,6 @@ backend/src/main/resources/sql/reservation-stats/
 - period lock 동시성
 - locked snapshot overwrite 거부
 - GET snapshot range filtering
-- period lock 동시성(0단계)
 - SQL loader
 
 권장:

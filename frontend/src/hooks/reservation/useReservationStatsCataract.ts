@@ -3,14 +3,14 @@ import { reservationStatsCataractApi } from '@/api/reservation/reservationStatsC
 
 /**
  * 예약통계_백내장 일자별 카운트 조회 훅. from~to(등록일) 범위로 서버 조회.
- * 라이브 소스가 없어 스냅샷 미존재 시 503 → isError → 페이지가 시드로 폴백한다(재시도 없음).
+ * 확정 스냅샷 우선, 없으면 mssql 라이브 조회. 모두 없으면 503 → 페이지가 미연결 안내를 표시한다.
  */
 export function useReservationStatsCataract(from: string, to: string, enabled = true) {
   const { data, isLoading, isFetching, isError } = useQuery({
     queryKey: ['reservation-stats-cataract', from, to],
     queryFn: () => reservationStatsCataractApi.getDailyCounts(from, to),
     enabled: enabled && Boolean(from && to),
-    retry: false, // 503(미연결)은 재시도해도 동일 → 즉시 시드 폴백
+    retry: false, // 503(미연결)은 재시도해도 동일 → 즉시 오류 상태
   })
 
   return { dailies: data, isLoading, isFetching, isError }

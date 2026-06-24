@@ -7,9 +7,7 @@ import {
 } from '@/hooks/reservation/useReservationStatsSystem'
 import { ReservationStatsToolbar } from './ReservationStatsToolbar'
 import {
-  CANCEL_COLUMNS,
   CHANNEL_COLUMNS,
-  CHANNEL_COLUMNS_MAIN,
   DEFAULT_PERIOD,
   SUMMARY_COLUMNS,
   buildReservationStatsCsv,
@@ -21,6 +19,7 @@ import {
   type Granularity,
   type SummaryFormat,
 } from './reservationStatsSystemData'
+import { columnSpan, splitColumnGroups } from './shared/reservationStatsTable'
 
 /**
  * 예약통계시스템 — 콜/온라인/채팅/취소 채널과 내원·부도·취소 종합을 한 줄(가로 스크롤) 표로 묶은 월간 종합표.
@@ -28,7 +27,24 @@ import {
  * 운영 데이터(확정 스냅샷·라이브)로 표시하며, 미연결 시 시드 폴백 없이 안내만 노출한다.
  */
 
-const TOTAL_COL_SPAN = 2 + CHANNEL_COLUMNS.length + SUMMARY_COLUMNS.length // 구분 + 총예약 + 채널 + 종합
+const TOTAL_COL_SPAN = 2 + columnSpan(CHANNEL_COLUMNS, SUMMARY_COLUMNS) // 구분 + 총예약 + 채널 + 종합
+
+const SYSTEM_CHANNEL_GROUPS = splitColumnGroups(CHANNEL_COLUMNS, [
+  { key: 'inboundCall', span: 8 },
+  { key: 'tm', span: 10 },
+  { key: 'home', span: 3 },
+  { key: 'naver', span: 6 },
+  { key: 'kakao', span: 3 },
+  { key: 'cancel', span: 3 },
+] as const)
+
+const SYSTEM_CALL_COLUMNS = [...SYSTEM_CHANNEL_GROUPS.inboundCall, ...SYSTEM_CHANNEL_GROUPS.tm]
+const SYSTEM_ONLINE_COLUMNS = [...SYSTEM_CHANNEL_GROUPS.home, ...SYSTEM_CHANNEL_GROUPS.naver]
+const SYSTEM_MAIN_COLUMNS = [
+  ...SYSTEM_CALL_COLUMNS,
+  ...SYSTEM_ONLINE_COLUMNS,
+  ...SYSTEM_CHANNEL_GROUPS.kakao,
+]
 
 const fmtNum = (v: number) => v.toLocaleString('ko-KR')
 const fmtChannel = (v: number, fmt: CellFormat) => (fmt === 'pct' ? `${v}%` : fmtNum(v))
@@ -195,40 +211,40 @@ export function ReservationStatsSystemPage() {
                   <th rowSpan={3} className={`${groupHead} ${stickyRow1} ${headBottom} bg-sky-500 text-white`}>
                     총예약
                   </th>
-                  <th colSpan={18} className={`${groupHead} ${stickyRow1} ${headH} bg-amber-100`}>
+                  <th colSpan={SYSTEM_CALL_COLUMNS.length} className={`${groupHead} ${stickyRow1} ${headH} bg-amber-100`}>
                     콜
                   </th>
-                  <th colSpan={9} className={`${groupHead} ${stickyRow1} ${headH} bg-emerald-100`}>
+                  <th colSpan={SYSTEM_ONLINE_COLUMNS.length} className={`${groupHead} ${stickyRow1} ${headH} bg-emerald-100`}>
                     온라인 예약
                   </th>
-                  <th colSpan={3} className={`${groupHead} ${stickyRow1} ${headH} bg-sky-100`}>
+                  <th colSpan={SYSTEM_CHANNEL_GROUPS.kakao.length} className={`${groupHead} ${stickyRow1} ${headH} bg-sky-100`}>
                     채팅
                   </th>
-                  <th colSpan={3} className={`${groupHead} ${stickyRow1} ${headH} bg-slate-100`}>
+                  <th colSpan={SYSTEM_CHANNEL_GROUPS.cancel.length} className={`${groupHead} ${stickyRow1} ${headH} bg-slate-100`}>
                     취소
                   </th>
-                  <th colSpan={7} className={`${groupHead} ${stickyRow1} ${headH} ${divider} bg-emerald-200`}>
+                  <th colSpan={SUMMARY_COLUMNS.length} className={`${groupHead} ${stickyRow1} ${headH} ${divider} bg-emerald-200`}>
                     예약 종합 (내원 · 부도 · 취소)
                   </th>
                 </tr>
                 {/* 2행: 중간 그룹 */}
                 <tr>
-                  <th colSpan={8} className={`${groupHead} ${stickyRow2} ${headH} bg-amber-50`}>
+                  <th colSpan={SYSTEM_CHANNEL_GROUPS.inboundCall.length} className={`${groupHead} ${stickyRow2} ${headH} bg-amber-50`}>
                     검사 인입콜
                   </th>
-                  <th colSpan={10} className={`${groupHead} ${stickyRow2} ${headH} bg-amber-50`}>
+                  <th colSpan={SYSTEM_CHANNEL_GROUPS.tm.length} className={`${groupHead} ${stickyRow2} ${headH} bg-amber-50`}>
                     TM
                   </th>
-                  <th colSpan={3} className={`${groupHead} ${stickyRow2} ${headH} bg-emerald-50`}>
+                  <th colSpan={SYSTEM_CHANNEL_GROUPS.home.length} className={`${groupHead} ${stickyRow2} ${headH} bg-emerald-50`}>
                     홈페이지
                   </th>
-                  <th colSpan={6} className={`${groupHead} ${stickyRow2} ${headH} bg-emerald-50`}>
+                  <th colSpan={SYSTEM_CHANNEL_GROUPS.naver.length} className={`${groupHead} ${stickyRow2} ${headH} bg-emerald-50`}>
                     네이버
                   </th>
-                  <th colSpan={3} className={`${groupHead} ${stickyRow2} ${headH} bg-sky-50`}>
+                  <th colSpan={SYSTEM_CHANNEL_GROUPS.kakao.length} className={`${groupHead} ${stickyRow2} ${headH} bg-sky-50`}>
                     카카오톡
                   </th>
-                  {CANCEL_COLUMNS.map((col) => (
+                  {SYSTEM_CHANNEL_GROUPS.cancel.map((col) => (
                     <th key={col.key} rowSpan={2} className={`${groupHead} ${stickyRow2} ${headBottom} bg-slate-50`}>
                       <ColLabel label={col.label} />
                     </th>
@@ -247,7 +263,7 @@ export function ReservationStatsSystemPage() {
                 </tr>
                 {/* 3행: 채널 컬럼 라벨 */}
                 <tr>
-                  {CHANNEL_COLUMNS_MAIN.map((col) => (
+                  {SYSTEM_MAIN_COLUMNS.map((col) => (
                     <th
                       key={col.key}
                       className={`${groupHead} ${stickyRow3} ${headBottom} bg-white font-medium ${col.emphasis ? 'text-rose-600' : 'text-slate-700'}`}

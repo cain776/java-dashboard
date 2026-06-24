@@ -28,8 +28,8 @@ import java.util.Optional;
  *   POST /api/stats/reservation-stats-cataract/fill?period          호출(증분 채움) — D-1까지 비어있는 날짜만 적재.
  *   GET  /api/stats/reservation-stats-cataract/snapshots            확정된 월 목록.
  *
- * 라이브 집계/저장은 mssql 프로파일에서만. 스냅샷 읽기는 프로파일 무관(스냅샷 없고 라이브도 없으면 503 → 프론트 시드 폴백).
- * 채울 수 없는 칸(인입콜·TM·노안)은 라이브에서 0 — docs/db/예약통계_백내장-데이터소스-분석.md.
+ * 라이브 집계/저장은 mssql 프로파일에서만. 스냅샷 읽기는 프로파일 무관(스냅샷 없고 라이브도 없으면 503 → 프론트 미연결 안내).
+ * 채울 수 없는 칸은 라이브에서 0으로 남을 수 있음 — docs/db/예약통계_백내장-데이터소스-분석.md.
  */
 @RestController
 @RequestMapping("/api/stats/reservation-stats-cataract")

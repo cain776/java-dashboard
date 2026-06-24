@@ -6,7 +6,7 @@ import { apiResponseOf, withQuery } from '@/api/_shared'
  * 예약통계시스템 — BCRM RSS 컨택통계 일자별 원시 카운트(CH01~CH24).
  * 백엔드: GET /api/stats/reservation-stats-system?from&to → ApiResponse<DailyCounts[]>.
  * 비율·총예약 등 파생값은 프론트(reservationStatsSystemData)가 동일 공식으로 계산한다.
- * 실 데이터는 mssql 프로파일에서만 — 미연결 시 503 → 호출부에서 시드로 폴백.
+ * 실 데이터는 mssql 프로파일에서만 — 미연결 시 503 → 호출부가 미연결 안내 표시.
  */
 const dailyCountsSchema = z.object({
   date: z.string(),

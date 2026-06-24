@@ -10,6 +10,19 @@
 
 import { toCsv } from '@/utils/csv'
 import type { ReservationStatsDailyCounts } from '@/api/reservation/reservationStatsSystem'
+import {
+  distribute,
+  monthShortLabel,
+  pct1,
+  pctInt,
+  weekOf,
+  weekdayKo,
+  type Granularity,
+  type RowTier,
+} from './shared/reservationStatsCore'
+
+export { DEFAULT_PERIOD, GRANULARITIES, monthFullLabel, monthShortLabel } from './shared/reservationStatsCore'
+export type { Granularity, RowTier } from './shared/reservationStatsCore'
 
 /** 채널별 한 주(또는 합계) 행 — 키 순서가 표 컬럼 순서와 일치한다. */
 export interface ChannelRow {
@@ -154,16 +167,6 @@ export const CANCEL_COLUMN_COUNT = 3
 export const CHANNEL_COLUMNS_MAIN = CHANNEL_COLUMNS.slice(0, CHANNEL_COLUMNS.length - CANCEL_COLUMN_COUNT)
 export const CANCEL_COLUMNS = CHANNEL_COLUMNS.slice(CHANNEL_COLUMNS.length - CANCEL_COLUMN_COUNT)
 
-/** 툴바 기본 선택 월(YYYY-MM) — 당월(현재 월). */
-export const DEFAULT_PERIOD = (() => {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-})()
-/** '2026-03' → '3월' */
-export const monthShortLabel = (period: string) => `${Number(period.slice(5, 7))}월`
-/** '2026-03' → '2026년 3월' */
-export const monthFullLabel = (period: string) => `${period.slice(0, 4)}년 ${Number(period.slice(5, 7))}월`
-
 export const CHANNEL_ROWS: ChannelRow[] = [
   {
     label: 'TOTAL',
@@ -255,18 +258,6 @@ export const SUMMARY_ROWS: SummaryRow[] = [
  * 진행 중인 달(현재 월)은 전일까지만 표시한다(오늘 데이터는 미집계).
  * ────────────────────────────────────────────────────────────────────────── */
 
-export type Granularity = 'month' | 'week' | 'day' | 'all'
-
-export const GRANULARITIES: { key: Granularity; label: string }[] = [
-  { key: 'month', label: '월별' },
-  { key: 'week', label: '주별' },
-  { key: 'day', label: '일별' },
-  { key: 'all', label: '전체' },
-]
-
-/** 행 계층 — 전체 보기에서 월/주/일 구간을 색으로 구분한다. */
-export type RowTier = 'month' | 'week' | 'day'
-
 /** 표 한 행에 채널 + 종합을 함께 담는다(두 블록을 한 줄로 병합). */
 export interface DisplayRow {
   label: string
@@ -279,18 +270,6 @@ export interface DisplayRow {
   weekStart?: boolean
   channel: ChannelRow
   summary: SummaryRow
-}
-
-const WEEKDAY_KR = ['일', '월', '화', '수', '목', '금', '토']
-
-const distribute = (total: number, openDays: number[], day: number): number => {
-  const n = openDays.length
-  if (n === 0) return 0
-  const base = Math.floor(total / n)
-  const remainder = total - base * n
-  const pos = openDays.indexOf(day)
-  if (pos < 0) return 0
-  return base + (pos < remainder ? 1 : 0)
 }
 
 const deriveChannel = (weekly: ChannelRow, openDays: number[], day: number, isSunday: boolean): ChannelRow => {
@@ -321,13 +300,12 @@ const buildDailyRows = (period: string): DisplayRow[] => {
   const lastDay = isCurrentMonth ? Math.max(1, Math.min(daysInMonth, now.getDate() - 1)) : daysInMonth
 
   const firstWeekday = new Date(year, month - 1, 1).getDay() // 0=일
-  const weekOf = (day: number) => Math.floor((day - 1 + firstWeekday) / 7) // 0-based 캘린더 주
 
   // 표시 범위(1~lastDay)의 캘린더 주별 영업일(일요일 제외) — 분배 분모.
   const openByWeek = new Map<number, number[]>()
   for (let day = 1; day <= lastDay; day++) {
     if (new Date(year, month - 1, day).getDay() === 0) continue
-    const w = weekOf(day)
+    const w = weekOf(day, firstWeekday)
     openByWeek.set(w, [...(openByWeek.get(w) ?? []), day])
   }
 
@@ -335,12 +313,13 @@ const buildDailyRows = (period: string): DisplayRow[] => {
   for (let day = 1; day <= lastDay; day++) {
     const weekdayIdx = new Date(year, month - 1, day).getDay()
     const isSunday = weekdayIdx === 0
-    const seedIdx = Math.min(weekOf(day), 4) + 1 // 시드 주 1~5
-    const openDays = openByWeek.get(weekOf(day)) ?? []
+    const weekIndex = weekOf(day, firstWeekday)
+    const seedIdx = Math.min(weekIndex, 4) + 1 // 시드 주 1~5
+    const openDays = openByWeek.get(weekIndex) ?? []
     rows.push({
       label: `${day}일`,
       tier: 'day',
-      weekday: WEEKDAY_KR[weekdayIdx],
+      weekday: weekdayKo(weekdayIdx),
       muted: isSunday,
       weekStart: day === 1 || weekdayIdx === 0,
       channel: deriveChannel(CHANNEL_ROWS[seedIdx], openDays, day, isSunday),
@@ -402,9 +381,6 @@ const sumCounts = (rows: Counts[]): Counts => {
 }
 
 const isZeroCounts = (c: Counts): boolean => COUNT_KEYS.every((k) => c[k] === 0)
-
-const pctInt = (a: number, b: number): number => (b === 0 ? 0 : Math.round((a * 100) / b))
-const pct1 = (a: number, b: number): number => (b === 0 ? 0 : Math.round((a * 1000) / b) / 10)
 
 /** 예약율류 공통 분모(콜 유입 기준). */
 const denom = (c: Counts): number =>
@@ -495,7 +471,6 @@ export const getDisplayRowsFromCounts = (
   const month = Number(period.slice(5, 7))
   const byDate = new Map<string, Counts>(dailies.map((d) => [d.date, d]))
   const firstWeekday = new Date(year, month - 1, 1).getDay()
-  const weekOf = (day: number) => Math.floor((day - 1 + firstWeekday) / 7)
 
   const dayRows: DisplayRow[] = []
   const weekBuckets = new Map<number, Counts[]>()
@@ -506,11 +481,11 @@ export const getDisplayRowsFromCounts = (
     const counts = byDate.get(dateStr) ?? zeroCounts()
     const weekdayIdx = new Date(year, month - 1, day).getDay()
     allCounts.push(counts)
-    const w = weekOf(day)
+    const w = weekOf(day, firstWeekday)
     weekBuckets.set(w, [...(weekBuckets.get(w) ?? []), counts])
     dayRows.push(
       countRow(counts, `${day}일`, 'day', {
-        weekday: WEEKDAY_KR[weekdayIdx],
+        weekday: weekdayKo(weekdayIdx),
         muted: isZeroCounts(counts),
         weekStart: day === 1 || weekdayIdx === 0,
       }),

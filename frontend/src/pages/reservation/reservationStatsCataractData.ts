@@ -12,17 +12,22 @@
 
 import { toCsv } from '@/utils/csv'
 import type { CataractStatsDailyCounts } from '@/api/reservation/reservationStatsCataract'
+import { SUMMARY_COLUMNS, type CellFormat, type SummaryRow } from './reservationStatsSystemData'
 import {
-  SUMMARY_COLUMNS,
+  distribute,
   monthShortLabel,
-  type SummaryRow,
-  type CellFormat,
+  pct1,
+  pctInt,
+  weekOf,
+  weekdayKo,
   type Granularity,
   type RowTier,
-} from './reservationStatsSystemData'
+} from './shared/reservationStatsCore'
 
-export { SUMMARY_COLUMNS, monthShortLabel, monthFullLabel, GRANULARITIES, DEFAULT_PERIOD } from './reservationStatsSystemData'
-export type { SummaryRow, SummaryFormat, CellFormat, Granularity, RowTier } from './reservationStatsSystemData'
+export { SUMMARY_COLUMNS } from './reservationStatsSystemData'
+export type { CellFormat, SummaryFormat, SummaryRow } from './reservationStatsSystemData'
+export { DEFAULT_PERIOD, GRANULARITIES, monthFullLabel, monthShortLabel } from './shared/reservationStatsCore'
+export type { Granularity, RowTier } from './shared/reservationStatsCore'
 
 /** 채널별 한 행(채널 블록 — 종합 제외). 키 순서가 표 컬럼 순서와 일치한다. */
 export interface CataractChannelRow {
@@ -149,9 +154,6 @@ const sumCounts = (rows: Counts[]): Counts => {
 
 const isZeroCounts = (c: Counts): boolean => COUNT_KEYS.every((k) => c[k] === 0)
 
-const pctInt = (a: number, b: number): number => (b === 0 ? 0 : Math.round((a * 100) / b))
-const pct1 = (a: number, b: number): number => (b === 0 ? 0 : Math.round((a * 1000) / b) / 10)
-
 // 백내장 총예약 = ★신환 + TM 예약수 + 카톡 백내장 검사예약 + 온라인 예약수 (채널 예약 합)
 const cataractTotal = (c: Counts): number =>
   c.newPatient + c.tmReservation + c.kakaoCataractReservation + c.onlineReservation
@@ -219,18 +221,6 @@ const SEED_WEEKLY: Counts[] = [
 
 /* ── 조회 단위(월/주/일/전체) 표 행 생성 ── */
 
-const WEEKDAY_KR = ['일', '월', '화', '수', '목', '금', '토']
-
-const distribute = (total: number, openDays: number[], day: number): number => {
-  const n = openDays.length
-  if (n === 0) return 0
-  const base = Math.floor(total / n)
-  const remainder = total - base * n
-  const pos = openDays.indexOf(day)
-  if (pos < 0) return 0
-  return base + (pos < remainder ? 1 : 0)
-}
-
 const distributeCounts = (weekly: Counts, openDays: number[], day: number, isSunday: boolean): Counts => {
   const out = zeroCounts()
   if (isSunday) return out
@@ -257,12 +247,11 @@ const buildSeedDailyRows = (period: string): CataractDisplayRow[] => {
   const lastDay = isCurrentMonth ? Math.max(1, Math.min(daysInMonth, now.getDate() - 1)) : daysInMonth
 
   const firstWeekday = new Date(year, month - 1, 1).getDay()
-  const weekOf = (day: number) => Math.floor((day - 1 + firstWeekday) / 7)
 
   const openByWeek = new Map<number, number[]>()
   for (let day = 1; day <= lastDay; day++) {
     if (new Date(year, month - 1, day).getDay() === 0) continue
-    const w = weekOf(day)
+    const w = weekOf(day, firstWeekday)
     openByWeek.set(w, [...(openByWeek.get(w) ?? []), day])
   }
 
@@ -270,12 +259,13 @@ const buildSeedDailyRows = (period: string): CataractDisplayRow[] => {
   for (let day = 1; day <= lastDay; day++) {
     const weekdayIdx = new Date(year, month - 1, day).getDay()
     const isSunday = weekdayIdx === 0
-    const seedIdx = Math.min(weekOf(day), SEED_WEEKLY.length - 1)
-    const openDays = openByWeek.get(weekOf(day)) ?? []
+    const weekIndex = weekOf(day, firstWeekday)
+    const seedIdx = Math.min(weekIndex, SEED_WEEKLY.length - 1)
+    const openDays = openByWeek.get(weekIndex) ?? []
     const c = distributeCounts(SEED_WEEKLY[seedIdx], openDays, day, isSunday)
     rows.push(
       countRow(c, `${day}일`, 'day', {
-        weekday: WEEKDAY_KR[weekdayIdx],
+        weekday: weekdayKo(weekdayIdx),
         muted: isSunday,
         weekStart: day === 1 || weekdayIdx === 0,
       }),
@@ -314,7 +304,6 @@ export const getDisplayRowsFromCounts = (
   const month = Number(period.slice(5, 7))
   const byDate = new Map<string, Counts>(dailies.map((d) => [d.date, d]))
   const firstWeekday = new Date(year, month - 1, 1).getDay()
-  const weekOf = (day: number) => Math.floor((day - 1 + firstWeekday) / 7)
 
   const dayRows: CataractDisplayRow[] = []
   const weekBuckets = new Map<number, Counts[]>()
@@ -325,11 +314,11 @@ export const getDisplayRowsFromCounts = (
     const c = byDate.get(dateStr) ?? zeroCounts()
     const weekdayIdx = new Date(year, month - 1, day).getDay()
     allCounts.push(c)
-    const w = weekOf(day)
+    const w = weekOf(day, firstWeekday)
     weekBuckets.set(w, [...(weekBuckets.get(w) ?? []), c])
     dayRows.push(
       countRow(c, `${day}일`, 'day', {
-        weekday: WEEKDAY_KR[weekdayIdx],
+        weekday: weekdayKo(weekdayIdx),
         muted: isZeroCounts(c),
         weekStart: day === 1 || weekdayIdx === 0,
       }),

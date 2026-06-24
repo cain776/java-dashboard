@@ -27,6 +27,7 @@ public class CataractStatsSystemService {
 
     private final CataractStatsSystemRepository repository;
     private final CataractStatsSnapshotStore snapshotStore;
+    private final ReservationStatsPeriodLock periodLock;
 
     @Transactional(readOnly = true)
     public List<CataractStatsDailyRow> getDailyCounts(String from, String to) {
@@ -45,11 +46,14 @@ public class CataractStatsSystemService {
         LocalDate to = monthEnd.isBefore(yesterday) ? monthEnd : yesterday;
         if (to.isBefore(first)) to = first;
 
-        List<CataractStatsDailyRow> days = repository.findDailyCounts(first.toString(), to.toString());
-        CataractStatsSnapshot snapshot =
-                new CataractStatsSnapshot(period, LocalDateTime.now().toString(), by, false, days);
-        snapshotStore.save(snapshot);
-        return snapshot;
+        LocalDate snapshotTo = to;
+        return periodLock.withPeriodLock(period, () -> {
+            List<CataractStatsDailyRow> days = repository.findDailyCounts(first.toString(), snapshotTo.toString());
+            CataractStatsSnapshot snapshot =
+                    new CataractStatsSnapshot(period, LocalDateTime.now().toString(), by, false, days);
+            snapshotStore.save(snapshot);
+            return snapshot;
+        });
     }
 
     /**
@@ -67,23 +71,26 @@ public class CataractStatsSystemService {
         LocalDate to = monthEnd.isBefore(yesterday) ? monthEnd : yesterday;
         if (to.isBefore(first)) to = first;
 
-        Optional<CataractStatsSnapshot> existing = snapshotStore.find(period);
-        Map<String, CataractStatsDailyRow> byDate = new LinkedHashMap<>();
-        existing.ifPresent(s -> s.days().forEach(d -> byDate.put(d.date(), d)));
+        LocalDate snapshotTo = to;
+        return periodLock.withPeriodLock(period, () -> {
+            Optional<CataractStatsSnapshot> existing = snapshotStore.find(period);
+            Map<String, CataractStatsDailyRow> byDate = new LinkedHashMap<>();
+            existing.ifPresent(s -> s.days().forEach(d -> byDate.put(d.date(), d)));
 
-        List<CataractStatsDailyRow> fetched = repository.findDailyCounts(first.toString(), to.toString());
-        for (CataractStatsDailyRow d : fetched) {
-            byDate.putIfAbsent(d.date(), d);
-        }
+            List<CataractStatsDailyRow> fetched = repository.findDailyCounts(first.toString(), snapshotTo.toString());
+            for (CataractStatsDailyRow d : fetched) {
+                byDate.putIfAbsent(d.date(), d);
+            }
 
-        List<CataractStatsDailyRow> merged = byDate.values().stream()
-                .sorted(Comparator.comparing(CataractStatsDailyRow::date))
-                .toList();
-        boolean locked = existing.map(CataractStatsSnapshot::locked).orElse(false);
-        String confirmedBy = existing.map(CataractStatsSnapshot::confirmedBy).orElse(by);
-        CataractStatsSnapshot snapshot =
-                new CataractStatsSnapshot(period, LocalDateTime.now().toString(), confirmedBy, locked, merged);
-        snapshotStore.save(snapshot);
-        return snapshot;
+            List<CataractStatsDailyRow> merged = byDate.values().stream()
+                    .sorted(Comparator.comparing(CataractStatsDailyRow::date))
+                    .toList();
+            boolean locked = existing.map(CataractStatsSnapshot::locked).orElse(false);
+            String confirmedBy = existing.map(CataractStatsSnapshot::confirmedBy).orElse(by);
+            CataractStatsSnapshot snapshot =
+                    new CataractStatsSnapshot(period, LocalDateTime.now().toString(), confirmedBy, locked, merged);
+            snapshotStore.save(snapshot);
+            return snapshot;
+        });
     }
 }
