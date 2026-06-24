@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { Plus } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
 import { Select } from './Select'
 import { PeriodChip } from './PeriodChip'
 import {
@@ -39,8 +38,8 @@ export function FilterBar({
   }
 
   return (
-    <Card className="border-border/70 shadow-sm !py-0">
-      <CardContent className="flex min-h-14 flex-wrap items-center gap-2 py-1.5">
+    // 예약통계(/reservation-stats) 툴바와 동일 규격: flat white · px-2 py-1.5 · text-xs · 공유 Select(h-8)
+    <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/70 bg-white px-2 py-1.5 text-xs shadow-sm">
         {/* 모드 토글 (yearOnly 페이지는 연도 비교만 지원) */}
         {!yearOnly && (
           <>
@@ -112,10 +111,9 @@ export function FilterBar({
           </div>
         )}
 
-        <div className="ml-auto rounded-md bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700">
+        <div className="ml-auto rounded-md bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700">
           조건 변경 시 즉시 반영
         </div>
-      </CardContent>
-    </Card>
+    </div>
   )
 }

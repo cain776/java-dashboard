@@ -133,9 +133,9 @@ export function OverallExamPage() {
           <CardTitle>검사자 종합지표</CardTitle>
         </CardHeader>
         <CardContent className="flex min-h-0 flex-1 flex-col">
-          {/* 조회 영역 — 연도 선택(전체/연도별) */}
-          <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border border-border/70 bg-muted/30 px-4 py-2.5">
-            <span className="text-sm font-semibold text-foreground">조회 연도</span>
+          {/* 조회 영역 — 연도 선택(전체/연도별). 예약통계(/reservation-stats) 툴바 규격: flat white·px-2 py-1.5·text-xs */}
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-md border border-border/70 bg-white px-2 py-1.5 text-xs shadow-sm">
+            <span className="font-medium text-muted-foreground">조회 연도</span>
             <div className="flex flex-wrap gap-1.5">
               <button
                 type="button"
@@ -155,7 +155,7 @@ export function OverallExamPage() {
                     key={y}
                     type="button"
                     onClick={() => setYear(y)}
-                    className={`rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
+                    className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
                       active
                         ? 'border-blue-500 bg-blue-50 text-blue-700'
                         : 'border-border/70 bg-white text-gray-600 hover:bg-gray-50'

@@ -148,9 +148,8 @@ export function NoShowRatePage() {
 
   return (
     <div className="space-y-6">
-      {/* ── 필터 바 ── */}
-      <Card className="border-border/70 shadow-sm !py-0">
-        <CardContent className="flex min-h-14 flex-wrap items-center gap-2 py-1.5">
+      {/* ── 필터 바 (예약통계 툴바 규격: flat white · px-2 py-1.5 · text-xs) ── */}
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/70 bg-white px-2 py-1.5 text-xs shadow-sm">
           <div className="flex h-8 items-center gap-1 rounded-md bg-gray-100 p-0.5">
             {([['month', '월별'], ['year', '연도별']] as const).map(([m, label]) => (
               <button key={m} type="button" onClick={() => setMode(m)} className={`h-full rounded px-3 text-sm font-medium transition-colors ${mode === m ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>{label}</button>
@@ -168,9 +167,8 @@ export function NoShowRatePage() {
               <button type="button" onClick={addPeriod} className="flex h-8 items-center gap-1 rounded-md border border-dashed border-gray-300 px-3 text-sm font-medium text-gray-500 transition-colors hover:border-gray-400 hover:text-gray-700"><Plus className="h-3.5 w-3.5" />추가</button>
             </div>
           )}
-          <button type="button" className="ml-auto h-8 rounded-md bg-blue-600 px-5 text-sm font-medium text-white transition-colors hover:bg-blue-700 active:bg-blue-800">조회</button>
-        </CardContent>
-      </Card>
+          <button type="button" className="ml-auto h-8 rounded-md bg-blue-600 px-4 text-xs font-medium text-white transition-colors hover:bg-blue-700 active:bg-blue-800">조회</button>
+      </div>
 
       {/* ── KPI 카드 ── */}
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">

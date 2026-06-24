@@ -230,19 +230,18 @@ export function MarketingPage() {
 
   return (
     <div className="space-y-6">
-      <Card className="border-border/70 shadow-sm !py-0">
-        <CardContent className="flex min-h-14 flex-wrap items-center gap-2 py-1.5">
-          <div className="flex h-8 items-center rounded-md bg-gray-100 px-3 text-sm font-medium text-gray-700">
+      {/* 예약통계 툴바 규격: flat white · px-2 py-1.5 · text-xs */}
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/70 bg-white px-2 py-1.5 text-xs shadow-sm">
+          <div className="flex h-8 items-center rounded-md bg-gray-100 px-3 text-xs font-medium text-gray-700">
             마케팅 유입 및 효율 지표
           </div>
           <div className="h-5 w-px bg-gray-200" />
           <StatsSelect value={selectedYear} onChange={setSelectedYear} options={yearOptions} title="연도 선택" />
           <StatsSelect value={selectedMonth} onChange={setSelectedMonth} options={monthOptions} title="월 선택" />
-          <span className="ml-auto text-sm text-muted-foreground">
+          <span className="ml-auto text-xs text-muted-foreground">
             {selectedYear}년 {MONTHS[selectedMonth]} 기준
           </span>
-        </CardContent>
-      </Card>
+      </div>
 
       <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
         {summaryItems.map((item) => (
