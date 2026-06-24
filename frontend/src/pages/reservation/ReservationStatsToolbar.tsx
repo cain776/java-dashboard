@@ -1,4 +1,4 @@
-import { RotateCcw, Search, Download, DownloadCloud } from 'lucide-react'
+import { RotateCcw, Search, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/filters/Select'
 import { GRANULARITIES, type Granularity } from './reservationStatsSystemData'
@@ -23,10 +23,6 @@ interface Props {
   onRunDiagnostics?: () => void
   isDiagnosing?: boolean
   canRunDiagnostics?: boolean
-  /** 호출(증분 채움) — 선택 월을 D-1까지 비어있는 날짜만 적재(있으면 보존). 라이브 소스가 있는 화면만 제공(미제공 시 버튼 숨김). */
-  onFill?: () => void
-  isFilling?: boolean
-  canFill?: boolean
 }
 
 export function ReservationStatsToolbar({
@@ -42,9 +38,6 @@ export function ReservationStatsToolbar({
   onRunDiagnostics,
   isDiagnosing,
   canRunDiagnostics,
-  onFill,
-  isFilling,
-  canFill,
 }: Props) {
   const year = Number(draftMonth.slice(0, 4))
   const month = Number(draftMonth.slice(5, 7))
@@ -95,19 +88,6 @@ export function ReservationStatsToolbar({
           <Search className="h-3.5 w-3.5" />
           조회
         </Button>
-        {onFill && (
-          <Button
-            type="button"
-            size="sm"
-            disabled={!canFill || isFilling}
-            className="bg-violet-600 text-xs text-white hover:bg-violet-700"
-            onClick={onFill}
-            title="선택한 달을 어제(D-1)까지 조회해 비어있는 날짜만 적재합니다(이미 있는 날은 보존)."
-          >
-            <DownloadCloud className="h-3.5 w-3.5" />
-            {isFilling ? '호출 중…' : '호출'}
-          </Button>
-        )}
         {onRunDiagnostics && (
           <Button
             type="button"

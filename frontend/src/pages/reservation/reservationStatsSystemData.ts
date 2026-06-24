@@ -18,14 +18,9 @@ import {
   type SystemStatsCounts,
 } from './formulas/reservationStatsSystemFormulas'
 import { buildStatsCsv, type CsvColumnGroup } from './shared/reservationStatsCsv'
-import type { CellFormat, SummaryFormat } from './shared/reservationStatsFormat'
+import type { CellFormat } from './shared/reservationStatsFormat'
 import { buildDisplayRowsFromCounts, type StatsDisplayRow } from './shared/reservationStatsRows'
-import {
-  SUMMARY_COLUMNS,
-  computeSummaryRow,
-  type SummaryColumnMeta,
-  type SummaryRow,
-} from './shared/reservationStatsSummary'
+import { SUMMARY_COLUMNS, computeSummaryRow } from './shared/reservationStatsSummary'
 
 export { DEFAULT_PERIOD, GRANULARITIES, monthFullLabel, monthShortLabel } from './shared/reservationStatsCore'
 export type { Granularity, RowTier } from './shared/reservationStatsCore'

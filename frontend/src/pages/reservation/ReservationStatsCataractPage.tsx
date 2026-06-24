@@ -204,30 +204,22 @@ export function ReservationStatsCataractPage() {
   const [hasSearched, setHasSearched] = useState(false)
 
   const { from, to, lastDay } = periodRange(appliedMonth)
-  const { dailies, isLoading, isFetching, isError } = useReservationStatsCataract(from, to, hasSearched)
+  const { dailies, isLoading, isFetching, isError, refetch } = useReservationStatsCataract(from, to, hasSearched)
   const live = Boolean(dailies && !isError)
   // 미연결/실패(503)는 시드로 폴백하지 않는다(잘못된 수치 표시 방지) — tbody에서 미연결 안내.
   const rows = !hasSearched || !live ? [] : getDisplayRowsFromCounts(granularity, dailies!, appliedMonth, lastDay)
   const hasData = rows.length > 0
 
-  const { isLocked, fillSnapshot, isFilling, getDiff, isDiffing } = useReservationStatsCataractSnapshots()
-  const lockedDraft = isLocked(draftMonth) // 호출 대상(선택 월) 잠금 여부
-  // 호출(증분 채움): 선택 월을 D-1까지 비어있는 날만 라이브 적재 → 적용·표시. (인입콜·TM·노안은 0)
-  const handleFill = async () => {
-    if (lockedDraft) return
-    try {
-      await fillSnapshot(draftMonth)
-      setAppliedMonth(draftMonth)
-      setHasSearched(true)
-    } catch (e) {
-      toast.error('호출 실패', { description: e instanceof Error ? e.message : undefined })
-    }
-  }
+  const { getDiff, isDiffing } = useReservationStatsCataractSnapshots()
   const tableViewportClass = granularity === 'month' ? 'max-h-[72vh]' : 'min-h-0 flex-1'
 
+  // 조회 = 호출 통합: 서버 GET이 당월·미잠금이면 자동 증분 채움까지 처리한다.
+  // 같은 월을 다시 조회하면 쿼리 키가 안 바뀌므로 refetch로 강제 갱신(서버 자동 채움 재평가).
   const handleSearch = () => {
+    const sameMonth = hasSearched && appliedMonth === draftMonth
     setAppliedMonth(draftMonth)
     setHasSearched(true)
+    if (sameMonth) refetch()
   }
   const handleReset = () => {
     setDraftMonth(DEFAULT_PERIOD)
@@ -281,9 +273,6 @@ export function ReservationStatsCataractPage() {
         onRunDiagnostics={handleRunDiagnostics}
         isDiagnosing={isDiffing}
         canRunDiagnostics={!isDiffing}
-        onFill={handleFill}
-        isFilling={isFilling}
-        canFill={!lockedDraft}
       />
 
       <div className={`${tableViewportClass} overflow-auto rounded-md border border-slate-400 bg-white`}>

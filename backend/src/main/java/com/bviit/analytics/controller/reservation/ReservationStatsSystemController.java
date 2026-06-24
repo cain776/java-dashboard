@@ -10,6 +10,7 @@ import com.bviit.analytics.service.reservation.ReservationStatsDiagnosticDiffSer
 import com.bviit.analytics.service.reservation.ReservationStatsSnapshotStore;
 import com.bviit.analytics.service.reservation.ReservationStatsSystemService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -26,7 +27,8 @@ import java.util.Optional;
 /**
  * 예약통계시스템(BCRM RSS 컨택통계) API.
  *
- *   GET  /api/stats/reservation-stats-system?from&to   일자별 원시 카운트 — 확정 스냅샷 있으면 그걸, 없으면 라이브.
+ *   GET  /api/stats/reservation-stats-system?from&to   일자별 원시 카운트 — 확정 스냅샷 우선.
+ *        조회=호출 통합: 당월·미잠금이고 오늘 아직 안 채웠으면 D-1까지 1회 증분 채움(있으면 보존) 후 반환.
  *   POST /api/stats/reservation-stats-system/snapshot?period=YYYY-MM   해당 월을 1회 조회해 JSON 스냅샷 확정 저장.
  *   GET  /api/stats/reservation-stats-system/snapshots   확정된 월 목록.
  *
@@ -35,6 +37,7 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/stats/reservation-stats-system")
 @RequiredArgsConstructor
+@Slf4j
 public class ReservationStatsSystemController {
 
     private static final int MAX_RANGE_DAYS = 92;
@@ -46,10 +49,21 @@ public class ReservationStatsSystemController {
     @GetMapping
     public ResponseEntity<ApiResponse<List<ReservationStatsDailyRow>>> getDailyCounts(
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            Authentication authentication
     ) {
         StatsRequestValidator.validateDateRange(from, to, MAX_RANGE_DAYS);
         String period = from.toString().substring(0, 7);
+
+        // 조회=호출 통합: 당월·미잠금이고 오늘 아직 안 채웠으면 D-1까지 1회 증분 채움(있으면 보존).
+        // 무거운 라이브 쿼리(OPENQUERY)는 이 조건에서만 1일 1회 — 이미 최신(오늘 채움)이면 skip.
+        if (service.isPresent() && needsAutoFill(period)) {
+            try {
+                service.get().fillSnapshot(period, authentication != null ? authentication.getName() : "auto");
+            } catch (RuntimeException e) {
+                log.warn("조회 중 자동 채움 실패(기존 데이터로 계속): period={}, err={}", period, e.getMessage());
+            }
+        }
 
         Optional<ReservationStatsSnapshot> snapshot = snapshotStore.find(period);
         if (snapshot.isPresent()) {
@@ -63,6 +77,21 @@ public class ReservationStatsSystemController {
         return service
                 .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.getDailyCounts(from.toString(), to.toString()))))
                 .orElseGet(ReservationStatsSystemController::realDataUnavailable);
+    }
+
+    /**
+     * 조회 시 자동 채움이 필요한가 — 당월·미잠금이고 오늘 아직 안 채운 경우만(하루 1회).
+     * D-1은 하루 내내 고정이라, 같은 날 재조회는 무거운 라이브 쿼리를 skip한다.
+     */
+    private boolean needsAutoFill(String period) {
+        LocalDate today = LocalDate.now();
+        if (!period.equals(today.toString().substring(0, 7))) return false; // 당월만
+        if (snapshotStore.isLocked(period)) return false;                   // PDF 고정월 제외
+        Optional<ReservationStatsSnapshot> snap = snapshotStore.find(period);
+        if (snap.isEmpty()) return true;                                    // 스냅샷 없으면 채움
+        String confirmedAt = snap.get().confirmedAt();
+        String confirmedDate = confirmedAt != null && confirmedAt.length() >= 10 ? confirmedAt.substring(0, 10) : "";
+        return confirmedDate.compareTo(today.toString()) < 0;               // 오늘 안 채웠으면 채움
     }
 
     @PostMapping("/snapshot")
