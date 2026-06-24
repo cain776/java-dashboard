@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { downloadCsv } from '@/utils/csv'
-import { useReservationStatsCataract } from '@/hooks/reservation/useReservationStatsCataract'
+import {
+  useReservationStatsCataract,
+  useReservationStatsCataractSnapshots,
+} from '@/hooks/reservation/useReservationStatsCataract'
 import { ReservationStatsToolbar } from './ReservationStatsToolbar'
 import {
   CATARACT_COLUMNS,
@@ -138,7 +141,20 @@ export function ReservationStatsCataractPage() {
       ? getDisplayRowsFromCounts(granularity, dailies!, appliedMonth, lastDay)
       : getDisplayRows(granularity, appliedMonth)
   const hasData = rows.length > 0
-  // 백내장은 라이브 소스가 없어 호출(증분 채움)을 지원하지 않는다 — PDF 스냅샷(JSON)으로 채운다.
+
+  const { isLocked, fillSnapshot, isFilling } = useReservationStatsCataractSnapshots()
+  const lockedDraft = isLocked(draftMonth) // 호출 대상(선택 월) 잠금 여부
+  // 호출(증분 채움): 선택 월을 D-1까지 비어있는 날만 라이브 적재 → 적용·표시. (인입콜·TM·노안은 0)
+  const handleFill = async () => {
+    if (lockedDraft) return
+    try {
+      await fillSnapshot(draftMonth)
+      setAppliedMonth(draftMonth)
+      setHasSearched(true)
+    } catch (e) {
+      alert(`호출 실패: ${e instanceof Error ? e.message : ''}`)
+    }
+  }
   const tableViewportClass = granularity === 'month' ? 'max-h-[72vh]' : 'min-h-0 flex-1'
 
   const handleSearch = () => {
@@ -168,6 +184,9 @@ export function ReservationStatsCataractPage() {
         onReset={handleReset}
         onDownloadCsv={handleDownloadCsv}
         canDownload={hasData}
+        onFill={handleFill}
+        isFilling={isFilling}
+        canFill={!lockedDraft}
       />
 
       <div className={`${tableViewportClass} overflow-auto rounded-md border border-slate-400 bg-white`}>

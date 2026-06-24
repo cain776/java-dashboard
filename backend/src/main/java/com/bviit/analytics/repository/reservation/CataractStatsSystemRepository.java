@@ -1,0 +1,151 @@
+package com.bviit.analytics.repository.reservation;
+
+import com.bviit.analytics.dto.reservation.CataractStatsDailyRow;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Profile;
+import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+/**
+ * 예약통계_백내장 — 일자별 원시 카운트 라이브 집계(백내장 = RESERVE_FLAG='H').
+ *
+ * 시력교정 RSS와 동일한 PK+예약날짜 LEFT JOIN 모델. 채널 소스:
+ *   - 컨택센터 콜(신규문의/신환/재문의): CtiRptLst(+CtiClg) 백내장 코드
+ *   - 카톡(검사예약/노안/취소/문의): HappyTalk 백내장검사·백내장외래
+ *   - 총예약·온라인: RESERVATION(FLAG='H') + RESERVE_HISTORY(예약저장) 등록일 기준
+ *   - 내원/부도/취소(종합)·취소(온라인/CRM): RESERVATION(FLAG='H') 예약일 기준
+ *
+ * 데이터 미보유로 0 고정인 칸: inboundCall·answeredCall(EICN 백내장 큐 미확인),
+ *   tmTotalDb·tmValidDb·tmReservation(DB_CUSTOM에 백내장 없음 — 수기 엑셀), totalPresbyopia(노안 구분자 부재).
+ * 근거: docs/db/예약통계_백내장-데이터소스-분석.md
+ *
+ * READ-ONLY · MSSQL 2014 호환(WITH(NOLOCK), 네임드 파라미터 :from/:to).
+ */
+@Repository
+@Profile("mssql")
+public class CataractStatsSystemRepository {
+
+    private final NamedParameterJdbcTemplate jdbc;
+
+    public CataractStatsSystemRepository(@Qualifier("statsJdbcTemplate") NamedParameterJdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
+
+    public List<CataractStatsDailyRow> findDailyCounts(String from, String to) {
+        return jdbc.query(SQL,
+                new MapSqlParameterSource().addValue("from", from).addValue("to", to),
+                (rs, n) -> new CataractStatsDailyRow(
+                        rs.getString("d"),
+                        rs.getInt("totalCataract"), rs.getInt("totalPresbyopia"),
+                        rs.getInt("inboundCall"), rs.getInt("answeredCall"),
+                        rs.getInt("newExamInquiry"), rs.getInt("newReInquiry"), rs.getInt("newPatient"),
+                        rs.getInt("tmTotalDb"), rs.getInt("tmValidDb"), rs.getInt("tmReservation"),
+                        rs.getInt("kakaoTotalInquiry"), rs.getInt("kakaoCataractReservation"), rs.getInt("kakaoPresbyopiaReservation"),
+                        rs.getInt("onlineReservation"), rs.getInt("onlineNoShow"),
+                        rs.getInt("cancelOnline"), rs.getInt("cancelCrm"), rs.getInt("cancelKakao"),
+                        rs.getInt("visit"), rs.getInt("noShowReservation"), rs.getInt("cancel")));
+    }
+
+    /** 백내장(FLAG='H') 일자별 채널 카운트 — CtiRptLst/HappyTalk/RESERVATION+RESERVE_HISTORY를 PK+예약날짜로 묶는다. */
+    private static final String SQL = """
+            SET NOCOUNT ON;
+            WITH
+            CH_CALL AS (
+              SELECT DISTINCT
+                CASE
+                  WHEN a.CtiGbnCod='S' AND a.CtiCtgCod='9' AND a.CtiDtlCod1='21' AND a.CtiDtlCod2='21' AND a.CtiDtlCod3='28' AND ISNULL(b.ClgIOF,'I')='I' THEN '백내장_재문의'
+                  WHEN (a.CtiGbnCod='A' AND a.CtiCtgCod='H' AND a.CtiDtlCod1='10' AND a.CtiDtlCod2 IN ('28','31','32'))
+                    OR (a.CtiGbnCod='S' AND a.CtiCtgCod='9' AND a.CtiDtlCod1='21' AND a.CtiDtlCod2 IN ('9','41'))
+                    OR (a.CtiGbnCod='M' AND a.CtiCtgCod='H' AND a.CtiDtlCod1='7' AND a.CtiDtlCod2='5') THEN '백내장_신환'
+                  WHEN a.CtiGbnCod='S' AND a.CtiCtgCod='9' AND a.CtiDtlCod1='21' AND a.CtiDtlCod2 IN ('21','32') THEN '백내장_신규문의'
+                  ELSE '' END AS GB,
+                '' AS GB2, CONVERT(VARCHAR(10), a.CtiRgtDtm, 23) AS [예약날짜], CONVERT(VARCHAR(100), a.CtiCallID) AS PK
+              FROM CtiRptLst a WITH(NOLOCK) LEFT JOIN CtiClg b WITH(NOLOCK) ON a.CtiCallID = b.ClgNum
+              WHERE a.CtiRgtDtm >= :from AND a.CtiRgtDtm < DATEADD(DAY,1,CONVERT(datetime,:to))
+                AND ((a.CtiCtgCod='H' AND a.CtiDtlCod1 IN ('10','7')) OR (a.CtiCtgCod='9' AND a.CtiDtlCod1='21'))
+            ),
+            CH_KAKAO AS (
+              SELECT DISTINCT
+                CASE WHEN C01.Name='백내장검사' AND C02.Name LIKE '★신환%' THEN '카톡_검사예약'
+                     WHEN C02.Name='노안' THEN '카톡_노안'
+                     WHEN C02.Name='예약취소' THEN '카톡_취소'
+                     ELSE '카톡_문의' END AS GB,
+                '' AS GB2, CONVERT(VARCHAR(10), H.InsertedDateTime, 23) AS [예약날짜], CONVERT(VARCHAR(23), H.InsertedDateTime, 21) AS PK
+              FROM HappyTalk_Counsel_List H WITH(NOLOCK)
+              LEFT JOIN HappyTalk_Mapping M WITH(NOLOCK) ON H.HappyTalk_Num = M.HappyTalk_Num
+              INNER JOIN HappyTalk_Category01 C01 WITH(NOLOCK) ON C01.Seq = H.Category01
+              LEFT JOIN HappyTalk_Category02 C02 WITH(NOLOCK) ON C02.Pkey = H.Category02 AND C02.Fkey = H.Category01
+              WHERE H.InsertedDateTime >= :from AND H.InsertedDateTime < DATEADD(DAY,1,CONVERT(datetime,:to))
+                AND C01.Name IN ('백내장검사','백내장외래')
+            ),
+            CH_RES AS (
+              SELECT DISTINCT
+                CASE WHEN RH.RESERVE_PATH IN ('ONLINE','APP','NAVER') THEN '백내장_온라인예약' ELSE '백내장_예약' END AS GB,
+                '' AS GB2, CONVERT(VARCHAR(10), RH.HISTORY_TIME, 23) AS [예약날짜], CONVERT(VARCHAR(100), RH.HISTORY_NUM) AS PK
+              FROM RESERVATION R WITH(NOLOCK) INNER JOIN RESERVE_HISTORY RH WITH(NOLOCK) ON R.RESERVE_NUM = RH.RESERVE_NUM
+              WHERE RH.HISTORY_TIME >= :from AND RH.HISTORY_TIME < DATEADD(DAY,1,CONVERT(datetime,:to))
+                AND R.RESERVE_FLAG='H' AND R.RESERVE_STATE<>'C' AND R.RESERVE_JINRYO<>'16' AND RH.MEMO='예약저장'
+                AND R.CUST_NUM<>'8888888888888' AND NOT (R.CUST_NAME LIKE '%테스트%' OR R.CUST_NAME LIKE '%TEST%')
+            ),
+            CH_VISIT AS (
+              SELECT DISTINCT
+                CASE WHEN R.RESERVE_STATE IN ('I','H') THEN '백내장_내원'
+                     WHEN R.RESERVE_STATE='Y' AND R.RESERVE_DATE < CAST(GETDATE() AS DATE) THEN '백내장_부도'
+                     WHEN R.RESERVE_STATE='C' THEN '백내장_취소' END AS GB,
+                CASE WHEN R.RESERVE_PATH IN ('ONLINE','APP','NAVER') THEN 'ONLINE' ELSE 'CRM' END AS GB2,
+                R.RESERVE_DATE AS [예약날짜], CONVERT(VARCHAR(100), R.RESERVE_NUM) AS PK
+              FROM RESERVATION R WITH(NOLOCK) INNER JOIN RESERVE_HISTORY RH WITH(NOLOCK) ON R.RESERVE_NUM = RH.RESERVE_NUM
+              WHERE R.RESERVE_DATE >= :from AND R.RESERVE_DATE < DATEADD(DAY,1,CONVERT(datetime,:to))
+                AND R.RESERVE_FLAG='H' AND R.RESERVE_JINRYO<>'16' AND RH.MEMO='예약저장'
+                AND R.CUST_NUM<>'8888888888888' AND NOT (R.CUST_NAME LIKE '%테스트%' OR R.CUST_NAME LIKE '%TEST%')
+            ),
+            CH_ALL AS (
+              SELECT GB, GB2, PK, [예약날짜] FROM CH_CALL
+              UNION ALL SELECT GB, GB2, PK, [예약날짜] FROM CH_KAKAO
+              UNION ALL SELECT GB, GB2, PK, [예약날짜] FROM CH_RES
+              UNION ALL SELECT GB, GB2, PK, [예약날짜] FROM CH_VISIT
+            ),
+            R AS (
+              SELECT CONVERT(VARCHAR(10), CtiRgtDtm, 23) AS RESERVE_DATE, CONVERT(VARCHAR(100), CtiCallID) AS PK FROM CtiRptLst WITH(NOLOCK)
+               WHERE CtiRgtDtm >= :from AND CtiRgtDtm < DATEADD(DAY,1,CONVERT(datetime,:to))
+              UNION SELECT CONVERT(VARCHAR(10), InsertedDateTime, 23), CONVERT(VARCHAR(23), InsertedDateTime, 21) FROM HappyTalk_Counsel_List WITH(NOLOCK)
+               WHERE InsertedDateTime >= :from AND InsertedDateTime < DATEADD(DAY,1,CONVERT(datetime,:to))
+              UNION SELECT CONVERT(VARCHAR(10), HISTORY_TIME, 23), CONVERT(VARCHAR(100), HISTORY_NUM) FROM RESERVE_HISTORY WITH(NOLOCK)
+               WHERE HISTORY_TIME >= :from AND HISTORY_TIME < DATEADD(DAY,1,CONVERT(datetime,:to))
+              UNION SELECT CONVERT(VARCHAR(10), RESERVE_DATE, 23), CONVERT(VARCHAR(100), RESERVE_NUM) FROM RESERVATION WITH(NOLOCK)
+               WHERE RESERVE_DATE >= :from AND RESERVE_DATE < DATEADD(DAY,1,CONVERT(datetime,:to))
+            )
+            SELECT
+              Z.RESERVE_DATE AS d,
+              Z.totalCataract, 0 AS totalPresbyopia, 0 AS inboundCall, 0 AS answeredCall,
+              Z.newExamInquiry, Z.newReInquiry, Z.newPatient,
+              0 AS tmTotalDb, 0 AS tmValidDb, 0 AS tmReservation,
+              Z.kakaoTotalInquiry, Z.kakaoCataractReservation, Z.kakaoPresbyopiaReservation,
+              Z.onlineReservation, 0 AS onlineNoShow,
+              Z.cancelOnline, Z.cancelCrm, Z.cancelKakao,
+              Z.visit, Z.noShowReservation, Z.cancel
+            FROM (
+              SELECT R.RESERVE_DATE AS RESERVE_DATE,
+                SUM(CASE WHEN CH.GB IN ('백내장_예약','백내장_온라인예약') THEN 1 ELSE 0 END) AS totalCataract,
+                SUM(CASE WHEN CH.GB IN ('백내장_신규문의','백내장_신환') THEN 1 ELSE 0 END) AS newExamInquiry,
+                SUM(CASE WHEN CH.GB='백내장_재문의' THEN 1 ELSE 0 END) AS newReInquiry,
+                SUM(CASE WHEN CH.GB='백내장_신환' THEN 1 ELSE 0 END) AS newPatient,
+                SUM(CASE WHEN CH.GB IN ('카톡_검사예약','카톡_노안','카톡_취소','카톡_문의') THEN 1 ELSE 0 END) AS kakaoTotalInquiry,
+                SUM(CASE WHEN CH.GB='카톡_검사예약' THEN 1 ELSE 0 END) AS kakaoCataractReservation,
+                SUM(CASE WHEN CH.GB='카톡_노안' THEN 1 ELSE 0 END) AS kakaoPresbyopiaReservation,
+                SUM(CASE WHEN CH.GB='백내장_온라인예약' THEN 1 ELSE 0 END) AS onlineReservation,
+                SUM(CASE WHEN CH.GB='백내장_취소' AND CH.GB2='ONLINE' THEN 1 ELSE 0 END) AS cancelOnline,
+                SUM(CASE WHEN CH.GB='백내장_취소' AND CH.GB2='CRM' THEN 1 ELSE 0 END) AS cancelCrm,
+                SUM(CASE WHEN CH.GB='카톡_취소' THEN 1 ELSE 0 END) AS cancelKakao,
+                SUM(CASE WHEN CH.GB='백내장_내원' THEN 1 ELSE 0 END) AS visit,
+                SUM(CASE WHEN CH.GB='백내장_부도' THEN 1 ELSE 0 END) AS noShowReservation,
+                SUM(CASE WHEN CH.GB='백내장_취소' THEN 1 ELSE 0 END) AS cancel
+              FROM R LEFT JOIN CH_ALL CH ON CH.PK = R.PK AND CH.[예약날짜] = R.RESERVE_DATE
+              GROUP BY R.RESERVE_DATE
+            ) Z
+            ORDER BY Z.RESERVE_DATE
+            """;
+}
