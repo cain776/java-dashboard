@@ -435,6 +435,30 @@
       "visit": 4,
       "noShowReservation": 0,
       "cancel": 4
+    },
+    {
+      "date": "2026-06-23",
+      "totalCataract": 6,
+      "totalPresbyopia": 0,
+      "inboundCall": 0,
+      "answeredCall": 0,
+      "newExamInquiry": 8,
+      "newReInquiry": 0,
+      "newPatient": 6,
+      "tmTotalDb": 0,
+      "tmValidDb": 0,
+      "tmReservation": 0,
+      "kakaoTotalInquiry": 2,
+      "kakaoCataractReservation": 0,
+      "kakaoPresbyopiaReservation": 0,
+      "onlineReservation": 0,
+      "onlineNoShow": 0,
+      "cancelOnline": 0,
+      "cancelCrm": 1,
+      "cancelKakao": 0,
+      "visit": 10,
+      "noShowReservation": 0,
+      "cancel": 1
     }
   ]
 }
