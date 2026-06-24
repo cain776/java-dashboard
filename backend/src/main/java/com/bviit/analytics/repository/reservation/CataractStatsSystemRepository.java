@@ -100,7 +100,8 @@ public class CataractStatsSystemRepository {
                 R.RESERVE_DATE AS [예약날짜], CONVERT(VARCHAR(100), R.RESERVE_NUM) AS PK
               FROM RESERVATION R WITH(NOLOCK) INNER JOIN RESERVE_HISTORY RH WITH(NOLOCK) ON R.RESERVE_NUM = RH.RESERVE_NUM
               WHERE R.RESERVE_DATE >= :from AND R.RESERVE_DATE < DATEADD(DAY,1,CONVERT(datetime,:to))
-                AND R.RESERVE_FLAG='H' AND R.RESERVE_JINRYO<>'16' AND RH.MEMO='예약저장'
+                AND R.RESERVE_FLAG='H' AND R.RESERVE_JINRYO NOT IN ('16','13') AND RH.MEMO='예약저장'
+                -- 수술당일(JINRYO='13') 슬롯은 검사 예약 funnel이 아니므로 부도/취소 집계에서 제외
                 AND R.CUST_NUM<>'8888888888888' AND NOT (R.CUST_NAME LIKE '%테스트%' OR R.CUST_NAME LIKE '%TEST%')
             ),
             -- 내원: 실제 백내장 검사기록(Cataract_Exam, EXAM_DATE, 중단 제외) 중 같은 날 백내장 예약(FLAG='H' 내원 I/H) 보유분만.
