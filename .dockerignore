@@ -1,0 +1,33 @@
+# VCS / IDE
+.git
+.gitignore
+.gitattributes
+.github
+.idea
+.vscode
+.claude
+
+# Build outputs
+backend/build
+backend/.gradle
+backend/.cache
+backend/out
+frontend/dist
+frontend/node_modules
+
+# Local env (절대 이미지에 포함 금지)
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Logs / OS
+logs
+**/*.log
+.DS_Store
+Thumbs.db
+
+# Docs / scripts unrelated to runtime
+docs
+*.bat
+AGENTS.md
+CLAUDE.md
