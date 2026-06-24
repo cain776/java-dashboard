@@ -107,6 +107,15 @@ export const statsPages: StatsPageDefinition[] = [
     '/api/stats/reservation-overall'
   ),
   statsPage(
+    'reservation-stats-system',
+    '예약통계시스템',
+    '/stats/reservation-stats-system',
+    'reservation-group',
+    '예약',
+    '콜(검사 인입콜·TM)·온라인(홈페이지·네이버)·채팅(카카오톡)·취소 채널을 주차별로 분해한 월간 예약 종합표입니다.',
+    '/api/stats/reservation-stats-system'
+  ),
+  statsPage(
     'reservation-list',
     '예약자 리스트',
     '/stats/reservation-list',

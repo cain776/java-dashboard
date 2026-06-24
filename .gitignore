@@ -12,3 +12,14 @@ backend/.cache/
 # 로컬 데이터 파일 (Excel 원본/Office 잠금파일)
 *.xlsx
 ~$*
+
+# 예약통계 확정 스냅샷 — 런타임 생성분은 커밋 제외, PDF 고정(locked) 시드만 추적
+backend/data/*
+!backend/data/reservation-stats/
+backend/data/reservation-stats/*
+!backend/data/reservation-stats/2026-01.json
+!backend/data/reservation-stats/2026-02.json
+!backend/data/reservation-stats/2026-03.json
+!backend/data/reservation-stats/2026-04.json
+!backend/data/reservation-stats/2026-05.json
+data/reservation-stats/

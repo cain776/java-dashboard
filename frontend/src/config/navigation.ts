@@ -39,6 +39,7 @@ const MENU_STATUS: Record<string, MenuStatus> = {
   'intake-conversion': 'pending',
   'reservation': 'complete',
   'reservation-overall': 'complete',
+  'reservation-stats-system': 'complete',
   'reservation-list': 'complete',
   'exam-list': 'complete',
   'cataract-exam-list': 'complete',
@@ -124,8 +125,8 @@ const rawMenuItems: MenuItem[] = [
     label: '예약',
     href: '#',
     icon: CalendarCheck,
-    // 유입(intake-conversion)·예약 건수(reservation)는 숨김. 예약자 리스트 → 예약 종합 순.
-    children: kids('reservation-list', 'reservation-overall'),
+    // 유입(intake-conversion)·예약 건수(reservation)는 숨김. 예약자 리스트 → 예약 종합 → 예약통계시스템 순.
+    children: kids('reservation-list', 'reservation-overall', 'reservation-stats-system'),
   },
   {
     id: 'exam-group',
