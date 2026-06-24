@@ -7,14 +7,13 @@
  *
  * 운영 라이브(getDisplayRowsFromCounts) 또는 확정 스냅샷으로 표시한다.
  * 비율·합계·총예약건은 카운트 합산 후 동일 공식으로 재계산한다.
- * ※ SEED_WEEKLY·getDisplayRows는 구(舊) 시드/폴백 코드 — 시드 폴백 제거(2026-06)로 현재 미사용.
  */
 
 import { toCsv } from '@/utils/csv'
 import type { CataractStatsDailyCounts } from '@/api/reservation/reservationStatsCataract'
 import { SUMMARY_COLUMNS, type CellFormat, type SummaryRow } from './reservationStatsSystemData'
 import {
-  distribute,
+  createCountHelpers,
   monthShortLabel,
   pct1,
   pctInt,
@@ -108,16 +107,6 @@ export const CATARACT_COLUMNS: CataractColumnMeta[] = [
   { key: 'cancelKakao', label: '카톡', fmt: 'num' },
 ]
 
-/** 헤더 그룹(최상위) — colSpan으로 렌더. */
-export const CATARACT_TOP_GROUPS: { label: string; span: number; tone: string }[] = [
-  { label: '총 예약(아웃바운드 포함)', span: 3, tone: 'bg-sky-100' },
-  { label: '인바운드(컨택센터)', span: 8, tone: 'bg-amber-100' },
-  { label: '아웃바운드(TM)', span: 6, tone: 'bg-amber-100' },
-  { label: '채팅(카카오톡)', span: 3, tone: 'bg-sky-100' },
-  { label: '온라인예약', span: 2, tone: 'bg-emerald-100' },
-  { label: '취소', span: 3, tone: 'bg-slate-100' },
-]
-
 /** 표 한 행 — 채널 + 종합. */
 export interface CataractDisplayRow {
   label: string
@@ -144,15 +133,7 @@ const COUNT_KEYS: (keyof Counts)[] = [
   'visit', 'noShowReservation', 'cancel',
 ]
 
-const zeroCounts = (): Counts => Object.fromEntries(COUNT_KEYS.map((k) => [k, 0])) as Counts
-
-const sumCounts = (rows: Counts[]): Counts => {
-  const acc = zeroCounts()
-  for (const r of rows) for (const k of COUNT_KEYS) acc[k] += r[k]
-  return acc
-}
-
-const isZeroCounts = (c: Counts): boolean => COUNT_KEYS.every((k) => c[k] === 0)
+const { zeroCounts, sumCounts, isZeroCounts } = createCountHelpers<Counts>(COUNT_KEYS)
 
 // 백내장 총예약 = ★신환 + TM 예약수 + 카톡 백내장 검사예약 + 온라인 예약수 (채널 예약 합)
 const cataractTotal = (c: Counts): number =>
@@ -201,33 +182,6 @@ const computeSummaryRow = (c: Counts, label: string): SummaryRow => {
   }
 }
 
-/* ── 2026-04 시드: 주별(1주~5주) 원시 카운트. 합계는 주 합산으로 도출. ── */
-
-const counts = (v: number[]): Counts => Object.fromEntries(COUNT_KEYS.map((k, i) => [k, v[i]])) as Counts
-
-// 컬럼 순서 = COUNT_KEYS 순서.
-const SEED_WEEKLY: Counts[] = [
-  // 1주
-  counts([17, 0, 108, 106, 15, 0, 12, 24, 5, 3, 4, 1, 0, 1, 1, 0, 3, 0, 6, 1, 2]),
-  // 2주
-  counts([39, 0, 208, 204, 43, 1, 33, 27, 9, 6, 5, 0, 0, 0, 1, 0, 10, 1, 24, 0, 10]),
-  // 3주
-  counts([30, 0, 239, 238, 34, 0, 24, 26, 8, 2, 4, 2, 0, 2, 3, 0, 20, 0, 35, 4, 17]),
-  // 4주
-  counts([29, 0, 222, 221, 26, 0, 22, 30, 6, 6, 9, 1, 0, 0, 0, 0, 12, 1, 25, 1, 11]),
-  // 5주
-  counts([21, 0, 178, 175, 18, 0, 16, 23, 10, 5, 8, 0, 0, 0, 3, 0, 11, 1, 15, 3, 8]),
-]
-
-/* ── 조회 단위(월/주/일/전체) 표 행 생성 ── */
-
-const distributeCounts = (weekly: Counts, openDays: number[], day: number, isSunday: boolean): Counts => {
-  const out = zeroCounts()
-  if (isSunday) return out
-  for (const k of COUNT_KEYS) out[k] = distribute(weekly[k], openDays, day)
-  return out
-}
-
 const countRow = (c: Counts, label: string, tier: RowTier, extra: Partial<CataractDisplayRow> = {}): CataractDisplayRow => ({
   label,
   tier,
@@ -236,60 +190,6 @@ const countRow = (c: Counts, label: string, tier: RowTier, extra: Partial<Catara
   summary: computeSummaryRow(c, label),
   ...extra,
 })
-
-const buildSeedDailyRows = (period: string): CataractDisplayRow[] => {
-  const year = Number(period.slice(0, 4))
-  const month = Number(period.slice(5, 7))
-  const daysInMonth = new Date(year, month, 0).getDate()
-
-  const now = new Date()
-  const isCurrentMonth = now.getFullYear() === year && now.getMonth() + 1 === month
-  const lastDay = isCurrentMonth ? Math.max(1, Math.min(daysInMonth, now.getDate() - 1)) : daysInMonth
-
-  const firstWeekday = new Date(year, month - 1, 1).getDay()
-
-  const openByWeek = new Map<number, number[]>()
-  for (let day = 1; day <= lastDay; day++) {
-    if (new Date(year, month - 1, day).getDay() === 0) continue
-    const w = weekOf(day, firstWeekday)
-    openByWeek.set(w, [...(openByWeek.get(w) ?? []), day])
-  }
-
-  const rows: CataractDisplayRow[] = []
-  for (let day = 1; day <= lastDay; day++) {
-    const weekdayIdx = new Date(year, month - 1, day).getDay()
-    const isSunday = weekdayIdx === 0
-    const weekIndex = weekOf(day, firstWeekday)
-    const seedIdx = Math.min(weekIndex, SEED_WEEKLY.length - 1)
-    const openDays = openByWeek.get(weekIndex) ?? []
-    const c = distributeCounts(SEED_WEEKLY[seedIdx], openDays, day, isSunday)
-    rows.push(
-      countRow(c, `${day}일`, 'day', {
-        weekday: weekdayKo(weekdayIdx),
-        muted: isSunday,
-        weekStart: day === 1 || weekdayIdx === 0,
-      }),
-    )
-  }
-  return rows
-}
-
-const seedWeekRows = (): CataractDisplayRow[] => [
-  countRow(sumCounts(SEED_WEEKLY), 'TOTAL', 'month'),
-  ...SEED_WEEKLY.map((c, i) => countRow(c, `${i + 1}주`, 'week')),
-]
-
-/**
- * 시드(미연결) 조회 단위별 표 행. 수치는 2026-04 대표 시드라 월별로 동일하다(라이브/스냅샷 연동 전).
- */
-export const getDisplayRows = (granularity: Granularity, period: string): CataractDisplayRow[] => {
-  const rows = seedWeekRows()
-  const total = rows[0]
-  if (granularity === 'month') return [{ ...total, label: monthShortLabel(period) }]
-  if (granularity === 'week') return rows
-  if (granularity === 'all') return [...rows, ...buildSeedDailyRows(period)]
-  return [total, ...buildSeedDailyRows(period)]
-}
 
 /**
  * 실데이터(일자별 카운트) → 조회 단위별 표시 행. 카운트만 합산(일→주→월)하고 비율은 재계산.

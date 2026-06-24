@@ -47,8 +47,8 @@ public class CataractStatsSystemService {
         if (to.isBefore(first)) to = first;
 
         LocalDate snapshotTo = to;
+        List<CataractStatsDailyRow> days = repository.findDailyCounts(first.toString(), snapshotTo.toString());
         return periodLock.withPeriodLock(period, () -> {
-            List<CataractStatsDailyRow> days = repository.findDailyCounts(first.toString(), snapshotTo.toString());
             CataractStatsSnapshot snapshot =
                     new CataractStatsSnapshot(period, LocalDateTime.now().toString(), by, false, days);
             snapshotStore.save(snapshot);
@@ -72,12 +72,13 @@ public class CataractStatsSystemService {
         if (to.isBefore(first)) to = first;
 
         LocalDate snapshotTo = to;
+        // 라이브 조회는 무거울 수 있으므로 period lock 밖에서 끝내고, 파일 read/merge/save만 잠근다.
+        List<CataractStatsDailyRow> fetched = repository.findDailyCounts(first.toString(), snapshotTo.toString());
         return periodLock.withPeriodLock(period, () -> {
             Optional<CataractStatsSnapshot> existing = snapshotStore.find(period);
             Map<String, CataractStatsDailyRow> byDate = new LinkedHashMap<>();
             existing.ifPresent(s -> s.days().forEach(d -> byDate.put(d.date(), d)));
 
-            List<CataractStatsDailyRow> fetched = repository.findDailyCounts(first.toString(), snapshotTo.toString());
             for (CataractStatsDailyRow d : fetched) {
                 byDate.putIfAbsent(d.date(), d);
             }
