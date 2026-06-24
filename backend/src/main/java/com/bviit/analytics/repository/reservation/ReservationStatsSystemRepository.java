@@ -62,7 +62,8 @@ public class ReservationStatsSystemRepository {
             SET NOCOUNT ON;
             IF OBJECT_ID('tempdb..#naver') IS NOT NULL DROP TABLE #naver;
             SELECT CONVERT(VARCHAR(10), R.InsertedDateTime, 23) AS regDate,
-                   CONVERT(VARCHAR(100), R.RESERVE_NUM) AS PK, R.RESERVE_STATE AS state
+                   CONVERT(VARCHAR(100), R.RESERVE_NUM) AS PK, R.RESERVE_STATE AS state,
+                   ISNULL(R.CANCEL_REASON,'') AS cancelReason
               INTO #naver
               FROM RESERVATION R WITH(NOLOCK)
              WHERE R.RESERVE_PATH='NAVER' AND R.RESERVE_FLAG='M' AND R.RESERVE_JINRYO IN ('','5','6','7')
@@ -148,13 +149,22 @@ public class ReservationStatsSystemRepository {
                   OR R.COMMENT LIKE '%테스트%' OR R.COMMENT LIKE '%TEST%' OR R.COMMENT LIKE '%B2B(군인)%'
                   OR R.CUST_NUM='8888888888888' ) )
             ),
-            -- 네이버: RESERVATION(NAVER 경로) 등록일 기준(#naver, 1회 스캔). 예약일 변경에 안전(최초 등록 1건).
+            -- 네이버 접수: RESERVATION(NAVER 경로) 등록일 카운트(#naver, 1회 스캔). 사용자취소(네이버취소)만 별도 마킹.
             CH_07 AS (
-              SELECT CASE WHEN state='Y' THEN '네이버_예약'
-                          WHEN state<>'C' THEN '네이버_유효'
-                          ELSE '네이버' END AS [GB],
+              SELECT CASE WHEN state='C' AND cancelReason LIKE '%네이버%' THEN '네이버_사용자취소'
+                          ELSE '네이버_접수' END AS [GB],
                      '' AS [GB2], regDate AS [예약날짜], PK
               FROM #naver
+            ),
+            -- 네이버 파트너거절: 확정 전 거절(RESERVATION_NAVER, RsvNum 없는 취소). 유효접수 = 접수 − 거절.
+            CH_REJ AS (
+              SELECT '네이버_거절' AS [GB], '' AS [GB2],
+                     CONVERT(VARCHAR(10), NrsRgtDtm, 23) AS [예약날짜],
+                     'NRJ' + CONVERT(VARCHAR(20), IDX) AS PK
+              FROM RESERVATION_NAVER WITH(NOLOCK)
+              WHERE NrsRgtDtm >= :from AND NrsRgtDtm < DATEADD(DAY,1,CONVERT(datetime,:to))
+                AND RsvStt='C' AND ISNULL(RsvNum,'')=''
+                AND NOT (CusNam LIKE '%테스트%' OR CusNam LIKE '%TEST%')
             ),
             CH_08 AS (
               SELECT DISTINCT
@@ -200,6 +210,7 @@ public class ReservationStatsSystemRepository {
               UNION ALL SELECT GB, GB2, PK, [예약날짜] FROM CH_05
               UNION ALL SELECT GB, GB2, PK, [예약날짜] FROM CH_06
               UNION ALL SELECT GB, GB2, PK, [예약날짜] FROM CH_07
+              UNION ALL SELECT GB, GB2, PK, [예약날짜] FROM CH_REJ
               UNION ALL SELECT GB, GB2, PK, [예약날짜] FROM CH_08
               UNION ALL SELECT GB, GB2, PK, [예약날짜] FROM CH_09
             ),
@@ -217,6 +228,10 @@ public class ReservationStatsSystemRepository {
               UNION SELECT CONVERT(VARCHAR(10), InsertedDateTime, 23), CONVERT(VARCHAR(23), InsertedDateTime, 21) FROM HappyTalk_Counsel_List WITH(NOLOCK)
                WHERE InsertedDateTime >= :from AND InsertedDateTime < DATEADD(DAY,1,CONVERT(datetime,:to))
               UNION SELECT regDate, PK FROM #naver
+              UNION SELECT CONVERT(VARCHAR(10), NrsRgtDtm, 23), 'NRJ' + CONVERT(VARCHAR(20), IDX) FROM RESERVATION_NAVER WITH(NOLOCK)
+               WHERE NrsRgtDtm >= :from AND NrsRgtDtm < DATEADD(DAY,1,CONVERT(datetime,:to))
+                 AND RsvStt='C' AND ISNULL(RsvNum,'')=''
+                 AND NOT (CusNam LIKE '%테스트%' OR CusNam LIKE '%TEST%')
             )
             SELECT
               Z.RESERVE_DATE AS d,
@@ -243,10 +258,10 @@ public class ReservationStatsSystemRepository {
                 SUM(CASE WHEN CH.GB='TM_재상담예약' THEN 1 ELSE 0 END) AS CH10,
                 SUM(CASE WHEN CH.GB='홈페이지_예약' OR CH.GB='홈페이지' THEN 1 ELSE 0 END) AS CH11,
                 SUM(CASE WHEN CH.GB='홈페이지_예약' THEN 1 ELSE 0 END) AS CH12,
-                SUM(CASE WHEN CH.GB IN ('네이버','네이버_유효','네이버_예약') THEN 1 ELSE 0 END) AS CH13,
-                SUM(CASE WHEN CH.GB='네이버' THEN 1 ELSE 0 END) AS CH14,
-                SUM(CASE WHEN CH.GB IN ('네이버_유효','네이버_예약') THEN 1 ELSE 0 END) AS CH15,
-                SUM(CASE WHEN CH.GB='네이버_예약' THEN 1 ELSE 0 END) AS CH16,
+                SUM(CASE WHEN CH.GB IN ('네이버_접수','네이버_사용자취소') THEN 1 ELSE 0 END) AS CH13,
+                SUM(CASE WHEN CH.GB='네이버_거절' THEN 1 ELSE 0 END) AS CH14,
+                SUM(CASE WHEN CH.GB IN ('네이버_접수','네이버_사용자취소') THEN 1 WHEN CH.GB='네이버_거절' THEN -1 ELSE 0 END) AS CH15,
+                SUM(CASE WHEN CH.GB='네이버_접수' THEN 1 WHEN CH.GB='네이버_거절' THEN -1 ELSE 0 END) AS CH16,
                 SUM(CASE WHEN CH.GB='카카오톡_문의' OR CH.GB='카카오톡_예약' OR CH.GB='카카오톡_취소' THEN 1 ELSE 0 END) AS CH17,
                 SUM(CASE WHEN CH.GB='카카오톡_예약' THEN 1 ELSE 0 END) AS CH18,
                 SUM(CASE WHEN CH.GB='취소' AND CH.GB2<>'홈페이지' THEN 1 ELSE 0 END) AS CH19,

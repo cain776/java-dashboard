@@ -22,10 +22,10 @@ public record ReservationStatsDailyRow(
         int tmRecounselReservation, // CH10 TM 재상담 예약수
         int homeReceived,        // CH11 홈페이지 예약접수
         int homeReservation,     // CH12 홈페이지 예약수
-        int naverReceived,       // CH13 네이버 예약접수
-        int naverRejected,       // CH14 네이버 예약접수거절(거절문자 발송)
-        int naverValid,          // CH15 네이버 유효접수(접수-거절)
-        int naverReservation,    // CH16 네이버 예약수
+        int naverReceived,       // CH13 네이버 예약접수(RESERVATION 등록일 카운트)
+        int naverRejected,       // CH14 네이버 파트너거절(RESERVATION_NAVER, RsvNum 없는 확정전 취소)
+        int naverValid,          // CH15 네이버 유효접수(접수-거절) — 일별은 접수0인 날 음수 가능, 프론트가 표시 시 0 클램프
+        int naverReservation,    // CH16 네이버 예약수(유효-사용자취소(네이버취소))
         int kakaoInquiry,        // CH17 카카오톡 문의
         int kakaoReservation,    // CH18 카카오톡 예약수
         int cancelCallNaver,     // CH19 취소 콜·네이버

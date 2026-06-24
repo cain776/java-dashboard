@@ -76,6 +76,27 @@ public class ReservationStatsSystemController {
                 .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
     }
 
+    /**
+     * 호출(증분 채움) — 해당 월을 D-1까지 라이브 조회해 기존 스냅샷의 비어있는 날짜만 채운다(있으면 보존).
+     * 진행 중인 달을 매일 이어붙이는 용도. PDF 고정월은 차단.
+     */
+    @PostMapping("/fill")
+    public ResponseEntity<ApiResponse<ReservationStatsSnapshot>> fill(
+            @RequestParam String period,
+            Authentication authentication
+    ) {
+        if (period == null || !PERIOD.matcher(period).matches()) {
+            throw new IllegalArgumentException("period must be YYYY-MM: " + period);
+        }
+        if (snapshotStore.isLocked(period)) {
+            return ResponseEntity.status(409).body(ApiResponse.error("PDF 고정 스냅샷이라 호출(채움)할 수 없습니다: " + period));
+        }
+        String by = authentication != null ? authentication.getName() : "unknown";
+        return service
+                .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.fillSnapshot(period, by))))
+                .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
+    }
+
     @GetMapping("/snapshots")
     public ResponseEntity<ApiResponse<List<ReservationStatsSnapshotStore.SnapshotInfo>>> listSnapshots() {
         return ResponseEntity.ok(ApiResponse.ok(snapshotStore.listSnapshots()));

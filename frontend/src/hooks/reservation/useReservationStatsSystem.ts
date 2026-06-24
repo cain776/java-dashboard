@@ -36,12 +36,23 @@ export function useReservationStatsSnapshots() {
     },
   })
 
+  // 호출(증분 채움): D-1까지 비어있는 날짜만 적재. 성공 시 동일하게 무효화해 즉시 갱신.
+  const fill = useMutation({
+    mutationFn: (period: string) => reservationStatsSystemApi.fillSnapshot(period),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reservation-stats-snapshots'] })
+      qc.invalidateQueries({ queryKey: ['reservation-stats-system'] })
+    },
+  })
+
   return {
     snapshots,
     isConfirmed: (period: string) => snapshots.some((s) => s.period === period),
-    /** PDF 고정 스냅샷(2026-01~05 등) — 재확정(덮어쓰기) 금지. */
+    /** PDF 고정 스냅샷(2026-01~05 등) — 재확정(덮어쓰기)·호출 금지. */
     isLocked: (period: string) => snapshots.some((s) => s.period === period && s.locked),
     saveSnapshot: save.mutateAsync,
     isSaving: save.isPending,
+    fillSnapshot: fill.mutateAsync,
+    isFilling: fill.isPending,
   }
 }

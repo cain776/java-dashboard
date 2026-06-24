@@ -1,4 +1,4 @@
-import { RotateCcw, Search, Download, Lock, CheckCircle2 } from 'lucide-react'
+import { RotateCcw, Search, Download, DownloadCloud } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/filters/Select'
 import { GRANULARITIES, type Granularity } from './reservationStatsSystemData'
@@ -16,19 +16,14 @@ interface Props {
   maxMonth: string
   granularity: Granularity
   onGranularityChange: (g: Granularity) => void
-  resultLabel: string
-  dataStatus: 'idle' | 'live' | 'loading' | 'seed'
   onSearch: () => void
   onReset: () => void
   onDownloadCsv: () => void
   canDownload: boolean
-  /** 적용 월이 확정(스냅샷) 저장됐는지. */
-  isConfirmed: boolean
-  /** PDF 고정 스냅샷(2026-01~05) — 재확정 금지. */
-  isLocked: boolean
-  onSaveSnapshot: () => void
-  isSaving: boolean
-  canSave: boolean
+  /** 호출(증분 채움) — 선택 월을 D-1까지 비어있는 날짜만 적재(있으면 보존). 라이브 소스가 있는 화면만 제공(미제공 시 버튼 숨김). */
+  onFill?: () => void
+  isFilling?: boolean
+  canFill?: boolean
 }
 
 export function ReservationStatsToolbar({
@@ -37,17 +32,13 @@ export function ReservationStatsToolbar({
   maxMonth,
   granularity,
   onGranularityChange,
-  resultLabel,
-  dataStatus,
   onSearch,
   onReset,
   onDownloadCsv,
   canDownload,
-  isConfirmed,
-  isLocked,
-  onSaveSnapshot,
-  isSaving,
-  canSave,
+  onFill,
+  isFilling,
+  canFill,
 }: Props) {
   const year = Number(draftMonth.slice(0, 4))
   const month = Number(draftMonth.slice(5, 7))
@@ -81,30 +72,6 @@ export function ReservationStatsToolbar({
         ))}
       </div>
 
-      <div className="flex h-8 items-center gap-2 rounded-md border border-border/70 bg-white px-2.5 text-xs font-medium text-slate-600">
-        <span>{resultLabel}</span>
-        {dataStatus === 'idle' ? (
-          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-500">조회 전</span>
-        ) : dataStatus === 'live' ? (
-          <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-700">운영 데이터</span>
-        ) : dataStatus === 'loading' ? (
-          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-slate-500">불러오는 중…</span>
-        ) : (
-          <span className="rounded bg-amber-50 px-1.5 py-0.5 text-amber-700">시드(미연결)</span>
-        )}
-        {isLocked ? (
-          <span className="flex items-center gap-1 rounded bg-violet-50 px-1.5 py-0.5 text-violet-700" title="PDF(골든와이즈 RSS) 고정 데이터 — 재확정으로 덮어쓰지 않습니다.">
-            <Lock className="h-3 w-3" />
-            PDF 고정
-          </span>
-        ) : isConfirmed ? (
-          <span className="flex items-center gap-1 rounded bg-indigo-50 px-1.5 py-0.5 text-indigo-700">
-            <CheckCircle2 className="h-3 w-3" />
-            확정됨
-          </span>
-        ) : null}
-      </div>
-
       <div className="ml-auto flex items-center gap-1.5">
         <Button type="button" variant="outline" size="sm" className="text-xs" onClick={onReset}>
           <RotateCcw className="h-3.5 w-3.5" />
@@ -119,6 +86,19 @@ export function ReservationStatsToolbar({
           <Search className="h-3.5 w-3.5" />
           조회
         </Button>
+        {onFill && (
+          <Button
+            type="button"
+            size="sm"
+            disabled={!canFill || isFilling}
+            className="bg-violet-600 text-xs text-white hover:bg-violet-700"
+            onClick={onFill}
+            title="선택한 달을 어제(D-1)까지 조회해 비어있는 날짜만 적재합니다(이미 있는 날은 보존)."
+          >
+            <DownloadCloud className="h-3.5 w-3.5" />
+            {isFilling ? '호출 중…' : '호출'}
+          </Button>
+        )}
         <Button
           type="button"
           size="sm"
@@ -129,21 +109,6 @@ export function ReservationStatsToolbar({
         >
           <Download className="h-3.5 w-3.5" />
           CSV
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          disabled={!canSave || isSaving}
-          className="bg-indigo-600 text-xs text-white hover:bg-indigo-700"
-          onClick={onSaveSnapshot}
-          title={
-            isLocked
-              ? 'PDF(골든와이즈 RSS) 고정 데이터라 재확정(덮어쓰기)할 수 없습니다.'
-              : '이 달 데이터를 JSON 스냅샷으로 확정 저장(이후 조회는 동결값을 즉시 로드)'
-          }
-        >
-          <Lock className="h-3.5 w-3.5" />
-          {isLocked ? 'PDF 고정' : isSaving ? '저장 중…' : isConfirmed ? '재확정' : '확정 저장'}
         </Button>
       </div>
     </div>
