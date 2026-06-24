@@ -527,6 +527,7 @@ backend/src/main/resources/sql/reservation-stats/
 
 작업:
 
+- 사전 체크리스트: `docs/db/예약통계-SQL-분리-체크리스트.md`
 - `src/main/resources/sql/reservation-stats/system-daily-counts.sql`
 - `src/main/resources/sql/reservation-stats/cataract-daily-counts.sql`
 - SQL loader 추가
