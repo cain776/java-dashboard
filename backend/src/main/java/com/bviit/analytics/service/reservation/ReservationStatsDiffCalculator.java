@@ -12,14 +12,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.TreeSet;
 import java.util.function.Function;
-import java.util.function.ToIntFunction;
 
 final class ReservationStatsDiffCalculator {
 
     private ReservationStatsDiffCalculator() {
-    }
-
-    record Field<T>(String name, ToIntFunction<T> value) {
     }
 
     record LiveRange(LocalDate from, LocalDate to) {
@@ -47,7 +43,7 @@ final class ReservationStatsDiffCalculator {
         );
     }
 
-    static <T> Field<T> requireField(List<Field<T>> fields, String name) {
+    static <T> ReservationStatsField<T> requireField(List<ReservationStatsField<T>> fields, String name) {
         return fields.stream()
                 .filter(field -> field.name().equals(name))
                 .findFirst()
@@ -72,7 +68,7 @@ final class ReservationStatsDiffCalculator {
             List<T> snapshotRows,
             List<T> liveRows,
             Function<T, String> dateExtractor,
-            List<Field<T>> fields
+            List<ReservationStatsField<T>> fields
     ) {
         Map<String, T> snapshotByDate = byDateWithin(snapshotRows, dateExtractor, range);
         Map<String, T> liveByDate = byDateWithin(liveRows, dateExtractor, range);
@@ -85,7 +81,7 @@ final class ReservationStatsDiffCalculator {
         for (String date : dates) {
             T snapshotRow = snapshotByDate.get(date);
             T liveRow = liveByDate.get(date);
-            for (Field<T> field : fields) {
+            for (ReservationStatsField<T> field : fields) {
                 if (snapshotRow == null) {
                     int liveValue = field.value().applyAsInt(liveRow);
                     if (liveValue != 0) {

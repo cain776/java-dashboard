@@ -1,12 +1,19 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { withQuery } from '@/api/_shared'
-import { buildReservationStatsDiffCsv } from '@/api/reservation/reservationStatsDiagnostics'
+import {
+  buildReservationStatsDiffCsv,
+  buildReservationStatsDrillDownCsv,
+  type ReservationStatsDiff,
+  type ReservationStatsDiffItem,
+  type ReservationStatsDrillDown,
+} from '@/api/reservation/reservationStatsDiagnostics'
 import { downloadCsv } from '@/utils/csv'
 import {
   useReservationStatsSystem,
   useReservationStatsSnapshots,
 } from '@/hooks/reservation/useReservationStatsSystem'
+import { ReservationStatsDiagnosticsModal } from './ReservationStatsDiagnosticsModal'
 import { ReservationStatsToolbar } from './ReservationStatsToolbar'
 import {
   CHANNEL_COLUMNS,
@@ -205,6 +212,8 @@ export function ReservationStatsSystemPage() {
   const [appliedMonth, setAppliedMonth] = useState(DEFAULT_PERIOD)
   const [granularity, setGranularity] = useState<Granularity>('month')
   const [hasSearched, setHasSearched] = useState(false) // [조회] 누르기 전엔 자동 조회하지 않음
+  const [diagnosticDiff, setDiagnosticDiff] = useState<ReservationStatsDiff | null>(null)
+  const [diagnosticDrillDown, setDiagnosticDrillDown] = useState<ReservationStatsDrillDown | null>(null)
 
   const { from, to, lastDay } = periodRange(appliedMonth)
   const { dailies, isLoading, isFetching, isError, refetch } = useReservationStatsSystem(from, to, hasSearched)
@@ -214,7 +223,7 @@ export function ReservationStatsSystemPage() {
   const rows = !hasSearched || !live ? [] : getDisplayRowsFromCounts(granularity, dailies!, appliedMonth, lastDay)
   const hasData = rows.length > 0
 
-  const { getDiff, isDiffing } = useReservationStatsSnapshots()
+  const { getDiff, isDiffing, getDrillDown, isDrillingDown } = useReservationStatsSnapshots()
   const tableViewportClass = granularity === 'month' ? 'max-h-[72vh]' : 'min-h-0 flex-1'
 
   // 조회 = 호출 통합: 서버 GET이 당월·미잠금이면 자동 증분 채움까지 처리한다.
@@ -223,6 +232,8 @@ export function ReservationStatsSystemPage() {
     const sameMonth = hasSearched && appliedMonth === draftMonth
     setAppliedMonth(draftMonth)
     setHasSearched(true)
+    setDiagnosticDiff(null)
+    setDiagnosticDrillDown(null)
     if (sameMonth) refetch()
   }
   const handleReset = () => {
@@ -230,6 +241,8 @@ export function ReservationStatsSystemPage() {
     setAppliedMonth(DEFAULT_PERIOD)
     setGranularity('month')
     setHasSearched(false)
+    setDiagnosticDiff(null)
+    setDiagnosticDrillDown(null)
   }
   const handleDownloadCsv = () => {
     if (!hasData) return
@@ -246,20 +259,46 @@ export function ReservationStatsSystemPage() {
         toast.success('진단 완료', { description: '스냅샷과 라이브 재조회값의 차이가 없습니다.' })
         return
       }
-      downloadCsv(
-        `예약통계_진단_${draftMonth}.csv`,
-        buildReservationStatsDiffCsv(diff, (item) =>
-          withQuery('/api/stats/reservation-stats-system/diagnostics/drill-down', {
-            period: diff.period,
-            date: item.date,
-            field: item.field,
-          }),
-        ),
-      )
-      toast('진단 완료', { description: `${diff.diffCount.toLocaleString('ko-KR')}건의 차이를 CSV로 내려받았습니다.` })
+      setDiagnosticDiff(diff)
+      setDiagnosticDrillDown(null)
+      toast('진단 완료', { description: `${diff.diffCount.toLocaleString('ko-KR')}건의 차이를 확인했습니다.` })
     } catch (e) {
       toast.error('진단 실패', { description: e instanceof Error ? e.message : undefined })
     }
+  }
+  const drillDownPathFor = (diff: ReservationStatsDiff, item: ReservationStatsDiffItem) =>
+    withQuery('/api/stats/reservation-stats-system/diagnostics/drill-down', {
+      period: diff.period,
+      date: item.date,
+      field: item.field,
+    })
+  const handleSelectDiagnosticDiff = async (item: ReservationStatsDiffItem) => {
+    if (!diagnosticDiff) return
+    try {
+      setDiagnosticDrillDown(null)
+      const drillDown = await getDrillDown({
+        period: diagnosticDiff.period,
+        date: item.date,
+        field: item.field,
+      })
+      setDiagnosticDrillDown(drillDown)
+    } catch (e) {
+      toast.error('상세 진단 실패', { description: e instanceof Error ? e.message : undefined })
+    }
+  }
+  const handleDownloadDiagnosticDiffCsv = () => {
+    if (!diagnosticDiff) return
+    downloadCsv(
+      `예약통계_진단_${diagnosticDiff.period}.csv`,
+      buildReservationStatsDiffCsv(diagnosticDiff, (item) => drillDownPathFor(diagnosticDiff, item)),
+    )
+  }
+  const handleDownloadDiagnosticDrillDownCsv = () => {
+    if (!diagnosticDrillDown) return
+    downloadCsv(
+      `예약통계_진단상세_${diagnosticDrillDown.period}_${diagnosticDrillDown.date}_${diagnosticDrillDown.field}.csv`,
+      buildReservationStatsDrillDownCsv(diagnosticDrillDown),
+    )
   }
 
   return (
@@ -309,6 +348,21 @@ export function ReservationStatsSystemPage() {
               </tbody>
         </table>
       </div>
+      {diagnosticDiff && (
+        <ReservationStatsDiagnosticsModal
+          title="예약통계 진단"
+          diff={diagnosticDiff}
+          drillDown={diagnosticDrillDown}
+          isDrillingDown={isDrillingDown}
+          onClose={() => {
+            setDiagnosticDiff(null)
+            setDiagnosticDrillDown(null)
+          }}
+          onSelectDiff={handleSelectDiagnosticDiff}
+          onDownloadDiffCsv={handleDownloadDiagnosticDiffCsv}
+          onDownloadDrillDownCsv={handleDownloadDiagnosticDrillDownCsv}
+        />
+      )}
     </div>
   )
 }

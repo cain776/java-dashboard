@@ -22,9 +22,15 @@ export function useReservationStatsSnapshots() {
   const diff = useMutation({
     mutationFn: (period: string) => reservationStatsSystemApi.getDiff(period),
   })
+  const drillDown = useMutation({
+    mutationFn: ({ period, date, field }: { period: string; date: string; field: string }) =>
+      reservationStatsSystemApi.getDrillDown(period, date, field),
+  })
 
   return {
     getDiff: diff.mutateAsync,
     isDiffing: diff.isPending,
+    getDrillDown: drillDown.mutateAsync,
+    isDrillingDown: drillDown.isPending,
   }
 }

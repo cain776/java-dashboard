@@ -154,13 +154,14 @@ CH_ALL AS (
 DETAIL AS (
   SELECT
     CH.[예약날짜] AS d,
-    V.field,
+    FIELD_MAP.field,
     CH.[source],
     CH.GB AS gb,
     CH.GB2 AS gb2,
     CH.PK AS [primaryKey],
-    V.contribution
+    FIELD_MAP.contribution
   FROM CH_ALL CH
+  -- FIELD_MAP: system-daily-counts.sql의 SUM(CASE...)와 같은 필드별 row 기여도 정의.
   CROSS APPLY (VALUES
     ('newInquiry', CASE WHEN CH.GB IN ('검사_신규예약문의','검사_예약') THEN 1 ELSE 0 END),
     ('callReservation', CASE WHEN CH.GB IN ('검사_예약','검사_추가예약') THEN 1 ELSE 0 END),
@@ -184,25 +185,26 @@ DETAIL AS (
     ('visit', CASE WHEN CH.GB='내원' THEN 1 ELSE 0 END),
     ('noShowReservation', CASE WHEN CH.GB='예약부도' THEN 1 ELSE 0 END),
     ('cancel', CASE WHEN CH.GB='취소' THEN 1 ELSE 0 END)
-  ) V(field, contribution)
-  WHERE V.field = :field AND V.contribution <> 0
+  ) FIELD_MAP(field, contribution)
+  WHERE FIELD_MAP.field = :field AND FIELD_MAP.contribution <> 0
 
   UNION ALL
 
   SELECT
     C.예약날짜 AS d,
-    V.field,
+    FIELD_MAP.field,
     'CH_01' AS [source],
-    V.gb,
+    FIELD_MAP.gb,
     '' AS gb2,
-    'EICN_MySQL:' + C.예약날짜 + ':' + V.field AS [primaryKey],
-    V.contribution
+    'EICN_MySQL:' + C.예약날짜 + ':' + FIELD_MAP.field AS [primaryKey],
+    FIELD_MAP.contribution
   FROM CH_01 C
+  -- FIELD_MAP: EICN_MySQL 집계값은 개별 row가 없으므로 일자/필드 단위 pseudo row로 노출한다.
   CROSS APPLY (VALUES
     ('inboundCall', '인입콜', ISNULL(C.인입콜,0)),
     ('answeredCall', '응대콜', ISNULL(C.응대콜,0))
-  ) V(field, gb, contribution)
-  WHERE V.field = :field AND V.contribution <> 0
+  ) FIELD_MAP(field, gb, contribution)
+  WHERE FIELD_MAP.field = :field AND FIELD_MAP.contribution <> 0
 )
 SELECT d, field, [source], gb, gb2, [primaryKey], contribution
 FROM DETAIL

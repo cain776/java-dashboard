@@ -76,13 +76,14 @@ CH_ALL AS (
 DETAIL AS (
   SELECT
     CH.[예약날짜] AS d,
-    V.field,
+    FIELD_MAP.field,
     CH.[source],
     CH.GB AS gb,
     CH.GB2 AS gb2,
     CH.PK AS [primaryKey],
-    V.contribution
+    FIELD_MAP.contribution
   FROM CH_ALL CH
+  -- FIELD_MAP: cataract-daily-counts.sql의 SUM(CASE...)와 같은 필드별 row 기여도 정의.
   CROSS APPLY (VALUES
     ('totalCataract', CASE WHEN CH.GB IN ('백내장_신환','카톡_검사예약','백내장_온라인예약','TM_예약') THEN 1 ELSE 0 END),
     ('newExamInquiry', CASE WHEN CH.GB IN ('백내장_신규문의','백내장_신환') THEN 1 ELSE 0 END),
@@ -101,8 +102,8 @@ DETAIL AS (
     ('visit', CASE WHEN CH.GB='백내장_내원' THEN 1 ELSE 0 END),
     ('noShowReservation', CASE WHEN CH.GB='백내장_부도' THEN 1 ELSE 0 END),
     ('cancel', CASE WHEN CH.GB='백내장_취소' THEN 1 ELSE 0 END)
-  ) V(field, contribution)
-  WHERE V.field = :field AND V.contribution <> 0
+  ) FIELD_MAP(field, contribution)
+  WHERE FIELD_MAP.field = :field AND FIELD_MAP.contribution <> 0
 )
 SELECT d, field, [source], gb, gb2, [primaryKey], contribution
 FROM DETAIL

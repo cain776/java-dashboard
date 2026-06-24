@@ -28,7 +28,7 @@
 - SQL 파일 분리
 - 미연결 상태 표시 유지 (스냅샷 메타데이터 강화·출처 구분 응답은 §6 결정으로 **보류**)
 - 테이블 컴포넌트 분리
-- row-level 진단 및 diff 설계
+- row-level 진단 및 diff 구현
 
 ### 비범위
 
@@ -63,10 +63,10 @@
 현 상태의 문제:
 
 - 시력교정과 백내장이 구조적으로 유사하지만 별도 파일로 복제되어 있다.
-- 컬럼 정의, 시드 데이터, 공식, row builder, CSV가 한 파일에 섞여 있다.
+- 초기에는 컬럼 정의, 시드 데이터, 공식, row builder, CSV가 한 파일에 섞여 있었으나 현재는 shared/formulas/CSV 계층으로 분리했다.
 - 화면 컴포넌트가 테이블, 상태, 이벤트, 데이터 변환을 함께 처리한다.
 - 일부 `colSpan`과 UI 수치가 하드코딩되어 있다.
-- 구 시드 상수/함수(`CHANNEL_ROWS`·`SUMMARY_ROWS`·`SEED_WEEKLY`·`getDisplayRows` 등)는 제거 완료. 남은 정리는 공식/row builder/CSV 계층 분리다.
+- 구 시드 상수/함수(`CHANNEL_ROWS`·`SUMMARY_ROWS`·`SEED_WEEKLY`·`getDisplayRows` 등)는 제거 완료했고, 공식/row builder/CSV 계층 분리도 완료했다.
 - 데이터 출처(스냅샷/라이브/PDF 고정)는 응답에 미포함 — 단, 출처 구분 표시는 §6 결정으로 **보류**(미연결 표시만 유지)이므로 이번 범위 밖이다.
 
 ### 백엔드
@@ -133,9 +133,10 @@
 - **프론트 헤더 메타 전체 데이터화**(이번 작업): 시력교정/백내장 테이블 헤더 JSX를 `StatsHeaderNode` 트리와 `ReservationStatsTableHeader` 공통 렌더러로 이동. 후손 leaf 수 기반 `colSpan`과 남은 깊이 기반 `rowSpan`을 자동 계산한다.
 - **백엔드 스냅샷 store 공통화**(이번 작업): `MonthlySnapshotStore<TSnapshot, TDaily>`를 추가하고 시력교정/백내장 snapshot store를 얇은 wrapper로 정리. 파일 기반 locked seed·원자적 write·응답 shape는 유지하고, 증분 fill의 날짜 merge도 공통 store를 사용한다.
 - **SQL 파일 분리**(이번 작업): 시력교정/백내장 긴 Java SQL을 `src/main/resources/sql/reservation-stats/*.sql`로 이동하고 `SqlLoader`를 추가. system의 `OPENQUERY` placeholder(`__OQ_FROM__`, `__OQ_TO__`)와 MSSQL named parameter(`:from`, `:to`) 보존 테스트 추가.
-- **진단/diff 1차 구현**(이번 작업): 확정 스냅샷 vs 라이브 재조회 결과를 일자/필드별로 비교하는 API와 프론트 진단 CSV 다운로드를 추가. 날짜 누락은 `null`로 표시해 실제 0과 구분한다. row-level drill-down은 후속 과제로 유지.
+- **진단/diff 구현**(이번 작업): 확정 스냅샷 vs 라이브 재조회 결과를 일자/필드별로 비교하는 API와 프론트 진단 CSV 다운로드를 추가. 날짜 누락은 `null`로 표시해 실제 0과 구분한다.
+- **row-level drill-down 1차 구현**(이번 작업): diff가 난 일자/필드를 대상으로 원천 row 후보를 조회하는 API를 추가했다. 응답은 `source`, `GB`, `GB2`, `PK`, `contribution`을 포함하며, 프론트 진단 CSV에는 상세조회 URL을 함께 기재한다.
 
-아직 남은 것(계획대로 진행): row-level drill-down API/CSV. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~lock map 회수~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~row builder/CSV/summary 공통화~~·~~도메인별 formulas 계층화~~·~~헤더 메타 전체 데이터화~~·~~백엔드 스냅샷 store 공통화~~·~~SQL 파일 분리~~·~~진단/diff 1차~~·~~colSpan 1차~~·~~시드 dead code 정리~~·~~source/메타 응답~~은 각각 완료/완료/완료/완료/완료/완료/완료/완료/완료/완료/완료/완료/완료/보류 — 위·§6 참조.)
+아직 남은 것은 구현 과제가 아니라 운영 검증/고도화다. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~lock map 회수~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~row builder/CSV/summary 공통화~~·~~도메인별 formulas 계층화~~·~~헤더 메타 전체 데이터화~~·~~백엔드 스냅샷 store 공통화~~·~~SQL 파일 분리~~·~~진단/diff~~·~~row-level drill-down 1차~~·~~colSpan 1차~~·~~시드 dead code 정리~~는 완료, `source/메타 응답`은 §6 결정에 따라 보류.)
 
 ## 4. 코드 품질 원칙
 
@@ -559,9 +560,9 @@ backend/src/main/resources/sql/reservation-stats/
 - 이 단계에서는 실패 SQL 이름과 params 로깅, EICN 헬스 프로브 수준까지만 목표로 한다.
 - 채널 분리 실행은 성능과 구조가 바뀌므로 별도 과제로 둔다.
 
-### 7단계. 진단/diff 기능 설계 및 구현
+### 7단계. 진단/diff 및 row-level drill-down 기능 구현
 
-> ✅ 2026-06-24 1차 구현 완료: snapshot vs live 일자/컬럼별 diff API와 프론트 진단 CSV 다운로드 추가. row-level drill-down(`PK`, `SRC`, `CUST_NUM`, `RESERVE_NUM` 등)은 후속 단계로 유지한다.
+> ✅ 2026-06-24 구현 완료: snapshot vs live 일자/컬럼별 diff API, 프론트 진단 CSV 다운로드, row-level drill-down API를 추가했다. drill-down 1차 응답은 집계 쿼리와 같은 기준으로 `source`, `GB`, `GB2`, `PK`, `contribution`을 내려준다. `CUST_NUM`, `RESERVE_NUM`, 예약상태, 제외 사유 후보는 운영 DB 검증 후 필요할 때 확장하는 고도화 항목으로 둔다.
 
 목적:
 
@@ -570,14 +571,18 @@ backend/src/main/resources/sql/reservation-stats/
 작업:
 
 - ~~snapshot vs live 일자/컬럼별 diff API~~
-- row-level drill-down API 설계
-- drill-down 응답에 `PK`, `SRC`, `CUST_NUM`, `RESERVE_NUM`, 날짜, 상태, 제외 사유 후보 포함
+- ~~row-level drill-down API 설계 및 1차 구현~~
+- ~~drill-down 응답 1차: `source`, `GB`, `GB2`, `PK`, `contribution` 포함~~
+- 운영 고도화 후보: `CUST_NUM`, `RESERVE_NUM`, 예약상태, 제외 사유 후보 확장
 - ~~프론트 diff CSV export~~
+- ~~프론트 diff CSV에 drill-down 상세조회 URL 기재~~
 
 검증:
 
 - 특정 일자/컬럼에서 차이 발생 시 원천 row 후보를 확인할 수 있어야 한다.
 - 집계 쿼리와 drill-down 쿼리의 기준이 문서화되어야 한다.
+- DB 없는 단위 테스트에서는 SQL 리소스 로드, OPENQUERY placeholder 치환, `:date`/`:field` 바인딩 보존, 서비스의 snapshot/live 합계 계산을 검증한다.
+- 실제 MSSQL/work DB에서는 대표 일자/필드(예: `visit`, `naverReservation`, 백내장 `totalCataract`)를 운영 검증으로 대조한다.
 
 출력 영향:
 
@@ -641,6 +646,7 @@ backend/src/main/resources/sql/reservation-stats/
 6. `chore: 예약통계 stale 주석·시드 dead code 정리` (응답 메타데이터 추가는 §6 보류로 제외)
 7. `refactor: 예약통계 SQL 파일 분리`
 8. `feat: 예약통계 진단 diff 추가`
+9. `feat: 예약통계 row drill-down 진단 추가`
 
 원칙:
 
@@ -702,6 +708,7 @@ gradlew.bat test
 - 테이블 header/body/CSV가 같은 column config를 사용한다.
 - `fillSnapshot` 동시 호출이 안전하다.
 - SQL은 파일로 분리되어 있다.
+- snapshot vs live diff와 row-level drill-down으로 일자/필드 차이의 원천 row 후보를 추적할 수 있다.
 - 오류 발생 시 커밋 단위로 복귀 가능하다.
 
 ## 13. 최종 원칙
