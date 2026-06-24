@@ -132,8 +132,10 @@
 - **프론트 도메인별 formulas 계층화**(이번 작업): 시력교정/백내장 채널 공식과 채널 row 타입을 `formulas/`로 이동. 네이버 음수 클램프, 백내장 `totalCataract` 재계산 등 의도된 비대칭은 단위 테스트로 고정.
 - **프론트 헤더 메타 전체 데이터화**(이번 작업): 시력교정/백내장 테이블 헤더 JSX를 `StatsHeaderNode` 트리와 `ReservationStatsTableHeader` 공통 렌더러로 이동. 후손 leaf 수 기반 `colSpan`과 남은 깊이 기반 `rowSpan`을 자동 계산한다.
 - **백엔드 스냅샷 store 공통화**(이번 작업): `MonthlySnapshotStore<TSnapshot, TDaily>`를 추가하고 시력교정/백내장 snapshot store를 얇은 wrapper로 정리. 파일 기반 locked seed·원자적 write·응답 shape는 유지하고, 증분 fill의 날짜 merge도 공통 store를 사용한다.
+- **SQL 파일 분리**(이번 작업): 시력교정/백내장 긴 Java SQL을 `src/main/resources/sql/reservation-stats/*.sql`로 이동하고 `SqlLoader`를 추가. system의 `OPENQUERY` placeholder(`__OQ_FROM__`, `__OQ_TO__`)와 MSSQL named parameter(`:from`, `:to`) 보존 테스트 추가.
+- **진단/diff 1차 구현**(이번 작업): 확정 스냅샷 vs 라이브 재조회 결과를 일자/필드별로 비교하는 API와 프론트 진단 CSV 다운로드를 추가. 날짜 누락은 `null`로 표시해 실제 0과 구분한다. row-level drill-down은 후속 과제로 유지.
 
-아직 남은 것(계획대로 진행): SQL 파일 분리, 진단/diff. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~lock map 회수~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~row builder/CSV/summary 공통화~~·~~도메인별 formulas 계층화~~·~~헤더 메타 전체 데이터화~~·~~백엔드 스냅샷 store 공통화~~·~~colSpan 1차~~·~~시드 dead code 정리~~·~~source/메타 응답~~은 각각 완료/완료/완료/완료/완료/완료/완료/완료/완료/완료/완료/보류 — 위·§6 참조.)
+아직 남은 것(계획대로 진행): row-level drill-down API/CSV. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~lock map 회수~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~row builder/CSV/summary 공통화~~·~~도메인별 formulas 계층화~~·~~헤더 메타 전체 데이터화~~·~~백엔드 스냅샷 store 공통화~~·~~SQL 파일 분리~~·~~진단/diff 1차~~·~~colSpan 1차~~·~~시드 dead code 정리~~·~~source/메타 응답~~은 각각 완료/완료/완료/완료/완료/완료/완료/완료/완료/완료/완료/완료/완료/보류 — 위·§6 참조.)
 
 ## 4. 코드 품질 원칙
 
@@ -525,6 +527,8 @@ backend/src/main/resources/sql/reservation-stats/
 
 ### 6단계. SQL 파일 분리
 
+> ✅ 2026-06-24 구현 완료: `SqlLoader` + `system-daily-counts.sql` / `cataract-daily-counts.sql` 리소스 분리. DB 없는 문자열 테스트로 UTF-8, OPENQUERY 치환, named parameter 보존, cataract 핵심 마커를 검증했다. 실제 MSSQL/work DB row diff(C2)는 후속 운영 검증으로 남긴다.
+
 목적:
 
 - Java 문자열 SQL을 분리해 리뷰와 변경 추적을 쉽게 한다.
@@ -557,16 +561,18 @@ backend/src/main/resources/sql/reservation-stats/
 
 ### 7단계. 진단/diff 기능 설계 및 구현
 
+> ✅ 2026-06-24 1차 구현 완료: snapshot vs live 일자/컬럼별 diff API와 프론트 진단 CSV 다운로드 추가. row-level drill-down(`PK`, `SRC`, `CUST_NUM`, `RESERVE_NUM` 등)은 후속 단계로 유지한다.
+
 목적:
 
 - 레거시와 1건 차이가 날 때 row-level로 원인을 추적할 수 있게 한다.
 
 작업:
 
-- snapshot vs live 일자/컬럼별 diff API
+- ~~snapshot vs live 일자/컬럼별 diff API~~
 - row-level drill-down API 설계
 - drill-down 응답에 `PK`, `SRC`, `CUST_NUM`, `RESERVE_NUM`, 날짜, 상태, 제외 사유 후보 포함
-- 프론트 diff 뷰 또는 CSV export
+- ~~프론트 diff CSV export~~
 
 검증:
 

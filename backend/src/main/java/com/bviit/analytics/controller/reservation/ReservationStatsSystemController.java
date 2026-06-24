@@ -3,7 +3,9 @@ package com.bviit.analytics.controller.reservation;
 import com.bviit.analytics.controller.stats.StatsRequestValidator;
 import com.bviit.analytics.dto.ApiResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsDailyRow;
+import com.bviit.analytics.dto.reservation.ReservationStatsDiffResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsSnapshot;
+import com.bviit.analytics.service.reservation.ReservationStatsDiagnosticDiffService;
 import com.bviit.analytics.service.reservation.ReservationStatsSnapshotStore;
 import com.bviit.analytics.service.reservation.ReservationStatsSystemService;
 import lombok.RequiredArgsConstructor;
@@ -38,6 +40,7 @@ public class ReservationStatsSystemController {
 
     private final ReservationStatsSnapshotStore snapshotStore;
     private final Optional<ReservationStatsSystemService> service;
+    private final Optional<ReservationStatsDiagnosticDiffService> diagnosticDiffService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<ReservationStatsDailyRow>>> getDailyCounts(
@@ -99,6 +102,14 @@ public class ReservationStatsSystemController {
     @GetMapping("/snapshots")
     public ResponseEntity<ApiResponse<List<ReservationStatsSnapshotStore.SnapshotInfo>>> listSnapshots() {
         return ResponseEntity.ok(ApiResponse.ok(snapshotStore.listSnapshots()));
+    }
+
+    @GetMapping("/diagnostics/diff")
+    public ResponseEntity<ApiResponse<ReservationStatsDiffResponse>> diff(@RequestParam String period) {
+        StatsRequestValidator.validatePeriod(period);
+        return diagnosticDiffService
+                .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.diff(period))))
+                .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
     }
 
     private static ResponseEntity<ApiResponse<List<ReservationStatsDailyRow>>> realDataUnavailable() {

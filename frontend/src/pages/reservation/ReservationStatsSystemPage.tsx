@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { buildReservationStatsDiffCsv } from '@/api/reservation/reservationStatsDiagnostics'
 import { downloadCsv } from '@/utils/csv'
 import {
   useReservationStatsSystem,
@@ -212,7 +213,7 @@ export function ReservationStatsSystemPage() {
   const rows = !hasSearched || !live ? [] : getDisplayRowsFromCounts(granularity, dailies!, appliedMonth, lastDay)
   const hasData = rows.length > 0
 
-  const { isLocked, fillSnapshot, isFilling } = useReservationStatsSnapshots()
+  const { isLocked, fillSnapshot, isFilling, getDiff, isDiffing } = useReservationStatsSnapshots()
   const lockedDraft = isLocked(draftMonth) // 호출 대상(선택 월) 잠금 여부
   // 호출(증분 채움): 선택 월을 D-1까지 비어있는 날만 적재 → 적용·표시.
   const handleFill = async () => {
@@ -241,6 +242,23 @@ export function ReservationStatsSystemPage() {
     if (!hasData) return
     downloadCsv(`예약통계_${appliedMonth}_${granularity}.csv`, buildReservationStatsCsv(rows))
   }
+  const handleRunDiagnostics = async () => {
+    try {
+      const diff = await getDiff(draftMonth)
+      if (!diff.snapshotExists) {
+        toast.error('진단 불가', { description: `${draftMonth} 스냅샷이 없습니다.` })
+        return
+      }
+      if (diff.diffCount === 0) {
+        toast.success('진단 완료', { description: '스냅샷과 라이브 재조회값의 차이가 없습니다.' })
+        return
+      }
+      downloadCsv(`예약통계_진단_${draftMonth}.csv`, buildReservationStatsDiffCsv(diff))
+      toast('진단 완료', { description: `${diff.diffCount.toLocaleString('ko-KR')}건의 차이를 CSV로 내려받았습니다.` })
+    } catch (e) {
+      toast.error('진단 실패', { description: e instanceof Error ? e.message : undefined })
+    }
+  }
 
   return (
     <div className="flex h-[calc(100vh-5rem)] min-h-[32rem] flex-col gap-3 overflow-hidden p-1 text-xs text-gray-800">
@@ -254,6 +272,9 @@ export function ReservationStatsSystemPage() {
         onReset={handleReset}
         onDownloadCsv={handleDownloadCsv}
         canDownload={hasData}
+        onRunDiagnostics={handleRunDiagnostics}
+        isDiagnosing={isDiffing}
+        canRunDiagnostics={!isDiffing}
         onFill={handleFill}
         isFilling={isFilling}
         canFill={!lockedDraft}

@@ -37,11 +37,17 @@ export function useReservationStatsSnapshots() {
     },
   })
 
+  const diff = useMutation({
+    mutationFn: (period: string) => reservationStatsSystemApi.getDiff(period),
+  })
+
   return {
     snapshots,
     /** PDF 고정 스냅샷(2026-01~05 등) — 재확정(덮어쓰기)·호출 금지. */
     isLocked: (period: string) => snapshots.some((s) => s.period === period && s.locked),
     fillSnapshot: fill.mutateAsync,
     isFilling: fill.isPending,
+    getDiff: diff.mutateAsync,
+    isDiffing: diff.isPending,
   }
 }

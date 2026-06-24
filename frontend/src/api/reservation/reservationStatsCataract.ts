@@ -1,6 +1,10 @@
 import { z } from 'zod'
 import { api } from '@/api/client'
 import { apiResponseOf, withQuery } from '@/api/_shared'
+import {
+  reservationStatsDiffSchema,
+  type ReservationStatsDiff,
+} from './reservationStatsDiagnostics'
 
 /**
  * 예약통계_백내장 — 일자별 원시 카운트.
@@ -42,6 +46,7 @@ const snapshotInfoSchema = z.object({ period: z.string(), locked: z.boolean() })
 export type CataractStatsSnapshotInfo = z.infer<typeof snapshotInfoSchema>
 
 const snapshotsSchema = apiResponseOf(z.array(snapshotInfoSchema))
+const diffResponseSchema = apiResponseOf(reservationStatsDiffSchema)
 
 export const reservationStatsCataractApi = {
   getDailyCounts: async (from: string, to: string): Promise<CataractStatsDailyCounts[]> => {
@@ -58,5 +63,13 @@ export const reservationStatsCataractApi = {
   /** 호출(증분 채움): 해당 월을 D-1까지 라이브 조회해 비어있는 날짜만 채운다(있으면 보존). */
   fillSnapshot: async (period: string): Promise<void> => {
     await api.post<unknown>(withQuery('/stats/reservation-stats-cataract/fill', { period }), {})
+  },
+
+  /** 확정 스냅샷과 라이브 재조회값을 일자/필드별로 비교한다. */
+  getDiff: async (period: string): Promise<ReservationStatsDiff> => {
+    const res = await api.get<unknown>(
+      withQuery('/stats/reservation-stats-cataract/diagnostics/diff', { period }),
+    )
+    return diffResponseSchema.parse(res).data
   },
 }

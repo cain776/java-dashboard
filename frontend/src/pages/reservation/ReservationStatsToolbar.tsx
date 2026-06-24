@@ -20,6 +20,9 @@ interface Props {
   onReset: () => void
   onDownloadCsv: () => void
   canDownload: boolean
+  onRunDiagnostics?: () => void
+  isDiagnosing?: boolean
+  canRunDiagnostics?: boolean
   /** 호출(증분 채움) — 선택 월을 D-1까지 비어있는 날짜만 적재(있으면 보존). 라이브 소스가 있는 화면만 제공(미제공 시 버튼 숨김). */
   onFill?: () => void
   isFilling?: boolean
@@ -36,6 +39,9 @@ export function ReservationStatsToolbar({
   onReset,
   onDownloadCsv,
   canDownload,
+  onRunDiagnostics,
+  isDiagnosing,
+  canRunDiagnostics,
   onFill,
   isFilling,
   canFill,
@@ -100,6 +106,20 @@ export function ReservationStatsToolbar({
           >
             <DownloadCloud className="h-3.5 w-3.5" />
             {isFilling ? '호출 중…' : '호출'}
+          </Button>
+        )}
+        {onRunDiagnostics && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!canRunDiagnostics || isDiagnosing}
+            className="text-xs"
+            onClick={onRunDiagnostics}
+            title="선택한 달의 확정 스냅샷과 라이브 재조회값을 일자/필드별로 비교합니다."
+          >
+            <Search className="h-3.5 w-3.5" />
+            {isDiagnosing ? '진단 중…' : '진단'}
           </Button>
         )}
         <Button

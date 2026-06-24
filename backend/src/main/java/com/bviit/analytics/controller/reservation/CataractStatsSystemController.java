@@ -4,6 +4,8 @@ import com.bviit.analytics.controller.stats.StatsRequestValidator;
 import com.bviit.analytics.dto.ApiResponse;
 import com.bviit.analytics.dto.reservation.CataractStatsDailyRow;
 import com.bviit.analytics.dto.reservation.CataractStatsSnapshot;
+import com.bviit.analytics.dto.reservation.ReservationStatsDiffResponse;
+import com.bviit.analytics.service.reservation.CataractStatsDiagnosticDiffService;
 import com.bviit.analytics.service.reservation.CataractStatsSnapshotStore;
 import com.bviit.analytics.service.reservation.CataractStatsSystemService;
 import lombok.RequiredArgsConstructor;
@@ -40,6 +42,7 @@ public class CataractStatsSystemController {
 
     private final CataractStatsSnapshotStore snapshotStore;
     private final Optional<CataractStatsSystemService> service;
+    private final Optional<CataractStatsDiagnosticDiffService> diagnosticDiffService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<CataractStatsDailyRow>>> getDailyCounts(
@@ -97,5 +100,13 @@ public class CataractStatsSystemController {
     @GetMapping("/snapshots")
     public ResponseEntity<ApiResponse<List<CataractStatsSnapshotStore.SnapshotInfo>>> listSnapshots() {
         return ResponseEntity.ok(ApiResponse.ok(snapshotStore.listSnapshots()));
+    }
+
+    @GetMapping("/diagnostics/diff")
+    public ResponseEntity<ApiResponse<ReservationStatsDiffResponse>> diff(@RequestParam String period) {
+        StatsRequestValidator.validatePeriod(period);
+        return diagnosticDiffService
+                .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.diff(period))))
+                .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
     }
 }
