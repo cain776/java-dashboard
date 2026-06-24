@@ -6,6 +6,7 @@ package com.bviit.analytics.dto.reservation;
 public record ReservationStatsDiffItem(
         String date,
         String field,
+        String label,
         Integer snapshotValue,
         Integer liveValue,
         Integer delta

@@ -4,9 +4,11 @@ import { withQuery } from '@/api/_shared'
 import {
   buildReservationStatsDiffCsv,
   buildReservationStatsDrillDownCsv,
+  buildReservationStatsParityCsv,
   type ReservationStatsDiff,
   type ReservationStatsDiffItem,
   type ReservationStatsDrillDown,
+  type ReservationStatsParity,
 } from '@/api/reservation/reservationStatsDiagnostics'
 import { downloadCsv } from '@/utils/csv'
 import {
@@ -211,6 +213,7 @@ export function ReservationStatsCataractPage() {
   const [hasSearched, setHasSearched] = useState(false)
   const [diagnosticDiff, setDiagnosticDiff] = useState<ReservationStatsDiff | null>(null)
   const [diagnosticDrillDown, setDiagnosticDrillDown] = useState<ReservationStatsDrillDown | null>(null)
+  const [diagnosticParity, setDiagnosticParity] = useState<ReservationStatsParity | null>(null)
 
   const { from, to, lastDay } = periodRange(appliedMonth)
   const { dailies, isLoading, isFetching, isError, refetch } = useReservationStatsCataract(from, to, hasSearched)
@@ -219,7 +222,8 @@ export function ReservationStatsCataractPage() {
   const rows = !hasSearched || !live ? [] : getDisplayRowsFromCounts(granularity, dailies!, appliedMonth, lastDay)
   const hasData = rows.length > 0
 
-  const { getDiff, isDiffing, getDrillDown, isDrillingDown } = useReservationStatsCataractSnapshots()
+  const { getDiff, isDiffing, getDrillDown, isDrillingDown, getParity, isCheckingParity } =
+    useReservationStatsCataractSnapshots()
   const tableViewportClass = granularity === 'month' ? 'max-h-[72vh]' : 'min-h-0 flex-1'
 
   // 조회 = 호출 통합: 서버 GET이 당월·미잠금이면 자동 증분 채움까지 처리한다.
@@ -230,6 +234,7 @@ export function ReservationStatsCataractPage() {
     setHasSearched(true)
     setDiagnosticDiff(null)
     setDiagnosticDrillDown(null)
+    setDiagnosticParity(null)
     if (sameMonth) refetch()
   }
   const handleReset = () => {
@@ -239,6 +244,7 @@ export function ReservationStatsCataractPage() {
     setHasSearched(false)
     setDiagnosticDiff(null)
     setDiagnosticDrillDown(null)
+    setDiagnosticParity(null)
   }
   const handleDownloadCsv = () => {
     if (!hasData) return
@@ -257,6 +263,7 @@ export function ReservationStatsCataractPage() {
       }
       setDiagnosticDiff(diff)
       setDiagnosticDrillDown(null)
+      setDiagnosticParity(null)
       toast('진단 완료', { description: `${diff.diffCount.toLocaleString('ko-KR')}건의 차이를 확인했습니다.` })
     } catch (e) {
       toast.error('진단 실패', { description: e instanceof Error ? e.message : undefined })
@@ -272,6 +279,7 @@ export function ReservationStatsCataractPage() {
     if (!diagnosticDiff) return
     try {
       setDiagnosticDrillDown(null)
+      setDiagnosticParity(null)
       const drillDown = await getDrillDown({
         period: diagnosticDiff.period,
         date: item.date,
@@ -280,6 +288,20 @@ export function ReservationStatsCataractPage() {
       setDiagnosticDrillDown(drillDown)
     } catch (e) {
       toast.error('상세 진단 실패', { description: e instanceof Error ? e.message : undefined })
+    }
+  }
+  const handleCheckDiagnosticParity = async (field: string) => {
+    if (!diagnosticDiff) return
+    try {
+      const parity = await getParity({ period: diagnosticDiff.period, field })
+      setDiagnosticParity(parity)
+      const description =
+        parity.mismatchCount === 0
+          ? 'daily 집계값과 drill-down 합계가 일치합니다.'
+          : `${parity.mismatchCount.toLocaleString('ko-KR')}개 일자에서 차이를 확인했습니다.`
+      toast(parity.mismatchCount === 0 ? 'Parity 정상' : 'Parity 차이 확인', { description })
+    } catch (e) {
+      toast.error('Parity 검사 실패', { description: e instanceof Error ? e.message : undefined })
     }
   }
   const handleDownloadDiagnosticDiffCsv = () => {
@@ -294,6 +316,13 @@ export function ReservationStatsCataractPage() {
     downloadCsv(
       `예약통계_백내장_진단상세_${diagnosticDrillDown.period}_${diagnosticDrillDown.date}_${diagnosticDrillDown.field}.csv`,
       buildReservationStatsDrillDownCsv(diagnosticDrillDown),
+    )
+  }
+  const handleDownloadDiagnosticParityCsv = () => {
+    if (!diagnosticParity) return
+    downloadCsv(
+      `예약통계_백내장_parity_${diagnosticParity.period}_${diagnosticParity.field}.csv`,
+      buildReservationStatsParityCsv(diagnosticParity),
     )
   }
 
@@ -349,14 +378,19 @@ export function ReservationStatsCataractPage() {
           title="예약통계 백내장 진단"
           diff={diagnosticDiff}
           drillDown={diagnosticDrillDown}
+          parity={diagnosticParity}
           isDrillingDown={isDrillingDown}
+          isCheckingParity={isCheckingParity}
           onClose={() => {
             setDiagnosticDiff(null)
             setDiagnosticDrillDown(null)
+            setDiagnosticParity(null)
           }}
           onSelectDiff={handleSelectDiagnosticDiff}
+          onCheckParity={handleCheckDiagnosticParity}
           onDownloadDiffCsv={handleDownloadDiagnosticDiffCsv}
           onDownloadDrillDownCsv={handleDownloadDiagnosticDrillDownCsv}
+          onDownloadParityCsv={handleDownloadDiagnosticParityCsv}
         />
       )}
     </div>

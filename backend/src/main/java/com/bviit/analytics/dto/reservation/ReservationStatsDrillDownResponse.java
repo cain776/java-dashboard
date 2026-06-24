@@ -9,6 +9,7 @@ public record ReservationStatsDrillDownResponse(
         String period,
         String date,
         String field,
+        String label,
         boolean snapshotExists,
         Integer snapshotValue,
         Integer liveValue,

@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 import {
   buildReservationStatsDiffCsv,
   buildReservationStatsDrillDownCsv,
+  buildReservationStatsParityCsv,
   type ReservationStatsDiff,
   type ReservationStatsDrillDown,
+  type ReservationStatsParity,
 } from './reservationStatsDiagnostics'
 
 describe('reservation stats diagnostics csv', () => {
@@ -18,6 +20,7 @@ describe('reservation stats diagnostics csv', () => {
         {
           date: '2026-06-22',
           field: 'visit',
+          label: '내원',
           snapshotValue: 32,
           liveValue: 33,
           delta: 1,
@@ -31,8 +34,8 @@ describe('reservation stats diagnostics csv', () => {
     )
 
     expect(csv.split('\r\n')).toEqual([
-      '기간,스냅샷여부,라이브 시작,라이브 종료,일자,필드,스냅샷,라이브,차이,상세조회',
-      '2026-06,Y,2026-06-01,2026-06-23,2026-06-22,visit,32,33,1,/api/stats/reservation-stats-system/diagnostics/drill-down?date=2026-06-22&field=visit',
+      '기간,스냅샷여부,라이브 시작,라이브 종료,일자,필드,필드키,스냅샷,라이브,차이,상세조회',
+      '2026-06,Y,2026-06-01,2026-06-23,2026-06-22,내원,visit,32,33,1,/api/stats/reservation-stats-system/diagnostics/drill-down?date=2026-06-22&field=visit',
     ])
   })
 
@@ -41,6 +44,7 @@ describe('reservation stats diagnostics csv', () => {
       period: '2026-06',
       date: '2026-06-22',
       field: 'visit',
+      label: '내원',
       snapshotExists: true,
       snapshotValue: 32,
       liveValue: 33,
@@ -60,8 +64,35 @@ describe('reservation stats diagnostics csv', () => {
     }
 
     expect(buildReservationStatsDrillDownCsv(drillDown).split('\r\n')).toEqual([
-      '기간,일자,필드,스냅샷여부,스냅샷,라이브,차이,source,GB,GB2,PK,기여도',
-      '2026-06,2026-06-22,visit,Y,32,33,1,CH_09,내원,,RSV-1,1',
+      '기간,일자,필드,필드키,스냅샷여부,스냅샷,라이브,차이,source,GB,GB2,PK,기여도',
+      '2026-06,2026-06-22,내원,visit,Y,32,33,1,CH_09,내원,,RSV-1,1',
+    ])
+  })
+
+  it('parity CSV는 daily와 drill-down 합계 차이를 보존한다', () => {
+    const parity: ReservationStatsParity = {
+      period: '2026-06',
+      field: 'visit',
+      label: '내원',
+      liveFrom: '2026-06-01',
+      liveTo: '2026-06-23',
+      mismatchCount: 1,
+      items: [
+        {
+          date: '2026-06-22',
+          field: 'visit',
+          label: '내원',
+          dailyValue: 32,
+          drillDownValue: 33,
+          delta: 1,
+          rowCount: 33,
+        },
+      ],
+    }
+
+    expect(buildReservationStatsParityCsv(parity).split('\r\n')).toEqual([
+      '기간,라이브 시작,라이브 종료,일자,필드,필드키,daily,drill-down,차이,row수',
+      '2026-06,2026-06-01,2026-06-23,2026-06-22,내원,visit,32,33,1,33',
     ])
   })
 })

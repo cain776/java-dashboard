@@ -560,9 +560,16 @@ backend/src/main/resources/sql/reservation-stats/
 - 이 단계에서는 실패 SQL 이름과 params 로깅, EICN 헬스 프로브 수준까지만 목표로 한다.
 - 채널 분리 실행은 성능과 구조가 바뀌므로 별도 과제로 둔다.
 
+daily SQL과 drill-down SQL 분리 유지 결정:
+
+- daily SQL은 일자별 운영 집계값을 반환하는 화면/스냅샷용 쿼리이고, drill-down SQL은 특정 날짜·필드의 원천 row 후보를 펼치는 진단용 쿼리다. 반환 단위와 사용 목적이 다르므로 하나의 거대한 SQL/DSL로 합치면 오히려 변경 위험이 커진다.
+- `OPENQUERY`, 임시 테이블, 다중 CTE, 원천별 pseudo row가 섞여 있어 SQL 생성 DSL을 만들면 “예쁜 구조”보다 디버깅 난도가 먼저 올라간다.
+- 중복은 완전 제거 대신 `ReservationStatsFieldRegistry`, SQL `FIELD_MAP`, registry/SQL parity 테스트, 운영 parity API로 통제한다.
+- 통합 재검토 조건은 동일 CASE 공식 수정이 반복되거나, daily와 drill-down 기준 차이가 parity에서 자주 검출되는 경우로 둔다.
+
 ### 7단계. 진단/diff 및 row-level drill-down 기능 구현
 
-> ✅ 2026-06-24 구현 완료: snapshot vs live 일자/컬럼별 diff API, 프론트 진단 CSV 다운로드, row-level drill-down API를 추가했다. drill-down 1차 응답은 집계 쿼리와 같은 기준으로 `source`, `GB`, `GB2`, `PK`, `contribution`을 내려준다. `CUST_NUM`, `RESERVE_NUM`, 예약상태, 제외 사유 후보는 운영 DB 검증 후 필요할 때 확장하는 고도화 항목으로 둔다.
+> ✅ 2026-06-24 구현 완료: snapshot vs live 일자/컬럼별 diff API, 프론트 진단 CSV 다운로드, row-level drill-down API, daily/drill-down parity API를 추가했다. drill-down 1차 응답은 집계 쿼리와 같은 기준으로 `source`, `GB`, `GB2`, `PK`, `contribution`을 내려준다. `CUST_NUM`, `RESERVE_NUM`, 예약상태, 제외 사유 후보는 운영 DB 검증 후 필요할 때 확장하는 고도화 항목으로 둔다.
 
 목적:
 
@@ -573,6 +580,8 @@ backend/src/main/resources/sql/reservation-stats/
 - ~~snapshot vs live 일자/컬럼별 diff API~~
 - ~~row-level drill-down API 설계 및 1차 구현~~
 - ~~drill-down 응답 1차: `source`, `GB`, `GB2`, `PK`, `contribution` 포함~~
+- ~~daily 집계값과 drill-down 기여도 합계 parity API~~
+- ~~진단 UI field label 표시 및 parity CSV export~~
 - 운영 고도화 후보: `CUST_NUM`, `RESERVE_NUM`, 예약상태, 제외 사유 후보 확장
 - ~~프론트 diff CSV export~~
 - ~~프론트 diff CSV에 drill-down 상세조회 URL 기재~~
@@ -580,7 +589,7 @@ backend/src/main/resources/sql/reservation-stats/
 검증:
 
 - 특정 일자/컬럼에서 차이 발생 시 원천 row 후보를 확인할 수 있어야 한다.
-- 집계 쿼리와 drill-down 쿼리의 기준이 문서화되어야 한다.
+- 집계 쿼리와 drill-down 쿼리의 기준이 문서화되어야 하며, 대표 필드는 parity API로 daily 값과 row 기여도 합계를 대조한다.
 - DB 없는 단위 테스트에서는 SQL 리소스 로드, OPENQUERY placeholder 치환, `:date`/`:field` 바인딩 보존, 서비스의 snapshot/live 합계 계산을 검증한다.
 - 실제 MSSQL/work DB에서는 대표 일자/필드(예: `visit`, `naverReservation`, 백내장 `totalCataract`)를 운영 검증으로 대조한다.
 
@@ -693,7 +702,7 @@ gradlew.bat test
 | 동시 fill로 저장 유실 | period lock 선적용 |
 | 데이터 출처 표시 불가 | 현 결정상 ‘미연결’ 상태만 표시(백엔드 변경 없음). 스냅샷/라이브 구분(메타 API)은 보류 — §6 참조 |
 | SQL 분리 중 파라미터 누락 | SQL loader 테스트와 기존 결과 diff |
-| 진단 기능이 집계와 다른 기준 사용 | drill-down SQL 기준을 문서화하고 집계 query와 연결 |
+| 진단 기능이 집계와 다른 기준 사용 | drill-down SQL 기준을 문서화하고 registry/SQL 테스트 + parity API로 대조 |
 
 ## 12. 완료 기준
 
@@ -709,6 +718,7 @@ gradlew.bat test
 - `fillSnapshot` 동시 호출이 안전하다.
 - SQL은 파일로 분리되어 있다.
 - snapshot vs live diff와 row-level drill-down으로 일자/필드 차이의 원천 row 후보를 추적할 수 있다.
+- daily SQL과 drill-down SQL의 기준 차이는 parity API/CSV로 운영 검증할 수 있다.
 - 오류 발생 시 커밋 단위로 복귀 가능하다.
 
 ## 13. 최종 원칙

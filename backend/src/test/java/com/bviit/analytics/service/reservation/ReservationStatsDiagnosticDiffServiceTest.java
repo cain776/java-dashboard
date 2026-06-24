@@ -7,6 +7,8 @@ import com.bviit.analytics.dto.reservation.ReservationStatsDiffItem;
 import com.bviit.analytics.dto.reservation.ReservationStatsDiffResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownRow;
+import com.bviit.analytics.dto.reservation.ReservationStatsParityItem;
+import com.bviit.analytics.dto.reservation.ReservationStatsParityResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsSnapshot;
 import com.bviit.analytics.repository.reservation.CataractStatsSystemRepository;
 import com.bviit.analytics.repository.reservation.ReservationStatsSystemRepository;
@@ -21,6 +23,9 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -78,7 +83,7 @@ class ReservationStatsDiagnosticDiffServiceTest {
         assertThat(response.snapshotExists()).isTrue();
         assertThat(response.diffCount()).isEqualTo(1);
         assertThat(response.diffs()).containsExactly(
-                new ReservationStatsDiffItem(date, "inboundCall", 10, 12, 2)
+                new ReservationStatsDiffItem(date, "inboundCall", "인입콜", 10, 12, 2)
         );
     }
 
@@ -98,7 +103,7 @@ class ReservationStatsDiagnosticDiffServiceTest {
         ReservationStatsDiffResponse response = service.diff(period.toString());
 
         assertThat(response.diffs()).containsExactly(
-                new ReservationStatsDiffItem(date, "callReservation", null, 3, null)
+                new ReservationStatsDiffItem(date, "callReservation", "예약수", null, 3, null)
         );
     }
 
@@ -118,7 +123,7 @@ class ReservationStatsDiagnosticDiffServiceTest {
         ReservationStatsDiffResponse response = service.diff(period.toString());
 
         assertThat(response.diffs()).containsExactly(
-                new ReservationStatsDiffItem(date, "newInquiry", 7, null, null)
+                new ReservationStatsDiffItem(date, "newInquiry", "신규예약 문의", 7, null, null)
         );
     }
 
@@ -139,8 +144,8 @@ class ReservationStatsDiagnosticDiffServiceTest {
         ReservationStatsDiffResponse response = service.diff(period.toString());
 
         assertThat(response.diffs()).containsExactly(
-                new ReservationStatsDiffItem(snapshotDate, "inboundCall", 5, null, null),
-                new ReservationStatsDiffItem(liveDate, "inboundCall", null, 6, null)
+                new ReservationStatsDiffItem(snapshotDate, "inboundCall", "인입콜", 5, null, null),
+                new ReservationStatsDiffItem(liveDate, "inboundCall", "인입콜", null, 6, null)
         );
     }
 
@@ -160,7 +165,7 @@ class ReservationStatsDiagnosticDiffServiceTest {
         ReservationStatsDiffResponse response = service.diff(period.toString());
 
         assertThat(response.diffs()).containsExactly(
-                new ReservationStatsDiffItem(date, "totalCataract", 10, 12, 2)
+                new ReservationStatsDiffItem(date, "totalCataract", "백내장", 10, 12, 2)
         );
         verify(cataractRepository).findDailyCounts(period.atDay(1).toString(), period.atEndOfMonth().toString());
     }
@@ -184,6 +189,7 @@ class ReservationStatsDiagnosticDiffServiceTest {
         ReservationStatsDrillDownResponse response = service.drillDown(period.toString(), date, "inboundCall");
 
         assertThat(response.snapshotExists()).isTrue();
+        assertThat(response.label()).isEqualTo("인입콜");
         assertThat(response.snapshotValue()).isEqualTo(10);
         assertThat(response.liveValue()).isEqualTo(12);
         assertThat(response.delta()).isEqualTo(2);
@@ -207,6 +213,7 @@ class ReservationStatsDiagnosticDiffServiceTest {
         ReservationStatsDrillDownResponse response = service.drillDown(period.toString(), date, "callReservation");
 
         assertThat(response.snapshotExists()).isFalse();
+        assertThat(response.label()).isEqualTo("예약수");
         assertThat(response.snapshotValue()).isNull();
         assertThat(response.liveValue()).isEqualTo(1);
         assertThat(response.delta()).isNull();
@@ -252,7 +259,6 @@ class ReservationStatsDiagnosticDiffServiceTest {
         );
         when(cataractSnapshotStore.find(period.toString()))
                 .thenReturn(Optional.of(cataractSnapshot(period, List.of(cataractRow(date, 0, 0)))));
-        when(cataractRepository.findDrillDownRows(date, "totalPresbyopia")).thenReturn(List.of());
 
         ReservationStatsDrillDownResponse response = service.drillDown(period.toString(), date, "totalPresbyopia");
 
@@ -260,6 +266,61 @@ class ReservationStatsDiagnosticDiffServiceTest {
         assertThat(response.liveValue()).isZero();
         assertThat(response.delta()).isZero();
         assertThat(response.rows()).isEmpty();
+    }
+
+    @Test
+    void parity는_daily_집계값과_drill_down_기여도_합계를_일자별로_대조한다() {
+        YearMonth period = previousPeriod();
+        String date1 = period.atDay(1).toString();
+        String date2 = period.atDay(2).toString();
+        ReservationStatsDiagnosticDiffService service = new ReservationStatsDiagnosticDiffService(
+                reservationRepository,
+                reservationSnapshotStore
+        );
+        when(reservationRepository.findDailyCounts(period.atDay(1).toString(), period.atEndOfMonth().toString()))
+                .thenReturn(List.of(
+                        reservationRow(date1, 3, 0, 0),
+                        reservationRow(date2, 5, 0, 0)
+                ));
+        when(reservationRepository.findDrillDownRows(anyString(), eq("inboundCall"))).thenReturn(List.of());
+        when(reservationRepository.findDrillDownRows(date1, "inboundCall"))
+                .thenReturn(List.of(
+                        drillRow(date1, "inboundCall", "CH_01", "인입콜", "EICN:1", 1),
+                        drillRow(date1, "inboundCall", "CH_01", "인입콜", "EICN:2", 2)
+                ));
+        when(reservationRepository.findDrillDownRows(date2, "inboundCall"))
+                .thenReturn(List.of(drillRow(date2, "inboundCall", "CH_01", "인입콜", "EICN:3", 4)));
+
+        ReservationStatsParityResponse response = service.parity(period.toString(), "inboundCall");
+
+        assertThat(response.field()).isEqualTo("inboundCall");
+        assertThat(response.label()).isEqualTo("인입콜");
+        assertThat(response.mismatchCount()).isEqualTo(1);
+        assertThat(response.items())
+                .filteredOn(item -> item.date().equals(date1))
+                .containsExactly(new ReservationStatsParityItem(date1, "inboundCall", "인입콜", 3, 3, 0, 2));
+        assertThat(response.items())
+                .filteredOn(item -> item.date().equals(date2))
+                .containsExactly(new ReservationStatsParityItem(date2, "inboundCall", "인입콜", 5, 4, -1, 1));
+    }
+
+    @Test
+    void parity는_drill_down_매핑이_없는_0고정_field에서_상세_sql을_호출하지_않는다() {
+        YearMonth period = previousPeriod();
+        String date = period.atDay(1).toString();
+        CataractStatsDiagnosticDiffService service = new CataractStatsDiagnosticDiffService(
+                cataractRepository,
+                cataractSnapshotStore
+        );
+        when(cataractRepository.findDailyCounts(period.atDay(1).toString(), period.atEndOfMonth().toString()))
+                .thenReturn(List.of(cataractRow(date, 0, 0)));
+
+        ReservationStatsParityResponse response = service.parity(period.toString(), "totalPresbyopia");
+
+        assertThat(response.field()).isEqualTo("totalPresbyopia");
+        assertThat(response.label()).isEqualTo("노안");
+        assertThat(response.mismatchCount()).isZero();
+        verify(cataractRepository, never()).findDrillDownRows(anyString(), eq("totalPresbyopia"));
     }
 
     private static YearMonth previousPeriod() {

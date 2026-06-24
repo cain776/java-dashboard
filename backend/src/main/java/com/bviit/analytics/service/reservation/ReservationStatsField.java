@@ -8,6 +8,7 @@ import java.util.function.ToIntFunction;
  */
 record ReservationStatsField<T>(
         String name,
+        String label,
         ToIntFunction<T> value,
         boolean drillDownMapped
 ) {

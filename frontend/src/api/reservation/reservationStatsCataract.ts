@@ -4,8 +4,10 @@ import { apiResponseOf, withQuery } from '@/api/_shared'
 import {
   reservationStatsDrillDownSchema,
   reservationStatsDiffSchema,
+  reservationStatsParitySchema,
   type ReservationStatsDrillDown,
   type ReservationStatsDiff,
+  type ReservationStatsParity,
 } from './reservationStatsDiagnostics'
 
 /**
@@ -50,6 +52,7 @@ export type CataractStatsSnapshotInfo = z.infer<typeof snapshotInfoSchema>
 const snapshotsSchema = apiResponseOf(z.array(snapshotInfoSchema))
 const diffResponseSchema = apiResponseOf(reservationStatsDiffSchema)
 const drillDownResponseSchema = apiResponseOf(reservationStatsDrillDownSchema)
+const parityResponseSchema = apiResponseOf(reservationStatsParitySchema)
 
 export const reservationStatsCataractApi = {
   getDailyCounts: async (from: string, to: string): Promise<CataractStatsDailyCounts[]> => {
@@ -82,5 +85,13 @@ export const reservationStatsCataractApi = {
       withQuery('/stats/reservation-stats-cataract/diagnostics/drill-down', { period, date, field }),
     )
     return drillDownResponseSchema.parse(res).data
+  },
+
+  /** daily 집계값과 drill-down row 기여도 합계를 월/필드 단위로 대조한다. */
+  getParity: async (period: string, field: string): Promise<ReservationStatsParity> => {
+    const res = await api.get<unknown>(
+      withQuery('/stats/reservation-stats-cataract/diagnostics/parity', { period, field }),
+    )
+    return parityResponseSchema.parse(res).data
   },
 }

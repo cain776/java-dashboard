@@ -4,6 +4,7 @@ import com.bviit.analytics.dto.reservation.CataractStatsDailyRow;
 import com.bviit.analytics.dto.reservation.CataractStatsSnapshot;
 import com.bviit.analytics.dto.reservation.ReservationStatsDiffResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownResponse;
+import com.bviit.analytics.dto.reservation.ReservationStatsParityResponse;
 import com.bviit.analytics.repository.reservation.CataractStatsSystemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Profile;
@@ -36,6 +37,18 @@ public class CataractStatsDiagnosticDiffService {
                 date,
                 field,
                 () -> snapshotStore.find(period).map(CataractStatsSnapshot::days),
+                CataractStatsDailyRow::date,
+                ReservationStatsFieldRegistry.CATARACT_FIELDS,
+                repository::findDrillDownRows
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public ReservationStatsParityResponse parity(String period, String field) {
+        return ReservationStatsDiagnosticSupport.parity(
+                period,
+                field,
+                repository::findDailyCounts,
                 CataractStatsDailyRow::date,
                 ReservationStatsFieldRegistry.CATARACT_FIELDS,
                 repository::findDrillDownRows

@@ -85,14 +85,14 @@ final class ReservationStatsDiffCalculator {
                 if (snapshotRow == null) {
                     int liveValue = field.value().applyAsInt(liveRow);
                     if (liveValue != 0) {
-                        diffs.add(new ReservationStatsDiffItem(date, field.name(), null, liveValue, null));
+                        diffs.add(new ReservationStatsDiffItem(date, field.name(), field.label(), null, liveValue, null));
                     }
                     continue;
                 }
                 if (liveRow == null) {
                     int snapshotValue = field.value().applyAsInt(snapshotRow);
                     if (snapshotValue != 0) {
-                        diffs.add(new ReservationStatsDiffItem(date, field.name(), snapshotValue, null, null));
+                        diffs.add(new ReservationStatsDiffItem(date, field.name(), field.label(), snapshotValue, null, null));
                     }
                     continue;
                 }
@@ -103,6 +103,7 @@ final class ReservationStatsDiffCalculator {
                     diffs.add(new ReservationStatsDiffItem(
                             date,
                             field.name(),
+                            field.label(),
                             snapshotValue,
                             liveValue,
                             snapshotValue == null || liveValue == null ? null : liveValue - snapshotValue

@@ -26,11 +26,17 @@ export function useReservationStatsSnapshots() {
     mutationFn: ({ period, date, field }: { period: string; date: string; field: string }) =>
       reservationStatsSystemApi.getDrillDown(period, date, field),
   })
+  const parity = useMutation({
+    mutationFn: ({ period, field }: { period: string; field: string }) =>
+      reservationStatsSystemApi.getParity(period, field),
+  })
 
   return {
     getDiff: diff.mutateAsync,
     isDiffing: diff.isPending,
     getDrillDown: drillDown.mutateAsync,
     isDrillingDown: drillDown.isPending,
+    getParity: parity.mutateAsync,
+    isCheckingParity: parity.isPending,
   }
 }

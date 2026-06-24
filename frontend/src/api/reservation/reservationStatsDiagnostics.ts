@@ -4,6 +4,7 @@ import { toCsv } from '@/utils/csv'
 export const reservationStatsDiffItemSchema = z.object({
   date: z.string(),
   field: z.string(),
+  label: z.string(),
   snapshotValue: z.number().nullable(),
   liveValue: z.number().nullable(),
   delta: z.number().nullable(),
@@ -32,6 +33,7 @@ export const reservationStatsDrillDownSchema = z.object({
   period: z.string(),
   date: z.string(),
   field: z.string(),
+  label: z.string(),
   snapshotExists: z.boolean(),
   snapshotValue: z.number().nullable(),
   liveValue: z.number().nullable(),
@@ -40,10 +42,32 @@ export const reservationStatsDrillDownSchema = z.object({
   rows: z.array(reservationStatsDrillDownRowSchema),
 })
 
+export const reservationStatsParityItemSchema = z.object({
+  date: z.string(),
+  field: z.string(),
+  label: z.string(),
+  dailyValue: z.number(),
+  drillDownValue: z.number(),
+  delta: z.number(),
+  rowCount: z.number(),
+})
+
+export const reservationStatsParitySchema = z.object({
+  period: z.string(),
+  field: z.string(),
+  label: z.string(),
+  liveFrom: z.string(),
+  liveTo: z.string(),
+  mismatchCount: z.number(),
+  items: z.array(reservationStatsParityItemSchema),
+})
+
 export type ReservationStatsDiffItem = z.infer<typeof reservationStatsDiffItemSchema>
 export type ReservationStatsDiff = z.infer<typeof reservationStatsDiffSchema>
 export type ReservationStatsDrillDownRow = z.infer<typeof reservationStatsDrillDownRowSchema>
 export type ReservationStatsDrillDown = z.infer<typeof reservationStatsDrillDownSchema>
+export type ReservationStatsParityItem = z.infer<typeof reservationStatsParityItemSchema>
+export type ReservationStatsParity = z.infer<typeof reservationStatsParitySchema>
 
 type DrillDownPathBuilder = (item: ReservationStatsDiffItem) => string
 
@@ -61,6 +85,7 @@ export const buildReservationStatsDiffCsv = (
       '라이브 종료',
       '일자',
       '필드',
+      '필드키',
       '스냅샷',
       '라이브',
       '차이',
@@ -72,6 +97,7 @@ export const buildReservationStatsDiffCsv = (
       diff.liveFrom ?? '',
       diff.liveTo ?? '',
       item.date,
+      item.label,
       item.field,
       formatNullable(item.snapshotValue),
       formatNullable(item.liveValue),
@@ -82,10 +108,11 @@ export const buildReservationStatsDiffCsv = (
 
 export const buildReservationStatsDrillDownCsv = (drillDown: ReservationStatsDrillDown): string =>
   toCsv(
-    ['기간', '일자', '필드', '스냅샷여부', '스냅샷', '라이브', '차이', 'source', 'GB', 'GB2', 'PK', '기여도'],
+    ['기간', '일자', '필드', '필드키', '스냅샷여부', '스냅샷', '라이브', '차이', 'source', 'GB', 'GB2', 'PK', '기여도'],
     drillDown.rows.map((row) => [
       drillDown.period,
       drillDown.date,
+      drillDown.label,
       drillDown.field,
       drillDown.snapshotExists ? 'Y' : 'N',
       formatNullable(drillDown.snapshotValue),
@@ -96,5 +123,22 @@ export const buildReservationStatsDrillDownCsv = (drillDown: ReservationStatsDri
       row.gb2,
       row.primaryKey ?? '',
       row.contribution,
+    ]),
+  )
+
+export const buildReservationStatsParityCsv = (parity: ReservationStatsParity): string =>
+  toCsv(
+    ['기간', '라이브 시작', '라이브 종료', '일자', '필드', '필드키', 'daily', 'drill-down', '차이', 'row수'],
+    parity.items.map((item) => [
+      parity.period,
+      parity.liveFrom,
+      parity.liveTo,
+      item.date,
+      item.label,
+      item.field,
+      item.dailyValue,
+      item.drillDownValue,
+      item.delta,
+      item.rowCount,
     ]),
   )

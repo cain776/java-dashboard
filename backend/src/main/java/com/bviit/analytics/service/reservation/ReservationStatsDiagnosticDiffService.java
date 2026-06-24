@@ -3,6 +3,7 @@ package com.bviit.analytics.service.reservation;
 import com.bviit.analytics.dto.reservation.ReservationStatsDailyRow;
 import com.bviit.analytics.dto.reservation.ReservationStatsDiffResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownResponse;
+import com.bviit.analytics.dto.reservation.ReservationStatsParityResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsSnapshot;
 import com.bviit.analytics.repository.reservation.ReservationStatsSystemRepository;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +37,18 @@ public class ReservationStatsDiagnosticDiffService {
                 date,
                 field,
                 () -> snapshotStore.find(period).map(ReservationStatsSnapshot::days),
+                ReservationStatsDailyRow::date,
+                ReservationStatsFieldRegistry.SYSTEM_FIELDS,
+                repository::findDrillDownRows
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public ReservationStatsParityResponse parity(String period, String field) {
+        return ReservationStatsDiagnosticSupport.parity(
+                period,
+                field,
+                repository::findDailyCounts,
                 ReservationStatsDailyRow::date,
                 ReservationStatsFieldRegistry.SYSTEM_FIELDS,
                 repository::findDrillDownRows
