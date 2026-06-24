@@ -316,8 +316,8 @@ const buildDailyRows = (period: string): DisplayRow[] => {
 
   const now = new Date()
   const isCurrentMonth = now.getFullYear() === year && now.getMonth() + 1 === month
-  // 진행 중인 달은 전일까지만(오늘 데이터는 미집계). 지난 달은 말일까지.
-  const lastDay = isCurrentMonth ? Math.min(daysInMonth, now.getDate() - 1) : daysInMonth
+  // 진행 중인 달은 전일까지만(오늘 데이터는 미집계). 지난 달은 말일까지. 1일엔 최소 1로 보정(빈 화면 방지).
+  const lastDay = isCurrentMonth ? Math.max(1, Math.min(daysInMonth, now.getDate() - 1)) : daysInMonth
 
   const firstWeekday = new Date(year, month - 1, 1).getDay() // 0=일
   const weekOf = (day: number) => Math.floor((day - 1 + firstWeekday) / 7) // 0-based 캘린더 주

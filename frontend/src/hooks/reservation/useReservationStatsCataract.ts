@@ -38,7 +38,6 @@ export function useReservationStatsCataractSnapshots() {
 
   return {
     snapshots,
-    isConfirmed: (period: string) => snapshots.some((s) => s.period === period),
     /** PDF 고정 스냅샷 — 재확정(덮어쓰기)·호출 금지. */
     isLocked: (period: string) => snapshots.some((s) => s.period === period && s.locked),
     fillSnapshot: fill.mutateAsync,

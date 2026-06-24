@@ -17,8 +17,8 @@ export function useReservationStatsSystem(from: string, to: string, enabled = tr
 }
 
 /**
- * 확정 스냅샷 목록 조회 + 저장(확정) 뮤테이션.
- * 저장 성공 시 스냅샷 목록과 통계 데이터 쿼리를 무효화해 즉시 동결값으로 갱신한다.
+ * 확정 스냅샷 목록 조회 + 호출(증분 채움) 뮤테이션.
+ * 호출 성공 시 스냅샷 목록과 통계 데이터 쿼리를 무효화해 즉시 동결값으로 갱신한다.
  */
 export function useReservationStatsSnapshots() {
   const qc = useQueryClient()
@@ -28,15 +28,7 @@ export function useReservationStatsSnapshots() {
     queryFn: () => reservationStatsSystemApi.getSnapshots(),
   })
 
-  const save = useMutation({
-    mutationFn: (period: string) => reservationStatsSystemApi.saveSnapshot(period),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['reservation-stats-snapshots'] })
-      qc.invalidateQueries({ queryKey: ['reservation-stats-system'] })
-    },
-  })
-
-  // 호출(증분 채움): D-1까지 비어있는 날짜만 적재. 성공 시 동일하게 무효화해 즉시 갱신.
+  // 호출(증분 채움): D-1까지 비어있는 날짜만 적재. 성공 시 무효화해 즉시 갱신.
   const fill = useMutation({
     mutationFn: (period: string) => reservationStatsSystemApi.fillSnapshot(period),
     onSuccess: () => {
@@ -47,11 +39,8 @@ export function useReservationStatsSnapshots() {
 
   return {
     snapshots,
-    isConfirmed: (period: string) => snapshots.some((s) => s.period === period),
     /** PDF 고정 스냅샷(2026-01~05 등) — 재확정(덮어쓰기)·호출 금지. */
     isLocked: (period: string) => snapshots.some((s) => s.period === period && s.locked),
-    saveSnapshot: save.mutateAsync,
-    isSaving: save.isPending,
     fillSnapshot: fill.mutateAsync,
     isFilling: fill.isPending,
   }

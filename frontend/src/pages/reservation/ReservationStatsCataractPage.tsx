@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { downloadCsv } from '@/utils/csv'
 import {
   useReservationStatsCataract,
@@ -133,7 +134,7 @@ export function ReservationStatsCataractPage() {
   const [hasSearched, setHasSearched] = useState(false)
 
   const { from, to, lastDay } = periodRange(appliedMonth)
-  const { dailies, isLoading, isError } = useReservationStatsCataract(from, to, hasSearched)
+  const { dailies, isLoading, isFetching, isError } = useReservationStatsCataract(from, to, hasSearched)
   const live = Boolean(dailies && !isError)
   const rows = !hasSearched
     ? []
@@ -152,7 +153,7 @@ export function ReservationStatsCataractPage() {
       setAppliedMonth(draftMonth)
       setHasSearched(true)
     } catch (e) {
-      alert(`호출 실패: ${e instanceof Error ? e.message : ''}`)
+      toast.error('호출 실패', { description: e instanceof Error ? e.message : undefined })
     }
   }
   const tableViewportClass = granularity === 'month' ? 'max-h-[72vh]' : 'min-h-0 flex-1'
@@ -287,7 +288,7 @@ export function ReservationStatsCataractPage() {
                   기준 월을 선택하고 <span className="font-semibold text-slate-700">조회</span> 버튼을 눌러 데이터를 불러오세요.
                 </td>
               </tr>
-            ) : isLoading ? (
+            ) : isLoading || isFetching ? (
               <SkeletonRows />
             ) : hasData ? (
               rows.map((row) => <BodyRow key={`${granularity}-${row.label}`} row={row} />)

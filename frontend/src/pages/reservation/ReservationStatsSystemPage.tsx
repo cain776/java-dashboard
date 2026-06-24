@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { toast } from 'sonner'
 import { downloadCsv } from '@/utils/csv'
 import {
   useReservationStatsSystem,
@@ -124,7 +125,7 @@ export function ReservationStatsSystemPage() {
   const [hasSearched, setHasSearched] = useState(false) // [조회] 누르기 전엔 자동 조회하지 않음
 
   const { from, to, lastDay } = periodRange(appliedMonth)
-  const { dailies, isLoading, isError } = useReservationStatsSystem(from, to, hasSearched)
+  const { dailies, isLoading, isFetching, isError } = useReservationStatsSystem(from, to, hasSearched)
   // 조회 전에는 빈 상태. 조회 후 운영 데이터가 오면 카운트→행 계산, 미연결(503)은 시드로 폴백.
   const live = Boolean(dailies && !isError)
   const rows = !hasSearched
@@ -144,7 +145,7 @@ export function ReservationStatsSystemPage() {
       setAppliedMonth(draftMonth)
       setHasSearched(true)
     } catch (e) {
-      alert(`호출 실패: ${e instanceof Error ? e.message : ''}`)
+      toast.error('호출 실패', { description: e instanceof Error ? e.message : undefined })
     }
   }
   const tableViewportClass = granularity === 'month' ? 'max-h-[72vh]' : 'min-h-0 flex-1'
@@ -263,7 +264,7 @@ export function ReservationStatsSystemPage() {
                       기준 월을 선택하고 <span className="font-semibold text-slate-700">조회</span> 버튼을 눌러 데이터를 불러오세요.
                     </td>
                   </tr>
-                ) : isLoading ? (
+                ) : isLoading || isFetching ? (
                   <SkeletonRows />
                 ) : hasData ? (
                   rows.map((row) => <BodyRow key={`${granularity}-${row.label}`} row={row} />)
