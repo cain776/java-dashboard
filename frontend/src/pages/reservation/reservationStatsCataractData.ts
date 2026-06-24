@@ -151,11 +151,15 @@ const isZeroCounts = (c: Counts): boolean => COUNT_KEYS.every((k) => c[k] === 0)
 const pctInt = (a: number, b: number): number => (b === 0 ? 0 : Math.round((a * 100) / b))
 const pct1 = (a: number, b: number): number => (b === 0 ? 0 : Math.round((a * 1000) / b) / 10)
 
+// 백내장 총예약 = ★신환 + TM 예약수 + 카톡 백내장 검사예약 + 온라인 예약수 (채널 예약 합)
+const cataractTotal = (c: Counts): number =>
+  c.newPatient + c.tmReservation + c.kakaoCataractReservation + c.onlineReservation
+
 const computeChannelRow = (c: Counts, label: string): CataractChannelRow => ({
   label,
-  totalCataract: c.totalCataract,
+  totalCataract: cataractTotal(c),
   totalPresbyopia: c.totalPresbyopia,
-  totalSum: c.totalCataract + c.totalPresbyopia,
+  totalSum: cataractTotal(c) + c.totalPresbyopia,
   inboundCall: c.inboundCall,
   answeredCall: c.answeredCall,
   answerRate: pctInt(c.answeredCall, c.inboundCall),
