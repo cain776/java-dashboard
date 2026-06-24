@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, XAxis, YAxis } from 'recharts'
-import { ChevronDown } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Select } from '@/components/filters/Select'
 import {
   ChartContainer,
   ChartTooltip,
@@ -14,6 +14,9 @@ import type { StopReasonMonthlyItem } from '@/api/consultation'
 
 const YEAR_OPTIONS = [CURRENT_YEAR - 2, CURRENT_YEAR - 1, CURRENT_YEAR]
 const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => i + 1)
+// 공유 Select(예약통계 툴바 기준)용 옵션
+const YEAR_SELECT_OPTIONS = YEAR_OPTIONS.map((y) => ({ value: y, label: `${y}년` }))
+const MONTH_SELECT_OPTIONS = MONTH_OPTIONS.map((m) => ({ value: m, label: `${m}월` }))
 
 // 잠정 중단 = 연파랑, 수술 불가 = 파랑, 합계 = 진파랑
 const SUSPEND_COLOR = '#93C5FD'
@@ -58,25 +61,13 @@ export function StopReasonPage() {
     (sum, r) => sum + (item ? (item[r.key] as number) : 0), 0,
   )
 
-  const selectClass =
-    'h-9 appearance-none rounded-md border border-border/80 bg-white pl-3 pr-8 text-sm outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100'
-
   return (
     <div className="flex h-[calc(100vh-5rem)] min-h-[40rem] flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/70 bg-white px-3 py-2 shadow-sm">
-        <div className="relative">
-          <select aria-label="연도" value={year} onChange={(e) => setYear(Number(e.target.value))} className={`${selectClass} w-28`}>
-            {YEAR_OPTIONS.map((y) => <option key={y} value={y}>{y}년</option>)}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-        </div>
-        <div className="relative">
-          <select aria-label="월" value={month} onChange={(e) => setMonth(Number(e.target.value))} className={`${selectClass} w-24`}>
-            {MONTH_OPTIONS.map((m) => <option key={m} value={m}>{m}월</option>)}
-          </select>
-          <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-        </div>
-        <div className="ml-auto flex items-center gap-4 text-sm">
+      {/* 예약통계(/reservation-stats) 툴바와 동일 규격: flat white · px-2 py-1.5 · text-xs · 공유 Select(h-8) */}
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/70 bg-white px-2 py-1.5 text-xs shadow-sm">
+        <Select value={year} onChange={setYear} options={YEAR_SELECT_OPTIONS} title="연도 선택" />
+        <Select value={month} onChange={setMonth} options={MONTH_SELECT_OPTIONS} title="월 선택" />
+        <div className="ml-auto flex items-center gap-4">
           <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm" style={{ backgroundColor: SUSPEND_COLOR }} />잠정 중단 <strong className="tabular-nums">{suspendTotal}</strong></span>
           <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm" style={{ backgroundColor: IMPOSSIBLE_COLOR }} />수술 불가 <strong className="tabular-nums">{impossibleTotal}</strong></span>
         </div>
