@@ -16,10 +16,19 @@ import {
   monthShortLabel,
   type CataractColumnMeta,
   type CataractDisplayRow,
-  type CellFormat,
   type Granularity,
-  type SummaryFormat,
 } from './reservationStatsCataractData'
+import {
+  ReservationStatsTableHeader,
+  type StatsHeaderModel,
+  type StatsHeaderNode,
+} from './shared/ReservationStatsTableHeader'
+import { currentMonth, periodRange } from './shared/reservationStatsDateRange'
+import {
+  formatChannelValue,
+  formatSummaryValue,
+} from './shared/reservationStatsFormat'
+import type { SummaryColumnMeta } from './shared/reservationStatsSummary'
 import { columnSpan, splitColumnGroups } from './shared/reservationStatsTable'
 
 /**
@@ -51,11 +60,6 @@ const OUTBOUND_TAIL = CATARACT_CHANNEL_GROUPS.outboundTail // 아웃바운드 �
 const KAKAO_COLS = CATARACT_CHANNEL_GROUPS.kakao
 const ONLINE_COLS = CATARACT_CHANNEL_GROUPS.online
 const CANCEL_COLS = CATARACT_CHANNEL_GROUPS.cancel
-const ROW3_LEAVES = [...INBOUND_CATARACT, ...OUTBOUND_CATARACT] // 백내장 밴드 하위 라벨(10)
-
-const fmtNum = (v: number) => v.toLocaleString('ko-KR')
-const fmtChannel = (v: number, fmt: CellFormat) => (fmt === 'pct' ? `${v}%` : fmtNum(v))
-const fmtSummary = (v: number, fmt: SummaryFormat) => (fmt === 'pct1' ? `${v.toFixed(1)}%` : fmtNum(v))
 
 /* ── 셀 스타일 (시력교정 페이지와 동일 규칙) ── */
 const cellBase = 'border-b border-r border-slate-400 px-2.5 py-1 whitespace-nowrap'
@@ -71,6 +75,14 @@ const stickyRow2 = 'sticky top-8 z-20'
 const stickyRow3 = 'sticky top-16 z-20'
 const stickyCorner = 'sticky top-0 left-0 z-30'
 const headBottom = 'shadow-[inset_0_-2px_0_0_#475569]'
+const headerClasses = {
+  groupHead,
+  headH,
+  headBottom,
+  stickyCorner,
+  stickyRows: [stickyRow1, stickyRow2, stickyRow3],
+  leftDivider,
+} as const
 
 const isCountChar = (ch: string) => /[0-9A-Za-z가-힣★]/.test(ch)
 const countChars = (s: string) => [...s].filter(isCountChar).length
@@ -114,33 +126,74 @@ function ColLabel({ label }: { label: string }) {
   )
 }
 
-/** 이번 달(YYYY-MM) — 매 호출마다 평가해 자정/월 경계 후에도 최신. */
-const currentMonth = () => {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
+type CataractHeaderColumn = CataractColumnMeta | SummaryColumnMeta
 
-function periodRange(period: string): { from: string; to: string; lastDay: number } {
-  const now = new Date()
-  const y = Number(period.slice(0, 4))
-  const m = Number(period.slice(5, 7))
-  const daysInMonth = new Date(y, m, 0).getDate()
-  const isCurrent = now.getFullYear() === y && now.getMonth() + 1 === m
-  const lastDay = isCurrent ? Math.max(1, Math.min(daysInMonth, now.getDate() - 1)) : daysInMonth
-  return { from: `${period}-01`, to: `${period}-${String(lastDay).padStart(2, '0')}`, lastDay }
-}
+const leaf = (
+  column: CataractHeaderColumn,
+  className: string,
+): StatsHeaderNode<CataractHeaderColumn> => ({
+  kind: 'leaf',
+  column,
+  className,
+})
 
-/** rowSpan2 헤더 셀(중간행에서 3행까지 내려 차지). */
-function MidLeafTh({ col }: { col: CataractColumnMeta }) {
-  return (
-    <th
-      rowSpan={2}
-      className={`${groupHead} ${stickyRow2} ${headBottom} bg-white font-medium ${col.emphasis ? 'text-rose-600' : 'text-slate-700'}`}
-    >
-      <ColLabel label={col.label} />
-    </th>
-  )
-}
+const group = (
+  label: string,
+  className: string,
+  children: readonly StatsHeaderNode<CataractHeaderColumn>[],
+): StatsHeaderNode<CataractHeaderColumn> => ({
+  kind: 'group',
+  label,
+  className,
+  children,
+})
+
+const midLeafClass = (col: CataractColumnMeta) =>
+  `bg-white font-medium ${col.emphasis ? 'text-rose-600' : 'text-slate-700'}`
+
+const cataractLeaves = (columns: readonly CataractColumnMeta[]) =>
+  columns.map((col) => leaf(col, midLeafClass(col)))
+
+const cataractSummaryLeaves = SUMMARY_COLUMNS.map((col, i) =>
+  leaf(
+    col,
+    `${i === 0 ? divider : ''} ${col.emphasis ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100'}`,
+  ),
+)
+
+const CATARACT_HEADER_NODES: StatsHeaderNode<CataractHeaderColumn>[] = [
+  group(
+    '총 예약 (아웃바운드 포함)',
+    'bg-sky-200',
+    TOTAL_COLS.map((col) => leaf(col, 'bg-sky-50 font-semibold text-sky-800')),
+  ),
+  group('인바운드 (컨택센터)', 'bg-amber-100', [
+    ...cataractLeaves(INBOUND_PLAIN),
+    group('백내장', 'bg-rose-50 text-rose-700', cataractLeaves(INBOUND_CATARACT)),
+  ]),
+  group('아웃바운드 (TM)', 'bg-amber-200', [
+    group('백내장', 'bg-rose-50 text-rose-700', cataractLeaves(OUTBOUND_CATARACT)),
+    ...cataractLeaves(OUTBOUND_TAIL),
+  ]),
+  group('채팅 (카카오톡)', 'bg-sky-100', cataractLeaves(KAKAO_COLS)),
+  group('온라인예약', 'bg-emerald-100', cataractLeaves(ONLINE_COLS)),
+  group('취소', 'bg-slate-100', cataractLeaves(CANCEL_COLS)),
+  group('예약 종합 (내원 · 부도 · 취소)', `${divider} bg-emerald-200`, cataractSummaryLeaves),
+]
+
+const cataractHeaderModel = (period: string): StatsHeaderModel<CataractHeaderColumn> => ({
+  corner: {
+    content: (
+      <>
+        {monthShortLabel(period)}
+        <br />
+        Date
+      </>
+    ),
+    className: 'bg-slate-100',
+  },
+  nodes: CATARACT_HEADER_NODES,
+})
 
 export function ReservationStatsCataractPage() {
   const [draftMonth, setDraftMonth] = useState(DEFAULT_PERIOD)
@@ -204,95 +257,11 @@ export function ReservationStatsCataractPage() {
 
       <div className={`${tableViewportClass} overflow-auto rounded-md border border-slate-400 bg-white`}>
         <table className="min-w-[1800px] border-separate border-spacing-0 text-xs">
-          <thead>
-            {/* 1행: 최상위 그룹 */}
-            <tr>
-              <th rowSpan={3} className={`${groupHead} ${leftDivider} ${headBottom} ${stickyCorner} bg-slate-100`}>
-                {monthShortLabel(appliedMonth)}
-                <br />
-                Date
-              </th>
-              <th colSpan={TOTAL_COLS.length} className={`${groupHead} ${stickyRow1} ${headH} bg-sky-200`}>
-                총 예약 (아웃바운드 포함)
-              </th>
-              <th colSpan={columnSpan(INBOUND_PLAIN, INBOUND_CATARACT)} className={`${groupHead} ${stickyRow1} ${headH} bg-amber-100`}>
-                인바운드 (컨택센터)
-              </th>
-              <th colSpan={columnSpan(OUTBOUND_CATARACT, OUTBOUND_TAIL)} className={`${groupHead} ${stickyRow1} ${headH} bg-amber-200`}>
-                아웃바운드 (TM)
-              </th>
-              <th colSpan={KAKAO_COLS.length} className={`${groupHead} ${stickyRow1} ${headH} bg-sky-100`}>
-                채팅 (카카오톡)
-              </th>
-              <th colSpan={ONLINE_COLS.length} className={`${groupHead} ${stickyRow1} ${headH} bg-emerald-100`}>
-                온라인예약
-              </th>
-              <th colSpan={CANCEL_COLS.length} className={`${groupHead} ${stickyRow1} ${headH} bg-slate-100`}>
-                취소
-              </th>
-              <th colSpan={SUMMARY_COLUMNS.length} className={`${groupHead} ${stickyRow1} ${headH} ${divider} bg-emerald-200`}>
-                예약 종합 (내원 · 부도 · 취소)
-              </th>
-            </tr>
-            {/* 2행: 중간 그룹/밴드 + rowSpan2 라벨 */}
-            <tr>
-              {/* 총예약: 백내장·노안·합계 */}
-              {TOTAL_COLS.map((col) => (
-                <th key={col.key} rowSpan={2} className={`${groupHead} ${stickyRow2} ${headBottom} bg-sky-50 font-semibold text-sky-800`}>
-                  <ColLabel label={col.label} />
-                </th>
-              ))}
-              {/* 인바운드: 총인입콜·응대콜·응대율(rowSpan2) + 백내장 밴드 */}
-              {INBOUND_PLAIN.map((col) => (
-                <MidLeafTh key={col.key} col={col} />
-              ))}
-              <th colSpan={INBOUND_CATARACT.length} className={`${groupHead} ${stickyRow2} ${headH} bg-rose-50 text-rose-700`}>
-                백내장
-              </th>
-              {/* 아웃바운드: 백내장 밴드 + 아웃바운드 총 예약수(rowSpan2) */}
-              <th colSpan={OUTBOUND_CATARACT.length} className={`${groupHead} ${stickyRow2} ${headH} bg-rose-50 text-rose-700`}>
-                백내장
-              </th>
-              {OUTBOUND_TAIL.map((col) => (
-                <MidLeafTh key={col.key} col={col} />
-              ))}
-              {/* 채팅 */}
-              {KAKAO_COLS.map((col) => (
-                <MidLeafTh key={col.key} col={col} />
-              ))}
-              {/* 온라인예약 */}
-              {ONLINE_COLS.map((col) => (
-                <MidLeafTh key={col.key} col={col} />
-              ))}
-              {/* 취소 */}
-              {CANCEL_COLS.map((col) => (
-                <MidLeafTh key={col.key} col={col} />
-              ))}
-              {/* 종합 */}
-              {SUMMARY_COLUMNS.map((col, i) => (
-                <th
-                  key={col.key}
-                  rowSpan={2}
-                  className={`${groupHead} ${stickyRow2} ${headBottom} ${i === 0 ? divider : ''} ${
-                    col.emphasis ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100'
-                  }`}
-                >
-                  <ColLabel label={col.label} />
-                </th>
-              ))}
-            </tr>
-            {/* 3행: 백내장 밴드 하위 라벨(인바운드 5 + 아웃바운드 5) */}
-            <tr>
-              {ROW3_LEAVES.map((col) => (
-                <th
-                  key={col.key}
-                  className={`${groupHead} ${stickyRow3} ${headBottom} bg-white font-medium ${col.emphasis ? 'text-rose-600' : 'text-slate-700'}`}
-                >
-                  <ColLabel label={col.label} />
-                </th>
-              ))}
-            </tr>
-          </thead>
+          <ReservationStatsTableHeader
+            model={cataractHeaderModel(appliedMonth)}
+            classes={headerClasses}
+            renderLabel={(label) => <ColLabel label={label} />}
+          />
           <tbody>
             {!hasSearched ? (
               <tr>
@@ -382,7 +351,7 @@ function BodyRow({ row }: { row: CataractDisplayRow }) {
               col.key === 'totalSum' ? 'bg-sky-50/60 font-semibold text-sky-700' : ''
             }`}
           >
-            {fmtChannel(channel[col.key], col.fmt)}
+            {formatChannelValue(channel[col.key], col.fmt)}
           </td>
         ),
       )}
@@ -397,7 +366,7 @@ function BodyRow({ row }: { row: CataractDisplayRow }) {
             key={col.key}
             className={`${numCell} ${i === 0 ? divider : ''} ${col.emphasis ? 'bg-rose-50 text-rose-600' : ''}`}
           >
-            {fmtSummary(summary[col.key], col.fmt)}
+            {formatSummaryValue(summary[col.key], col.fmt)}
           </td>
         ),
       )}

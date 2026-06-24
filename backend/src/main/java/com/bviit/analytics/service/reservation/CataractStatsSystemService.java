@@ -10,10 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -76,16 +73,7 @@ public class CataractStatsSystemService {
         List<CataractStatsDailyRow> fetched = repository.findDailyCounts(first.toString(), snapshotTo.toString());
         return periodLock.withPeriodLock(period, () -> {
             Optional<CataractStatsSnapshot> existing = snapshotStore.find(period);
-            Map<String, CataractStatsDailyRow> byDate = new LinkedHashMap<>();
-            existing.ifPresent(s -> s.days().forEach(d -> byDate.put(d.date(), d)));
-
-            for (CataractStatsDailyRow d : fetched) {
-                byDate.putIfAbsent(d.date(), d);
-            }
-
-            List<CataractStatsDailyRow> merged = byDate.values().stream()
-                    .sorted(Comparator.comparing(CataractStatsDailyRow::date))
-                    .toList();
+            List<CataractStatsDailyRow> merged = snapshotStore.mergeDays(existing, fetched);
             boolean locked = existing.map(CataractStatsSnapshot::locked).orElse(false);
             String confirmedBy = existing.map(CataractStatsSnapshot::confirmedBy).orElse(by);
             CataractStatsSnapshot snapshot =

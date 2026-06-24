@@ -10,10 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -82,17 +79,7 @@ public class ReservationStatsSystemService {
         return periodLock.withPeriodLock(period, () -> {
             // 기존 스냅샷의 날짜는 보존(머지 기준).
             Optional<ReservationStatsSnapshot> existing = snapshotStore.find(period);
-            Map<String, ReservationStatsDailyRow> byDate = new LinkedHashMap<>();
-            existing.ifPresent(s -> s.days().forEach(d -> byDate.put(d.date(), d)));
-
-            // D-1까지 라이브 조회 후 "없는 날짜만" 채운다(있으면 보존).
-            for (ReservationStatsDailyRow d : fetched) {
-                byDate.putIfAbsent(d.date(), d);
-            }
-
-            List<ReservationStatsDailyRow> merged = byDate.values().stream()
-                    .sorted(Comparator.comparing(ReservationStatsDailyRow::date))
-                    .toList();
+            List<ReservationStatsDailyRow> merged = snapshotStore.mergeDays(existing, fetched);
             // 잠금·확정자는 기존 값 유지(없으면 이번 호출자). PDF 고정월은 컨트롤러가 미리 차단.
             boolean locked = existing.map(ReservationStatsSnapshot::locked).orElse(false);
             String confirmedBy = existing.map(ReservationStatsSnapshot::confirmedBy).orElse(by);

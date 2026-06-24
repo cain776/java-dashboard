@@ -14,11 +14,22 @@ import {
   getDisplayRowsFromCounts,
   monthFullLabel,
   monthShortLabel,
-  type CellFormat,
+  type ColumnMeta,
   type DisplayRow,
   type Granularity,
-  type SummaryFormat,
+  type SummaryColumnMeta,
 } from './reservationStatsSystemData'
+import {
+  ReservationStatsTableHeader,
+  type StatsHeaderModel,
+  type StatsHeaderNode,
+} from './shared/ReservationStatsTableHeader'
+import { currentMonth, periodRange } from './shared/reservationStatsDateRange'
+import {
+  formatChannelValue,
+  formatNumber,
+  formatSummaryValue,
+} from './shared/reservationStatsFormat'
 import { columnSpan, splitColumnGroups } from './shared/reservationStatsTable'
 
 /**
@@ -37,18 +48,6 @@ const SYSTEM_CHANNEL_GROUPS = splitColumnGroups(CHANNEL_COLUMNS, [
   { key: 'kakao', span: 3 },
   { key: 'cancel', span: 3 },
 ] as const)
-
-const SYSTEM_CALL_COLUMNS = [...SYSTEM_CHANNEL_GROUPS.inboundCall, ...SYSTEM_CHANNEL_GROUPS.tm]
-const SYSTEM_ONLINE_COLUMNS = [...SYSTEM_CHANNEL_GROUPS.home, ...SYSTEM_CHANNEL_GROUPS.naver]
-const SYSTEM_MAIN_COLUMNS = [
-  ...SYSTEM_CALL_COLUMNS,
-  ...SYSTEM_ONLINE_COLUMNS,
-  ...SYSTEM_CHANNEL_GROUPS.kakao,
-]
-
-const fmtNum = (v: number) => v.toLocaleString('ko-KR')
-const fmtChannel = (v: number, fmt: CellFormat) => (fmt === 'pct' ? `${v}%` : fmtNum(v))
-const fmtSummary = (v: number, fmt: SummaryFormat) => (fmt === 'pct1' ? `${v.toFixed(1)}%` : fmtNum(v))
 
 /* ── 셀 스타일 ──
  * border-separate + 셀별 하단/우측 보더(1px) — sticky 헤더 배경 비침(border-collapse 렌더 버그) 방지.
@@ -73,6 +72,14 @@ const stickyRow3 = 'sticky top-16 z-20'
 const stickyCorner = 'sticky top-0 left-0 z-30'
 /** 헤더 하단 경계선(border-collapse 스크롤 시에도 유지되도록 inset shadow). */
 const headBottom = 'shadow-[inset_0_-2px_0_0_#475569]'
+const headerClasses = {
+  groupHead,
+  headH,
+  headBottom,
+  stickyCorner,
+  stickyRows: [stickyRow1, stickyRow2, stickyRow3],
+  leftDivider,
+} as const
 
 /**
  * 헤더 라벨을 4글자 단위로 끊어 줄바꿈한다(4글자까지는 한 줄에서 안 깨짐).
@@ -120,22 +127,76 @@ function ColLabel({ label }: { label: string }) {
   )
 }
 
-/** 이번 달(YYYY-MM) — 매 호출마다 평가해 자정/월 경계 후에도 최신. */
-const currentMonth = () => {
-  const d = new Date()
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
+type SystemHeaderColumn = ColumnMeta | SummaryColumnMeta
 
-/** 선택 월의 조회 범위(등록일). 진행 중인 달은 전일까지, 지난 달은 말일까지. */
-function periodRange(period: string): { from: string; to: string; lastDay: number } {
-  const now = new Date()
-  const y = Number(period.slice(0, 4))
-  const m = Number(period.slice(5, 7))
-  const daysInMonth = new Date(y, m, 0).getDate()
-  const isCurrent = now.getFullYear() === y && now.getMonth() + 1 === m
-  const lastDay = isCurrent ? Math.max(1, Math.min(daysInMonth, now.getDate() - 1)) : daysInMonth
-  return { from: `${period}-01`, to: `${period}-${String(lastDay).padStart(2, '0')}`, lastDay }
-}
+const leaf = (
+  column: SystemHeaderColumn,
+  className: string,
+): StatsHeaderNode<SystemHeaderColumn> => ({
+  kind: 'leaf',
+  column,
+  className,
+})
+
+const group = (
+  label: string,
+  className: string,
+  children: readonly StatsHeaderNode<SystemHeaderColumn>[],
+): StatsHeaderNode<SystemHeaderColumn> => ({
+  kind: 'group',
+  label,
+  className,
+  children,
+})
+
+const channelLeaves = (columns: readonly ColumnMeta[]) =>
+  columns.map((col) =>
+    leaf(col, `bg-white font-medium ${col.emphasis ? 'text-rose-600' : 'text-slate-700'}`),
+  )
+
+const summaryLeaves = SUMMARY_COLUMNS.map((col, i) =>
+  leaf(
+    col,
+    `${i === 0 ? divider : ''} ${col.emphasis ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100'}`,
+  ),
+)
+
+const SYSTEM_HEADER_NODES: StatsHeaderNode<SystemHeaderColumn>[] = [
+  group('콜', 'bg-amber-100', [
+    group('검사 인입콜', 'bg-amber-50', channelLeaves(SYSTEM_CHANNEL_GROUPS.inboundCall)),
+    group('TM', 'bg-amber-50', channelLeaves(SYSTEM_CHANNEL_GROUPS.tm)),
+  ]),
+  group('온라인 예약', 'bg-emerald-100', [
+    group('홈페이지', 'bg-emerald-50', channelLeaves(SYSTEM_CHANNEL_GROUPS.home)),
+    group('네이버', 'bg-emerald-50', channelLeaves(SYSTEM_CHANNEL_GROUPS.naver)),
+  ]),
+  group('채팅', 'bg-sky-100', [
+    group('카카오톡', 'bg-sky-50', channelLeaves(SYSTEM_CHANNEL_GROUPS.kakao)),
+  ]),
+  group('취소', 'bg-slate-100', SYSTEM_CHANNEL_GROUPS.cancel.map((col) => leaf(col, 'bg-slate-50'))),
+  group('예약 종합 (내원 · 부도 · 취소)', `${divider} bg-emerald-200`, summaryLeaves),
+]
+
+const systemHeaderModel = (period: string): StatsHeaderModel<SystemHeaderColumn> => ({
+  corner: {
+    content: (
+      <>
+        {monthShortLabel(period)}
+        <br />
+        Date
+      </>
+    ),
+    className: 'bg-slate-100',
+  },
+  leadingCells: [
+    {
+      key: 'totalReservation',
+      content: '총예약',
+      className: 'bg-sky-500 text-white',
+    },
+  ],
+  nodes: SYSTEM_HEADER_NODES,
+})
 
 export function ReservationStatsSystemPage() {
   const [draftMonth, setDraftMonth] = useState(DEFAULT_PERIOD)
@@ -200,79 +261,11 @@ export function ReservationStatsSystemPage() {
 
       <div className={`${tableViewportClass} overflow-auto rounded-md border border-slate-400 bg-white`}>
         <table className="min-w-[1800px] border-separate border-spacing-0 text-xs">
-              <thead>
-                {/* 1행: 최상위 그룹 */}
-                <tr>
-                  <th rowSpan={3} className={`${groupHead} ${leftDivider} ${headBottom} ${stickyCorner} bg-slate-100`}>
-                    {monthShortLabel(appliedMonth)}
-                    <br />
-                    Date
-                  </th>
-                  <th rowSpan={3} className={`${groupHead} ${stickyRow1} ${headBottom} bg-sky-500 text-white`}>
-                    총예약
-                  </th>
-                  <th colSpan={SYSTEM_CALL_COLUMNS.length} className={`${groupHead} ${stickyRow1} ${headH} bg-amber-100`}>
-                    콜
-                  </th>
-                  <th colSpan={SYSTEM_ONLINE_COLUMNS.length} className={`${groupHead} ${stickyRow1} ${headH} bg-emerald-100`}>
-                    온라인 예약
-                  </th>
-                  <th colSpan={SYSTEM_CHANNEL_GROUPS.kakao.length} className={`${groupHead} ${stickyRow1} ${headH} bg-sky-100`}>
-                    채팅
-                  </th>
-                  <th colSpan={SYSTEM_CHANNEL_GROUPS.cancel.length} className={`${groupHead} ${stickyRow1} ${headH} bg-slate-100`}>
-                    취소
-                  </th>
-                  <th colSpan={SUMMARY_COLUMNS.length} className={`${groupHead} ${stickyRow1} ${headH} ${divider} bg-emerald-200`}>
-                    예약 종합 (내원 · 부도 · 취소)
-                  </th>
-                </tr>
-                {/* 2행: 중간 그룹 */}
-                <tr>
-                  <th colSpan={SYSTEM_CHANNEL_GROUPS.inboundCall.length} className={`${groupHead} ${stickyRow2} ${headH} bg-amber-50`}>
-                    검사 인입콜
-                  </th>
-                  <th colSpan={SYSTEM_CHANNEL_GROUPS.tm.length} className={`${groupHead} ${stickyRow2} ${headH} bg-amber-50`}>
-                    TM
-                  </th>
-                  <th colSpan={SYSTEM_CHANNEL_GROUPS.home.length} className={`${groupHead} ${stickyRow2} ${headH} bg-emerald-50`}>
-                    홈페이지
-                  </th>
-                  <th colSpan={SYSTEM_CHANNEL_GROUPS.naver.length} className={`${groupHead} ${stickyRow2} ${headH} bg-emerald-50`}>
-                    네이버
-                  </th>
-                  <th colSpan={SYSTEM_CHANNEL_GROUPS.kakao.length} className={`${groupHead} ${stickyRow2} ${headH} bg-sky-50`}>
-                    카카오톡
-                  </th>
-                  {SYSTEM_CHANNEL_GROUPS.cancel.map((col) => (
-                    <th key={col.key} rowSpan={2} className={`${groupHead} ${stickyRow2} ${headBottom} bg-slate-50`}>
-                      <ColLabel label={col.label} />
-                    </th>
-                  ))}
-                  {SUMMARY_COLUMNS.map((col, i) => (
-                    <th
-                      key={col.key}
-                      rowSpan={2}
-                      className={`${groupHead} ${stickyRow2} ${headBottom} ${i === 0 ? divider : ''} ${
-                        col.emphasis ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100'
-                      }`}
-                    >
-                      <ColLabel label={col.label} />
-                    </th>
-                  ))}
-                </tr>
-                {/* 3행: 채널 컬럼 라벨 */}
-                <tr>
-                  {SYSTEM_MAIN_COLUMNS.map((col) => (
-                    <th
-                      key={col.key}
-                      className={`${groupHead} ${stickyRow3} ${headBottom} bg-white font-medium ${col.emphasis ? 'text-rose-600' : 'text-slate-700'}`}
-                    >
-                      <ColLabel label={col.label} />
-                    </th>
-                  ))}
-                </tr>
-              </thead>
+          <ReservationStatsTableHeader
+            model={systemHeaderModel(appliedMonth)}
+            classes={headerClasses}
+            renderLabel={(label) => <ColLabel label={label} />}
+          />
               <tbody>
                 {!hasSearched ? (
                   <tr>
@@ -353,7 +346,7 @@ function BodyRow({ row }: { row: DisplayRow }) {
         {row.weekday ? ` (${row.weekday})` : ''}
       </th>
       <td className={`${numCell} font-semibold ${isTotal ? 'text-sky-700' : muted ? '' : 'bg-sky-50/60 text-sky-700'}`}>
-        {muted ? <span className="text-slate-300">–</span> : fmtNum(channel.totalReservation)}
+        {muted ? <span className="text-slate-300">–</span> : formatNumber(channel.totalReservation)}
       </td>
 
       {CHANNEL_COLUMNS.map((col) =>
@@ -363,7 +356,7 @@ function BodyRow({ row }: { row: DisplayRow }) {
           </td>
         ) : (
           <td key={col.key} className={`${numCell} ${col.emphasis ? 'text-rose-600' : ''}`}>
-            {fmtChannel(channel[col.key], col.fmt)}
+            {formatChannelValue(channel[col.key], col.fmt)}
           </td>
         ),
       )}
@@ -378,7 +371,7 @@ function BodyRow({ row }: { row: DisplayRow }) {
             key={col.key}
             className={`${numCell} ${i === 0 ? divider : ''} ${col.emphasis ? 'bg-rose-50 text-rose-600' : ''}`}
           >
-            {fmtSummary(summary[col.key], col.fmt)}
+            {formatSummaryValue(summary[col.key], col.fmt)}
           </td>
         ),
       )}

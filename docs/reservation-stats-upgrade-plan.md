@@ -128,8 +128,12 @@
 - **테이블 colSpan 1차 자동화**(이번 작업): 수동 `colSpan` 숫자를 컬럼 그룹 길이 기반으로 치환하고 `shared/reservationStatsTable.ts` 단위 테스트 추가. 헤더 메타 전체 데이터화는 다음 단계.
 - **스냅샷 lock 개선**(이번 작업): period lock map 엔트리를 사용 후 회수하고, 무거운 라이브 조회는 lock 밖으로 이동. 파일 read/merge/save는 계속 lock 안에서 보호.
 - **시드 dead code 제거**(이번 작업): 시드 폴백 제거 후 미사용이던 `CHANNEL_ROWS`/`SEED_WEEKLY`/구 `getDisplayRows` 경로와 stale export 제거.
+- **프론트 row builder/CSV/summary 공통화**(이번 작업): `SummaryRow`·`SUMMARY_COLUMNS`·`computeSummaryRow`, 조회 단위 row builder, CSV builder, 날짜 범위, 숫자 포매터를 `shared/`로 이동. 백내장→시력교정 데이터 파일 import 결합 제거.
+- **프론트 도메인별 formulas 계층화**(이번 작업): 시력교정/백내장 채널 공식과 채널 row 타입을 `formulas/`로 이동. 네이버 음수 클램프, 백내장 `totalCataract` 재계산 등 의도된 비대칭은 단위 테스트로 고정.
+- **프론트 헤더 메타 전체 데이터화**(이번 작업): 시력교정/백내장 테이블 헤더 JSX를 `StatsHeaderNode` 트리와 `ReservationStatsTableHeader` 공통 렌더러로 이동. 후손 leaf 수 기반 `colSpan`과 남은 깊이 기반 `rowSpan`을 자동 계산한다.
+- **백엔드 스냅샷 store 공통화**(이번 작업): `MonthlySnapshotStore<TSnapshot, TDaily>`를 추가하고 시력교정/백내장 snapshot store를 얇은 wrapper로 정리. 파일 기반 locked seed·원자적 write·응답 shape는 유지하고, 증분 fill의 날짜 merge도 공통 store를 사용한다.
 
-아직 남은 것(계획대로 진행): row builder/CSV/formulas 추가 공통화, 헤더 메타 전체 데이터화, SQL 파일 분리, 진단/diff. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~lock map 회수~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~colSpan 1차~~·~~시드 dead code 정리~~·~~source/메타 응답~~은 각각 완료/완료/완료/완료/완료/완료/완료/보류 — 위·§6 참조.)
+아직 남은 것(계획대로 진행): SQL 파일 분리, 진단/diff. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~lock map 회수~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~row builder/CSV/summary 공통화~~·~~도메인별 formulas 계층화~~·~~헤더 메타 전체 데이터화~~·~~백엔드 스냅샷 store 공통화~~·~~colSpan 1차~~·~~시드 dead code 정리~~·~~source/메타 응답~~은 각각 완료/완료/완료/완료/완료/완료/완료/완료/완료/완료/완료/보류 — 위·§6 참조.)
 
 ## 4. 코드 품질 원칙
 
