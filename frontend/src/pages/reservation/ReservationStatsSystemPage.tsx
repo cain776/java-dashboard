@@ -10,7 +10,6 @@ import {
   CHANNEL_COLUMNS,
   CHANNEL_COLUMNS_MAIN,
   DEFAULT_PERIOD,
-  GRANULARITIES,
   SUMMARY_COLUMNS,
   buildReservationStatsCsv,
   getDisplayRows,
@@ -84,6 +83,11 @@ function chunkLabel(label: string, size = 4): string[] {
     }
   }
   if (cur) chunks.push(cur)
+  // 3줄 이상으로 끊겨 마지막 줄에 한 글자만 남으면(예: '신규문의/대비예약/율') 직전 줄에 붙여 고아 글자 방지.
+  if (chunks.length >= 3 && chunks[chunks.length - 1].length === 1) {
+    const orphan = chunks.pop()!
+    chunks[chunks.length - 1] += orphan
+  }
   return chunks
 }
 
@@ -129,17 +133,18 @@ export function ReservationStatsSystemPage() {
       ? getDisplayRowsFromCounts(granularity, dailies!, appliedMonth, lastDay)
       : getDisplayRows(granularity, appliedMonth)
   const hasData = rows.length > 0
-  const granularityLabel = GRANULARITIES.find((g) => g.key === granularity)?.label ?? ''
 
-  const { isConfirmed, isLocked, saveSnapshot, isSaving } = useReservationStatsSnapshots()
-  const confirmed = isConfirmed(appliedMonth)
-  const locked = isLocked(appliedMonth) // PDF 고정(2026-01~05) — 재확정 금지
-  const handleSaveSnapshot = async () => {
-    if (locked) return
+  const { isLocked, fillSnapshot, isFilling } = useReservationStatsSnapshots()
+  const lockedDraft = isLocked(draftMonth) // 호출 대상(선택 월) 잠금 여부
+  // 호출(증분 채움): 선택 월을 D-1까지 비어있는 날만 적재 → 적용·표시.
+  const handleFill = async () => {
+    if (lockedDraft) return
     try {
-      await saveSnapshot(appliedMonth)
+      await fillSnapshot(draftMonth)
+      setAppliedMonth(draftMonth)
+      setHasSearched(true)
     } catch (e) {
-      alert(`확정 저장 실패: ${e instanceof Error ? e.message : ''}`)
+      alert(`호출 실패: ${e instanceof Error ? e.message : ''}`)
     }
   }
   const tableViewportClass = granularity === 'month' ? 'max-h-[72vh]' : 'min-h-0 flex-1'
@@ -167,17 +172,13 @@ export function ReservationStatsSystemPage() {
         maxMonth={CURRENT_MONTH}
         granularity={granularity}
         onGranularityChange={setGranularity}
-        resultLabel={`${monthFullLabel(appliedMonth)} · ${granularityLabel} 조회`}
-        dataStatus={!hasSearched ? 'idle' : live ? 'live' : isLoading ? 'loading' : 'seed'}
         onSearch={handleSearch}
         onReset={handleReset}
         onDownloadCsv={handleDownloadCsv}
         canDownload={hasData}
-        isConfirmed={confirmed}
-        isLocked={locked}
-        onSaveSnapshot={handleSaveSnapshot}
-        isSaving={isSaving}
-        canSave={live && !locked}
+        onFill={handleFill}
+        isFilling={isFilling}
+        canFill={!lockedDraft}
       />
 
       <div className={`${tableViewportClass} overflow-auto rounded-md border border-slate-400 bg-white`}>

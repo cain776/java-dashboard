@@ -43,10 +43,10 @@ export interface ChannelRow {
   homeReservationRate: number // 예약율(%)
 
   // 온라인 › 네이버
-  naverReceived: number // 예약접수
-  naverRejected: number // 예약접수거절(거절문자 발송분) — 유효접수 = 예약접수 − 예약접수거절
-  naverValid: number // 유효접수
-  naverReservation: number // 예약수
+  naverReceived: number // 예약접수(RESERVATION 등록일 카운트)
+  naverRejected: number // 파트너거절(RESERVATION_NAVER 확정전 취소) — 유효접수 = 예약접수 − 파트너거절
+  naverValid: number // 유효접수(접수−거절)
+  naverReservation: number // 예약수(유효−사용자취소(네이버취소))
   naverValidRate: number // 유효접수 예약율(%)
   naverReservationRate: number // 예약율(%)
 
@@ -132,7 +132,7 @@ export const CHANNEL_COLUMNS: ColumnMeta[] = [
   { key: 'homeReservationRate', label: '예약율', fmt: 'pct', emphasis: true },
   // 온라인 › 네이버
   { key: 'naverReceived', label: '예약접수', fmt: 'num' },
-  { key: 'naverRejected', label: '예약접수거절', fmt: 'num' },
+  { key: 'naverRejected', label: '파트너거절', fmt: 'num' },
   { key: 'naverValid', label: '유효접수', fmt: 'num' },
   { key: 'naverReservation', label: '예약수', fmt: 'num' },
   { key: 'naverValidRate', label: '유효접수 예약율', fmt: 'pct', emphasis: true },
@@ -153,8 +153,11 @@ export const CANCEL_COLUMN_COUNT = 3
 export const CHANNEL_COLUMNS_MAIN = CHANNEL_COLUMNS.slice(0, CHANNEL_COLUMNS.length - CANCEL_COLUMN_COUNT)
 export const CANCEL_COLUMNS = CHANNEL_COLUMNS.slice(CHANNEL_COLUMNS.length - CANCEL_COLUMN_COUNT)
 
-/** 툴바 기본 선택 월(YYYY-MM). */
-export const DEFAULT_PERIOD = '2026-03'
+/** 툴바 기본 선택 월(YYYY-MM) — 당월(현재 월). */
+export const DEFAULT_PERIOD = (() => {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+})()
 /** '2026-03' → '3월' */
 export const monthShortLabel = (period: string) => `${Number(period.slice(5, 7))}월`
 /** '2026-03' → '2026년 3월' */
@@ -404,16 +407,20 @@ const pct1 = (a: number, b: number): number => (b === 0 ? 0 : Math.round((a * 10
 
 /** 예약율류 공통 분모(콜 유입 기준). */
 const denom = (c: Counts): number =>
-  c.inboundCall + c.tmTotalDb + c.tmRecounsel + c.homeReservation + c.naverReservation + c.kakaoReservation
+  c.inboundCall + c.tmTotalDb + c.tmRecounsel + c.homeReservation + Math.max(0, c.naverReservation) + c.kakaoReservation
 
 const computeChannelRow = (c: Counts, label: string): ChannelRow => {
   const d = denom(c)
+  // 네이버 유효/예약은 일별(접수0인 날 거절만 있는 휴무일)에 음수가 될 수 있어 표시 시 0으로 클램프.
+  // 주/월 합계는 원시(음수 포함) 합이 정확하므로, 양수인 합계 행에는 영향이 없다.
+  const naverValid = Math.max(0, c.naverValid)
+  const naverReservation = Math.max(0, c.naverReservation)
   return {
     label,
     // 총예약 = 각 채널 예약수 합(인입콜 제외) — CH04+CH07+CH10+CH12+CH16+CH18
     totalReservation:
       c.callReservation + c.tmReservation + c.tmRecounselReservation +
-      c.homeReservation + c.naverReservation + c.kakaoReservation,
+      c.homeReservation + naverReservation + c.kakaoReservation,
     inboundCall: c.inboundCall,
     answeredCall: c.answeredCall,
     answerRate: pctInt(c.answeredCall, c.inboundCall),
@@ -437,10 +444,10 @@ const computeChannelRow = (c: Counts, label: string): ChannelRow => {
     homeReservationRate: pctInt(c.homeReservation, d),
     naverReceived: c.naverReceived,
     naverRejected: c.naverRejected,
-    naverValid: c.naverValid,
-    naverReservation: c.naverReservation,
-    naverValidRate: pctInt(c.naverReservation, c.naverValid),
-    naverReservationRate: pctInt(c.naverReservation, d),
+    naverValid,
+    naverReservation,
+    naverValidRate: pctInt(naverReservation, naverValid),
+    naverReservationRate: pctInt(naverReservation, d),
     kakaoInquiry: c.kakaoInquiry,
     kakaoReservation: c.kakaoReservation,
     kakaoReservationRate: pctInt(c.kakaoReservation, d),

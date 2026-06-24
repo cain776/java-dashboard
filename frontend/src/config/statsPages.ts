@@ -108,12 +108,21 @@ export const statsPages: StatsPageDefinition[] = [
   ),
   statsPage(
     'reservation-stats-system',
-    '예약통계시스템',
+    '예약통계_시력교정',
     '/stats/reservation-stats-system',
     'reservation-group',
     '예약',
-    '콜(검사 인입콜·TM)·온라인(홈페이지·네이버)·채팅(카카오톡)·취소 채널을 주차별로 분해한 월간 예약 종합표입니다.',
+    '시력교정 검사예약을 콜(검사 인입콜·TM)·온라인(홈페이지·네이버)·채팅(카카오톡)·취소 채널로 주차별 분해한 월간 예약 종합표입니다.',
     '/api/stats/reservation-stats-system'
+  ),
+  statsPage(
+    'reservation-stats-cataract',
+    '예약통계_백내장',
+    '/stats/reservation-stats-cataract',
+    'reservation-group',
+    '예약',
+    '백내장(노안 포함) 검사예약을 인바운드(컨택센터)·아웃바운드(TM)·채팅·온라인·취소 채널로 주차별 분해한 월간 예약 종합표입니다.',
+    '/api/stats/reservation-stats-cataract'
   ),
   statsPage(
     'reservation-list',
