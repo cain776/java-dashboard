@@ -1,6 +1,7 @@
 package com.bviit.analytics.repository.reservation;
 
 import com.bviit.analytics.dto.reservation.ReservationStatsDailyRow;
+import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownRow;
 import com.bviit.analytics.util.SqlLoader;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Profile;
@@ -28,16 +29,19 @@ import java.util.List;
 public class ReservationStatsSystemRepository {
 
     private static final String SQL_LOCATION = "sql/reservation-stats/system-daily-counts.sql";
+    private static final String DRILL_DOWN_SQL_LOCATION = "sql/reservation-stats/system-drill-down.sql";
     private static final String ISO_DATE = "\\d{4}-\\d{2}-\\d{2}";
 
     private final NamedParameterJdbcTemplate jdbc;
     private final String sql;
+    private final String drillDownSql;
 
     public ReservationStatsSystemRepository(
             @Qualifier("statsJdbcTemplate") NamedParameterJdbcTemplate jdbc
     ) {
         this.jdbc = jdbc;
         this.sql = SqlLoader.load(SQL_LOCATION);
+        this.drillDownSql = SqlLoader.load(DRILL_DOWN_SQL_LOCATION);
     }
 
     public List<ReservationStatsDailyRow> findDailyCounts(String from, String to) {
@@ -57,11 +61,33 @@ public class ReservationStatsSystemRepository {
                         rs.getInt("visit"), rs.getInt("noShowReservation"), rs.getInt("cancel")));
     }
 
+    public List<ReservationStatsDrillDownRow> findDrillDownRows(String date, String field) {
+        String resolvedSql = resolveSystemDrillDownSql(drillDownSql, date);
+
+        return jdbc.query(resolvedSql,
+                new MapSqlParameterSource().addValue("date", date).addValue("field", field),
+                (rs, n) -> new ReservationStatsDrillDownRow(
+                        rs.getString("d"),
+                        rs.getString("field"),
+                        rs.getString("source"),
+                        rs.getString("gb"),
+                        rs.getString("gb2"),
+                        rs.getString("primaryKey"),
+                        rs.getInt("contribution")));
+    }
+
     static String resolveSystemSql(String baseSql, String from, String to) {
         // OPENQUERY 리터럴 치환 전 ISO 형식 재검증(주입 방지). 컨트롤러가 LocalDate로 이미 검증하나 이중 가드.
         if (from == null || to == null || !from.matches(ISO_DATE) || !to.matches(ISO_DATE)) {
             throw new IllegalArgumentException("from/to must be ISO yyyy-MM-dd dates");
         }
         return baseSql.replace("__OQ_FROM__", from).replace("__OQ_TO__", to);
+    }
+
+    static String resolveSystemDrillDownSql(String baseSql, String date) {
+        if (date == null || !date.matches(ISO_DATE)) {
+            throw new IllegalArgumentException("date must be an ISO yyyy-MM-dd date");
+        }
+        return baseSql.replace("__OQ_DATE__", date);
     }
 }

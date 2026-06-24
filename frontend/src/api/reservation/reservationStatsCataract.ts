@@ -2,7 +2,9 @@ import { z } from 'zod'
 import { api } from '@/api/client'
 import { apiResponseOf, withQuery } from '@/api/_shared'
 import {
+  reservationStatsDrillDownSchema,
   reservationStatsDiffSchema,
+  type ReservationStatsDrillDown,
   type ReservationStatsDiff,
 } from './reservationStatsDiagnostics'
 
@@ -47,6 +49,7 @@ export type CataractStatsSnapshotInfo = z.infer<typeof snapshotInfoSchema>
 
 const snapshotsSchema = apiResponseOf(z.array(snapshotInfoSchema))
 const diffResponseSchema = apiResponseOf(reservationStatsDiffSchema)
+const drillDownResponseSchema = apiResponseOf(reservationStatsDrillDownSchema)
 
 export const reservationStatsCataractApi = {
   getDailyCounts: async (from: string, to: string): Promise<CataractStatsDailyCounts[]> => {
@@ -71,5 +74,13 @@ export const reservationStatsCataractApi = {
       withQuery('/stats/reservation-stats-cataract/diagnostics/diff', { period }),
     )
     return diffResponseSchema.parse(res).data
+  },
+
+  /** 특정 일자/필드의 원천 row 후보를 조회한다(diff 원인 추적용). */
+  getDrillDown: async (period: string, date: string, field: string): Promise<ReservationStatsDrillDown> => {
+    const res = await api.get<unknown>(
+      withQuery('/stats/reservation-stats-cataract/diagnostics/drill-down', { period, date, field }),
+    )
+    return drillDownResponseSchema.parse(res).data
   },
 }

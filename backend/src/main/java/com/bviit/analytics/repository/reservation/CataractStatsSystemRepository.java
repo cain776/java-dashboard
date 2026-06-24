@@ -1,6 +1,7 @@
 package com.bviit.analytics.repository.reservation;
 
 import com.bviit.analytics.dto.reservation.CataractStatsDailyRow;
+import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownRow;
 import com.bviit.analytics.util.SqlLoader;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Profile;
@@ -32,13 +33,16 @@ import java.util.List;
 public class CataractStatsSystemRepository {
 
     private static final String SQL_LOCATION = "sql/reservation-stats/cataract-daily-counts.sql";
+    private static final String DRILL_DOWN_SQL_LOCATION = "sql/reservation-stats/cataract-drill-down.sql";
 
     private final NamedParameterJdbcTemplate jdbc;
     private final String sql;
+    private final String drillDownSql;
 
     public CataractStatsSystemRepository(@Qualifier("statsJdbcTemplate") NamedParameterJdbcTemplate jdbc) {
         this.jdbc = jdbc;
         this.sql = SqlLoader.load(SQL_LOCATION);
+        this.drillDownSql = SqlLoader.load(DRILL_DOWN_SQL_LOCATION);
     }
 
     public List<CataractStatsDailyRow> findDailyCounts(String from, String to) {
@@ -54,5 +58,18 @@ public class CataractStatsSystemRepository {
                         rs.getInt("onlineReservation"), rs.getInt("onlineNoShow"),
                         rs.getInt("cancelOnline"), rs.getInt("cancelCrm"), rs.getInt("cancelKakao"),
                         rs.getInt("visit"), rs.getInt("noShowReservation"), rs.getInt("cancel")));
+    }
+
+    public List<ReservationStatsDrillDownRow> findDrillDownRows(String date, String field) {
+        return jdbc.query(drillDownSql,
+                new MapSqlParameterSource().addValue("date", date).addValue("field", field),
+                (rs, n) -> new ReservationStatsDrillDownRow(
+                        rs.getString("d"),
+                        rs.getString("field"),
+                        rs.getString("source"),
+                        rs.getString("gb"),
+                        rs.getString("gb2"),
+                        rs.getString("primaryKey"),
+                        rs.getInt("contribution")));
     }
 }

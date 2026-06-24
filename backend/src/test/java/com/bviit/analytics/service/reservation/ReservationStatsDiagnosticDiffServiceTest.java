@@ -5,6 +5,8 @@ import com.bviit.analytics.dto.reservation.CataractStatsSnapshot;
 import com.bviit.analytics.dto.reservation.ReservationStatsDailyRow;
 import com.bviit.analytics.dto.reservation.ReservationStatsDiffItem;
 import com.bviit.analytics.dto.reservation.ReservationStatsDiffResponse;
+import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownResponse;
+import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownRow;
 import com.bviit.analytics.dto.reservation.ReservationStatsSnapshot;
 import com.bviit.analytics.repository.reservation.CataractStatsSystemRepository;
 import com.bviit.analytics.repository.reservation.ReservationStatsSystemRepository;
@@ -18,6 +20,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -162,6 +165,103 @@ class ReservationStatsDiagnosticDiffServiceTest {
         verify(cataractRepository).findDailyCounts(period.atDay(1).toString(), period.atEndOfMonth().toString());
     }
 
+    @Test
+    void 시력교정_drill_down은_스냅샷값과_라이브_row_기여도_합계를_함께_반환한다() {
+        YearMonth period = previousPeriod();
+        String date = period.atDay(1).toString();
+        ReservationStatsDiagnosticDiffService service = new ReservationStatsDiagnosticDiffService(
+                reservationRepository,
+                reservationSnapshotStore
+        );
+        when(reservationSnapshotStore.find(period.toString()))
+                .thenReturn(Optional.of(reservationSnapshot(period, List.of(reservationRow(date, 10, 0, 0)))));
+        when(reservationRepository.findDrillDownRows(date, "inboundCall"))
+                .thenReturn(List.of(
+                        drillRow(date, "inboundCall", "CH_01", "인입콜", "EICN:1", 7),
+                        drillRow(date, "inboundCall", "CH_01", "인입콜", "EICN:2", 5)
+                ));
+
+        ReservationStatsDrillDownResponse response = service.drillDown(period.toString(), date, "inboundCall");
+
+        assertThat(response.snapshotExists()).isTrue();
+        assertThat(response.snapshotValue()).isEqualTo(10);
+        assertThat(response.liveValue()).isEqualTo(12);
+        assertThat(response.delta()).isEqualTo(2);
+        assertThat(response.rowCount()).isEqualTo(2);
+        assertThat(response.rows()).hasSize(2);
+        verify(reservationRepository).findDrillDownRows(date, "inboundCall");
+    }
+
+    @Test
+    void 시력교정_drill_down은_스냅샷이_없어도_라이브_row를_반환한다() {
+        YearMonth period = previousPeriod();
+        String date = period.atDay(2).toString();
+        ReservationStatsDiagnosticDiffService service = new ReservationStatsDiagnosticDiffService(
+                reservationRepository,
+                reservationSnapshotStore
+        );
+        when(reservationSnapshotStore.find(period.toString())).thenReturn(Optional.empty());
+        when(reservationRepository.findDrillDownRows(date, "callReservation"))
+                .thenReturn(List.of(drillRow(date, "callReservation", "CH_03", "검사_예약", "CALL:1", 1)));
+
+        ReservationStatsDrillDownResponse response = service.drillDown(period.toString(), date, "callReservation");
+
+        assertThat(response.snapshotExists()).isFalse();
+        assertThat(response.snapshotValue()).isNull();
+        assertThat(response.liveValue()).isEqualTo(1);
+        assertThat(response.delta()).isNull();
+    }
+
+    @Test
+    void drill_down은_알수없는_field를_거부한다() {
+        YearMonth period = previousPeriod();
+        ReservationStatsDiagnosticDiffService service = new ReservationStatsDiagnosticDiffService(
+                reservationRepository,
+                reservationSnapshotStore
+        );
+
+        assertThatThrownBy(() -> service.drillDown(period.toString(), period.atDay(1).toString(), "unknownField"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unknown reservation stats field");
+
+        verifyNoInteractions(reservationSnapshotStore, reservationRepository);
+    }
+
+    @Test
+    void drill_down은_period_밖의_날짜를_거부한다() {
+        YearMonth period = previousPeriod();
+        ReservationStatsDiagnosticDiffService service = new ReservationStatsDiagnosticDiffService(
+                reservationRepository,
+                reservationSnapshotStore
+        );
+
+        assertThatThrownBy(() -> service.drillDown(period.toString(), period.plusMonths(1).atDay(1).toString(), "inboundCall"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("date must belong to period");
+
+        verifyNoInteractions(reservationSnapshotStore, reservationRepository);
+    }
+
+    @Test
+    void 백내장_drill_down은_0_고정_field도_유효_field로_처리한다() {
+        YearMonth period = previousPeriod();
+        String date = period.atDay(1).toString();
+        CataractStatsDiagnosticDiffService service = new CataractStatsDiagnosticDiffService(
+                cataractRepository,
+                cataractSnapshotStore
+        );
+        when(cataractSnapshotStore.find(period.toString()))
+                .thenReturn(Optional.of(cataractSnapshot(period, List.of(cataractRow(date, 0, 0)))));
+        when(cataractRepository.findDrillDownRows(date, "totalPresbyopia")).thenReturn(List.of());
+
+        ReservationStatsDrillDownResponse response = service.drillDown(period.toString(), date, "totalPresbyopia");
+
+        assertThat(response.snapshotValue()).isZero();
+        assertThat(response.liveValue()).isZero();
+        assertThat(response.delta()).isZero();
+        assertThat(response.rows()).isEmpty();
+    }
+
     private static YearMonth previousPeriod() {
         return YearMonth.now().minusMonths(1);
     }
@@ -211,5 +311,16 @@ class ReservationStatsDiagnosticDiffServiceTest {
                 0, 0, 0,
                 0, 0, cancel
         );
+    }
+
+    private static ReservationStatsDrillDownRow drillRow(
+            String date,
+            String field,
+            String source,
+            String gb,
+            String primaryKey,
+            int contribution
+    ) {
+        return new ReservationStatsDrillDownRow(date, field, source, gb, "", primaryKey, contribution);
     }
 }

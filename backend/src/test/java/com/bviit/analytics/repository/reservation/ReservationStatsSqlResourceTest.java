@@ -10,6 +10,8 @@ class ReservationStatsSqlResourceTest {
 
     private static final String SYSTEM_SQL = "sql/reservation-stats/system-daily-counts.sql";
     private static final String CATARACT_SQL = "sql/reservation-stats/cataract-daily-counts.sql";
+    private static final String SYSTEM_DRILL_DOWN_SQL = "sql/reservation-stats/system-drill-down.sql";
+    private static final String CATARACT_DRILL_DOWN_SQL = "sql/reservation-stats/cataract-drill-down.sql";
 
     @Test
     void system_sql은_openquery_placeholder만_iso_날짜로_치환한다() {
@@ -35,6 +37,29 @@ class ReservationStatsSqlResourceTest {
     }
 
     @Test
+    void system_drill_down_sql은_openquery_일자만_치환하고_field_바인딩을_보존한다() {
+        String baseSql = SqlLoader.load(SYSTEM_DRILL_DOWN_SQL);
+        String resolvedSql = ReservationStatsSystemRepository.resolveSystemDrillDownSql(baseSql, "2026-06-22");
+
+        assertThat(resolvedSql)
+                .contains("'2026-06-22'", ":date", ":field")
+                .contains("OPENQUERY(EICN_MySQL", "CROSS APPLY", "naverReservation")
+                .doesNotContain("__OQ_DATE__");
+        assertThat(countOccurrences(resolvedSql, ":date")).isEqualTo(countOccurrences(baseSql, ":date"));
+        assertThat(countOccurrences(resolvedSql, ":field")).isEqualTo(countOccurrences(baseSql, ":field"));
+    }
+
+    @Test
+    void system_drill_down_sql은_잘못된_openquery_치환_날짜를_거부한다() {
+        String baseSql = SqlLoader.load(SYSTEM_DRILL_DOWN_SQL);
+
+        assertThatThrownBy(() -> ReservationStatsSystemRepository.resolveSystemDrillDownSql(baseSql, "2026-6-22"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> ReservationStatsSystemRepository.resolveSystemDrillDownSql(baseSql, "2026-06-22'; DROP"))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
     void cataract_sql은_named_parameter와_핵심_계산_마커를_보존한다() {
         String sql = SqlLoader.load(CATARACT_SQL);
 
@@ -44,6 +69,16 @@ class ReservationStatsSqlResourceTest {
                 .contains("<= :to")
                 .contains("0 AS totalPresbyopia", "0 AS inboundCall");
         assertThat(sql).doesNotContain("OPENQUERY", "__OQ_");
+    }
+
+    @Test
+    void cataract_drill_down_sql은_named_parameter와_원천_row_마커를_보존한다() {
+        String sql = SqlLoader.load(CATARACT_DRILL_DOWN_SQL);
+
+        assertThat(sql)
+                .contains(":date", ":field")
+                .contains("CROSS APPLY", "totalCataract", "CH_EXAM", "CH_TM")
+                .doesNotContain("OPENQUERY", "__OQ_");
     }
 
     private static int countOccurrences(String text, String token) {

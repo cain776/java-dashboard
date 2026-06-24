@@ -4,6 +4,7 @@ import com.bviit.analytics.controller.stats.StatsRequestValidator;
 import com.bviit.analytics.dto.ApiResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsDailyRow;
 import com.bviit.analytics.dto.reservation.ReservationStatsDiffResponse;
+import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsSnapshot;
 import com.bviit.analytics.service.reservation.ReservationStatsDiagnosticDiffService;
 import com.bviit.analytics.service.reservation.ReservationStatsSnapshotStore;
@@ -109,6 +110,18 @@ public class ReservationStatsSystemController {
         StatsRequestValidator.validatePeriod(period);
         return diagnosticDiffService
                 .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.diff(period))))
+                .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
+    }
+
+    @GetMapping("/diagnostics/drill-down")
+    public ResponseEntity<ApiResponse<ReservationStatsDrillDownResponse>> drillDown(
+            @RequestParam String period,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam String field
+    ) {
+        StatsRequestValidator.validatePeriod(period);
+        return diagnosticDiffService
+                .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.drillDown(period, date.toString(), field))))
                 .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
     }
 

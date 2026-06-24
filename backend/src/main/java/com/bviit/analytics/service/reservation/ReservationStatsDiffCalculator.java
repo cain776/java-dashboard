@@ -47,6 +47,25 @@ final class ReservationStatsDiffCalculator {
         );
     }
 
+    static <T> Field<T> requireField(List<Field<T>> fields, String name) {
+        return fields.stream()
+                .filter(field -> field.name().equals(name))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown reservation stats field: " + name));
+    }
+
+    static Integer delta(Integer snapshotValue, Integer liveValue) {
+        return snapshotValue == null || liveValue == null ? null : liveValue - snapshotValue;
+    }
+
+    static LocalDate requireDateInPeriod(YearMonth period, String date) {
+        LocalDate parsed = LocalDate.parse(date);
+        if (!YearMonth.from(parsed).equals(period)) {
+            throw new IllegalArgumentException("date must belong to period: " + period);
+        }
+        return parsed;
+    }
+
     static <T> ReservationStatsDiffResponse compare(
             String period,
             LiveRange range,

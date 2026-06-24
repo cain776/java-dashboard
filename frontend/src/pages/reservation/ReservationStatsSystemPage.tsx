@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
+import { withQuery } from '@/api/_shared'
 import { buildReservationStatsDiffCsv } from '@/api/reservation/reservationStatsDiagnostics'
 import { downloadCsv } from '@/utils/csv'
 import {
@@ -253,7 +254,16 @@ export function ReservationStatsSystemPage() {
         toast.success('진단 완료', { description: '스냅샷과 라이브 재조회값의 차이가 없습니다.' })
         return
       }
-      downloadCsv(`예약통계_진단_${draftMonth}.csv`, buildReservationStatsDiffCsv(diff))
+      downloadCsv(
+        `예약통계_진단_${draftMonth}.csv`,
+        buildReservationStatsDiffCsv(diff, (item) =>
+          withQuery('/api/stats/reservation-stats-system/diagnostics/drill-down', {
+            period: diff.period,
+            date: item.date,
+            field: item.field,
+          }),
+        ),
+      )
       toast('진단 완료', { description: `${diff.diffCount.toLocaleString('ko-KR')}건의 차이를 CSV로 내려받았습니다.` })
     } catch (e) {
       toast.error('진단 실패', { description: e instanceof Error ? e.message : undefined })

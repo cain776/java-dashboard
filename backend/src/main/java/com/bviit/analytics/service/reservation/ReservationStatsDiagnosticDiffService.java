@@ -2,6 +2,8 @@ package com.bviit.analytics.service.reservation;
 
 import com.bviit.analytics.dto.reservation.ReservationStatsDailyRow;
 import com.bviit.analytics.dto.reservation.ReservationStatsDiffResponse;
+import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownResponse;
+import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownRow;
 import com.bviit.analytics.dto.reservation.ReservationStatsSnapshot;
 import com.bviit.analytics.repository.reservation.ReservationStatsSystemRepository;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +11,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
@@ -68,6 +71,39 @@ public class ReservationStatsDiagnosticDiffService {
                 liveRows,
                 ReservationStatsDailyRow::date,
                 FIELDS
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public ReservationStatsDrillDownResponse drillDown(String period, String date, String field) {
+        YearMonth yearMonth = YearMonth.parse(period);
+        LocalDate localDate = ReservationStatsDiffCalculator.requireDateInPeriod(yearMonth, date);
+        ReservationStatsDiffCalculator.Field<ReservationStatsDailyRow> target =
+                ReservationStatsDiffCalculator.requireField(FIELDS, field);
+
+        Optional<ReservationStatsSnapshot> snapshot = snapshotStore.find(period);
+        Integer snapshotValue = snapshot
+                .flatMap(value -> value.days().stream()
+                        .filter(row -> row.date().equals(localDate.toString()))
+                        .findFirst())
+                .map(row -> target.value().applyAsInt(row))
+                .orElse(null);
+
+        List<ReservationStatsDrillDownRow> rows = repository.findDrillDownRows(localDate.toString(), field);
+        Integer liveValue = rows.stream()
+                .map(ReservationStatsDrillDownRow::contribution)
+                .reduce(0, Integer::sum);
+
+        return new ReservationStatsDrillDownResponse(
+                period,
+                localDate.toString(),
+                field,
+                snapshot.isPresent(),
+                snapshotValue,
+                liveValue,
+                ReservationStatsDiffCalculator.delta(snapshotValue, liveValue),
+                rows.size(),
+                rows
         );
     }
 }
