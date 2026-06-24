@@ -30,6 +30,7 @@ B&VIIT Analytics 대시보드 문서 모음. 카테고리별 진입점입니다.
 | [sqlite-mock-data-guide.md](sqlite-mock-data-guide.md) | 통계 더미 데이터 SQLite 세팅 |
 | [responsive-panel-architecture.md](responsive-panel-architecture.md) | 반응형 패널·패널별 독립 API 패턴 (2026-04 핸드오버) |
 | [feature-timeline.md](feature-timeline.md) | 기능 구현 타임라인 (2026-04 계획, 현황은 report-chart-status 참조) |
+| [reservation-stats-upgrade-plan.md](reservation-stats-upgrade-plan.md) | 예약통계 시력교정/백내장 업그레이드 계획 (공식 보호·공통화·스냅샷·진단) |
 | [deployment-strategy.md](deployment-strategy.md) | ① 배포 전략·CI |
 | [deployment-local.md](deployment-local.md) | ② 로컬 개발 실행 |
 | [deployment-release.md](deployment-release.md) | ③ 운영 배포 |
