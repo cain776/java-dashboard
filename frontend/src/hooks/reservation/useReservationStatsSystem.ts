@@ -3,14 +3,14 @@ import { reservationStatsSystemApi } from '@/api/reservation/reservationStatsSys
 
 /**
  * 예약통계시스템 일자별 카운트 조회 훅. from~to(등록일) 범위로 서버 조회.
- * 실 데이터 전용 — mssql 미연결(503) 시 isError → 페이지가 시드로 폴백한다(재시도 없음).
+ * 실 데이터 전용 — mssql 미연결(503) 시 isError → 페이지가 미연결 안내를 표시한다(재시도 없음).
  */
 export function useReservationStatsSystem(from: string, to: string, enabled = true) {
   const { data, isLoading, isFetching, isError } = useQuery({
     queryKey: ['reservation-stats-system', from, to],
     queryFn: () => reservationStatsSystemApi.getDailyCounts(from, to),
     enabled: enabled && Boolean(from && to),
-    retry: false, // 503(미연결)은 재시도해도 동일 → 즉시 시드 폴백
+    retry: false, // 503(미연결)은 재시도해도 동일 → 즉시 오류 상태
   })
 
   return { dailies: data, isLoading, isFetching, isError }

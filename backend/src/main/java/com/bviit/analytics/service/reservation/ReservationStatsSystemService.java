@@ -27,6 +27,7 @@ public class ReservationStatsSystemService {
 
     private final ReservationStatsSystemRepository repository;
     private final ReservationStatsSnapshotStore snapshotStore;
+    private final ReservationStatsPeriodLock periodLock;
 
     @Transactional(readOnly = true)
     public List<ReservationStatsDailyRow> getDailyCounts(String from, String to) {
@@ -48,12 +49,15 @@ public class ReservationStatsSystemService {
         LocalDate to = monthEnd.isBefore(yesterday) ? monthEnd : yesterday;
         if (to.isBefore(first)) to = first;
 
-        List<ReservationStatsDailyRow> days = repository.findDailyCounts(first.toString(), to.toString());
-        // 라이브로 저장한 스냅샷은 고정(locked) 아님 — 언제든 재확정 가능.
-        ReservationStatsSnapshot snapshot =
-                new ReservationStatsSnapshot(period, LocalDateTime.now().toString(), by, false, days);
-        snapshotStore.save(snapshot);
-        return snapshot;
+        LocalDate snapshotTo = to;
+        return periodLock.withPeriodLock(period, () -> {
+            List<ReservationStatsDailyRow> days = repository.findDailyCounts(first.toString(), snapshotTo.toString());
+            // 라이브로 저장한 스냅샷은 고정(locked) 아님 — 언제든 재확정 가능.
+            ReservationStatsSnapshot snapshot =
+                    new ReservationStatsSnapshot(period, LocalDateTime.now().toString(), by, false, days);
+            snapshotStore.save(snapshot);
+            return snapshot;
+        });
     }
 
     /**
@@ -72,26 +76,29 @@ public class ReservationStatsSystemService {
         LocalDate to = monthEnd.isBefore(yesterday) ? monthEnd : yesterday;
         if (to.isBefore(first)) to = first;
 
-        // 기존 스냅샷의 날짜는 보존(머지 기준).
-        Optional<ReservationStatsSnapshot> existing = snapshotStore.find(period);
-        Map<String, ReservationStatsDailyRow> byDate = new LinkedHashMap<>();
-        existing.ifPresent(s -> s.days().forEach(d -> byDate.put(d.date(), d)));
+        LocalDate snapshotTo = to;
+        return periodLock.withPeriodLock(period, () -> {
+            // 기존 스냅샷의 날짜는 보존(머지 기준).
+            Optional<ReservationStatsSnapshot> existing = snapshotStore.find(period);
+            Map<String, ReservationStatsDailyRow> byDate = new LinkedHashMap<>();
+            existing.ifPresent(s -> s.days().forEach(d -> byDate.put(d.date(), d)));
 
-        // D-1까지 라이브 조회 후 "없는 날짜만" 채운다(있으면 보존).
-        List<ReservationStatsDailyRow> fetched = repository.findDailyCounts(first.toString(), to.toString());
-        for (ReservationStatsDailyRow d : fetched) {
-            byDate.putIfAbsent(d.date(), d);
-        }
+            // D-1까지 라이브 조회 후 "없는 날짜만" 채운다(있으면 보존).
+            List<ReservationStatsDailyRow> fetched = repository.findDailyCounts(first.toString(), snapshotTo.toString());
+            for (ReservationStatsDailyRow d : fetched) {
+                byDate.putIfAbsent(d.date(), d);
+            }
 
-        List<ReservationStatsDailyRow> merged = byDate.values().stream()
-                .sorted(Comparator.comparing(ReservationStatsDailyRow::date))
-                .toList();
-        // 잠금·확정자는 기존 값 유지(없으면 이번 호출자). PDF 고정월은 컨트롤러가 미리 차단.
-        boolean locked = existing.map(ReservationStatsSnapshot::locked).orElse(false);
-        String confirmedBy = existing.map(ReservationStatsSnapshot::confirmedBy).orElse(by);
-        ReservationStatsSnapshot snapshot =
-                new ReservationStatsSnapshot(period, LocalDateTime.now().toString(), confirmedBy, locked, merged);
-        snapshotStore.save(snapshot);
-        return snapshot;
+            List<ReservationStatsDailyRow> merged = byDate.values().stream()
+                    .sorted(Comparator.comparing(ReservationStatsDailyRow::date))
+                    .toList();
+            // 잠금·확정자는 기존 값 유지(없으면 이번 호출자). PDF 고정월은 컨트롤러가 미리 차단.
+            boolean locked = existing.map(ReservationStatsSnapshot::locked).orElse(false);
+            String confirmedBy = existing.map(ReservationStatsSnapshot::confirmedBy).orElse(by);
+            ReservationStatsSnapshot snapshot =
+                    new ReservationStatsSnapshot(period, LocalDateTime.now().toString(), confirmedBy, locked, merged);
+            snapshotStore.save(snapshot);
+            return snapshot;
+        });
     }
 }

@@ -6,7 +6,7 @@ import { apiResponseOf, withQuery } from '@/api/_shared'
  * 예약통계_백내장 — 일자별 원시 카운트.
  * 백엔드: GET /api/stats/reservation-stats-cataract?from&to → ApiResponse<DailyCounts[]>.
  * 비율·합계·총예약건 등 파생값은 프론트(reservationStatsCataractData)가 동일 공식으로 계산한다.
- * 라이브 집계 쿼리는 아직 없어 데이터는 PDF 스냅샷(JSON)으로 채운다 — 미연결 시 503 → 시드 폴백.
+ * 확정 스냅샷 우선, 없으면 mssql 라이브 조회. 미연결 시 503 → 호출부가 미연결 안내 표시.
  */
 const dailyCountsSchema = z.object({
   date: z.string(),

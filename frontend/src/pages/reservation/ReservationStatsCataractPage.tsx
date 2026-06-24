@@ -20,25 +20,37 @@ import {
   type Granularity,
   type SummaryFormat,
 } from './reservationStatsCataractData'
+import { columnSpan, splitColumnGroups } from './shared/reservationStatsTable'
 
 /**
  * 예약통계_백내장 — 인바운드(컨택센터)/아웃바운드(TM)/채팅/온라인/취소 채널과 내원·부도·취소 종합을
  * 한 줄(가로 스크롤) 표로 묶은 월간 종합표. 시력교정 페이지와 동일한 조회/CSV/스냅샷 흐름을 따른다.
- * 데이터는 2026-04 시드값이며 일별 행은 주별 값을 영업일에 분배해 파생한다(PDF 스냅샷으로 채울 예정).
+ * 운영 데이터(확정 스냅샷·라이브)로 표시하며, 미연결 시 시드 폴백 없이 안내만 노출한다.
  */
 
 // Date + 25 채널 + 7 종합
-const TOTAL_COL_SPAN = 1 + CATARACT_COLUMNS.length + SUMMARY_COLUMNS.length
+const TOTAL_COL_SPAN = 1 + columnSpan(CATARACT_COLUMNS, SUMMARY_COLUMNS)
 
 // 헤더 밴드/그룹용 컬럼 슬라이스
-const TOTAL_COLS = CATARACT_COLUMNS.slice(0, 3) // 백내장·노안·합계
-const INBOUND_PLAIN = CATARACT_COLUMNS.slice(3, 6) // 총인입콜·응대콜·응대율
-const INBOUND_CATARACT = CATARACT_COLUMNS.slice(6, 11) // 인바운드 백내장 밴드(5)
-const OUTBOUND_CATARACT = CATARACT_COLUMNS.slice(11, 16) // 아웃바운드 백내장 밴드(5)
-const OUTBOUND_TAIL = CATARACT_COLUMNS.slice(16, 17) // 아웃바운드 총 예약수
-const KAKAO_COLS = CATARACT_COLUMNS.slice(17, 20)
-const ONLINE_COLS = CATARACT_COLUMNS.slice(20, 22)
-const CANCEL_COLS = CATARACT_COLUMNS.slice(22, 25)
+const CATARACT_CHANNEL_GROUPS = splitColumnGroups(CATARACT_COLUMNS, [
+  { key: 'total', span: 3 },
+  { key: 'inboundPlain', span: 3 },
+  { key: 'inboundCataract', span: 5 },
+  { key: 'outboundCataract', span: 5 },
+  { key: 'outboundTail', span: 1 },
+  { key: 'kakao', span: 3 },
+  { key: 'online', span: 2 },
+  { key: 'cancel', span: 3 },
+] as const)
+
+const TOTAL_COLS = CATARACT_CHANNEL_GROUPS.total // 백내장·노안·합계
+const INBOUND_PLAIN = CATARACT_CHANNEL_GROUPS.inboundPlain // 총인입콜·응대콜·응대율
+const INBOUND_CATARACT = CATARACT_CHANNEL_GROUPS.inboundCataract // 인바운드 백내장 밴드
+const OUTBOUND_CATARACT = CATARACT_CHANNEL_GROUPS.outboundCataract // 아웃바운드 백내장 밴드
+const OUTBOUND_TAIL = CATARACT_CHANNEL_GROUPS.outboundTail // 아웃바운드 총 예약수
+const KAKAO_COLS = CATARACT_CHANNEL_GROUPS.kakao
+const ONLINE_COLS = CATARACT_CHANNEL_GROUPS.online
+const CANCEL_COLS = CATARACT_CHANNEL_GROUPS.cancel
 const ROW3_LEAVES = [...INBOUND_CATARACT, ...OUTBOUND_CATARACT] // 백내장 밴드 하위 라벨(10)
 
 const fmtNum = (v: number) => v.toLocaleString('ko-KR')
@@ -200,25 +212,25 @@ export function ReservationStatsCataractPage() {
                 <br />
                 Date
               </th>
-              <th colSpan={3} className={`${groupHead} ${stickyRow1} ${headH} bg-sky-200`}>
+              <th colSpan={TOTAL_COLS.length} className={`${groupHead} ${stickyRow1} ${headH} bg-sky-200`}>
                 총 예약 (아웃바운드 포함)
               </th>
-              <th colSpan={8} className={`${groupHead} ${stickyRow1} ${headH} bg-amber-100`}>
+              <th colSpan={columnSpan(INBOUND_PLAIN, INBOUND_CATARACT)} className={`${groupHead} ${stickyRow1} ${headH} bg-amber-100`}>
                 인바운드 (컨택센터)
               </th>
-              <th colSpan={6} className={`${groupHead} ${stickyRow1} ${headH} bg-amber-200`}>
+              <th colSpan={columnSpan(OUTBOUND_CATARACT, OUTBOUND_TAIL)} className={`${groupHead} ${stickyRow1} ${headH} bg-amber-200`}>
                 아웃바운드 (TM)
               </th>
-              <th colSpan={3} className={`${groupHead} ${stickyRow1} ${headH} bg-sky-100`}>
+              <th colSpan={KAKAO_COLS.length} className={`${groupHead} ${stickyRow1} ${headH} bg-sky-100`}>
                 채팅 (카카오톡)
               </th>
-              <th colSpan={2} className={`${groupHead} ${stickyRow1} ${headH} bg-emerald-100`}>
+              <th colSpan={ONLINE_COLS.length} className={`${groupHead} ${stickyRow1} ${headH} bg-emerald-100`}>
                 온라인예약
               </th>
-              <th colSpan={3} className={`${groupHead} ${stickyRow1} ${headH} bg-slate-100`}>
+              <th colSpan={CANCEL_COLS.length} className={`${groupHead} ${stickyRow1} ${headH} bg-slate-100`}>
                 취소
               </th>
-              <th colSpan={7} className={`${groupHead} ${stickyRow1} ${headH} ${divider} bg-emerald-200`}>
+              <th colSpan={SUMMARY_COLUMNS.length} className={`${groupHead} ${stickyRow1} ${headH} ${divider} bg-emerald-200`}>
                 예약 종합 (내원 · 부도 · 취소)
               </th>
             </tr>
@@ -234,11 +246,11 @@ export function ReservationStatsCataractPage() {
               {INBOUND_PLAIN.map((col) => (
                 <MidLeafTh key={col.key} col={col} />
               ))}
-              <th colSpan={5} className={`${groupHead} ${stickyRow2} ${headH} bg-rose-50 text-rose-700`}>
+              <th colSpan={INBOUND_CATARACT.length} className={`${groupHead} ${stickyRow2} ${headH} bg-rose-50 text-rose-700`}>
                 백내장
               </th>
               {/* 아웃바운드: 백내장 밴드 + 아웃바운드 총 예약수(rowSpan2) */}
-              <th colSpan={5} className={`${groupHead} ${stickyRow2} ${headH} bg-rose-50 text-rose-700`}>
+              <th colSpan={OUTBOUND_CATARACT.length} className={`${groupHead} ${stickyRow2} ${headH} bg-rose-50 text-rose-700`}>
                 백내장
               </th>
               {OUTBOUND_TAIL.map((col) => (
