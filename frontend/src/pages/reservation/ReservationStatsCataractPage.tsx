@@ -11,7 +11,6 @@ import {
   DEFAULT_PERIOD,
   SUMMARY_COLUMNS,
   buildCataractStatsCsv,
-  getDisplayRows,
   getDisplayRowsFromCounts,
   monthFullLabel,
   monthShortLabel,
@@ -103,10 +102,14 @@ function ColLabel({ label }: { label: string }) {
   )
 }
 
-const now = new Date()
-const CURRENT_MONTH = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+/** 이번 달(YYYY-MM) — 매 호출마다 평가해 자정/월 경계 후에도 최신. */
+const currentMonth = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
 
 function periodRange(period: string): { from: string; to: string; lastDay: number } {
+  const now = new Date()
   const y = Number(period.slice(0, 4))
   const m = Number(period.slice(5, 7))
   const daysInMonth = new Date(y, m, 0).getDate()
@@ -136,11 +139,8 @@ export function ReservationStatsCataractPage() {
   const { from, to, lastDay } = periodRange(appliedMonth)
   const { dailies, isLoading, isFetching, isError } = useReservationStatsCataract(from, to, hasSearched)
   const live = Boolean(dailies && !isError)
-  const rows = !hasSearched
-    ? []
-    : live
-      ? getDisplayRowsFromCounts(granularity, dailies!, appliedMonth, lastDay)
-      : getDisplayRows(granularity, appliedMonth)
+  // 미연결/실패(503)는 시드로 폴백하지 않는다(잘못된 수치 표시 방지) — tbody에서 미연결 안내.
+  const rows = !hasSearched || !live ? [] : getDisplayRowsFromCounts(granularity, dailies!, appliedMonth, lastDay)
   const hasData = rows.length > 0
 
   const { isLocked, fillSnapshot, isFilling } = useReservationStatsCataractSnapshots()
@@ -178,7 +178,7 @@ export function ReservationStatsCataractPage() {
       <ReservationStatsToolbar
         draftMonth={draftMonth}
         onDraftMonthChange={setDraftMonth}
-        maxMonth={CURRENT_MONTH}
+        maxMonth={currentMonth()}
         granularity={granularity}
         onGranularityChange={setGranularity}
         onSearch={handleSearch}
@@ -295,7 +295,9 @@ export function ReservationStatsCataractPage() {
             ) : (
               <tr>
                 <td colSpan={TOTAL_COL_SPAN} className={`${labelCell} bg-white py-8 text-sm text-muted-foreground`}>
-                  {monthFullLabel(appliedMonth)} 조회 결과가 없습니다.
+                  {isError
+                    ? '운영 데이터에 연결되지 않았습니다 (미연결). 잠시 후 다시 조회해주세요.'
+                    : `${monthFullLabel(appliedMonth)} 조회 결과가 없습니다.`}
                 </td>
               </tr>
             )}

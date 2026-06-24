@@ -13,7 +13,6 @@ import {
   DEFAULT_PERIOD,
   SUMMARY_COLUMNS,
   buildReservationStatsCsv,
-  getDisplayRows,
   getDisplayRowsFromCounts,
   monthFullLabel,
   monthShortLabel,
@@ -26,7 +25,7 @@ import {
 /**
  * 예약통계시스템 — 콜/온라인/채팅/취소 채널과 내원·부도·취소 종합을 한 줄(가로 스크롤) 표로 묶은 월간 종합표.
  * 분리된 툴바(ReservationStatsToolbar)에서 월 선택·조회·초기화·CSV를 처리하고, 조회 단위(월/주/일/전체)는 즉시 전환된다.
- * 데이터는 2026-03 시드값이며 일별 행은 주별 값을 영업일에 분배해 파생한다(라이브 집계는 후속 과제).
+ * 운영 데이터(확정 스냅샷·라이브)로 표시하며, 미연결 시 시드 폴백 없이 안내만 노출한다.
  */
 
 const TOTAL_COL_SPAN = 2 + CHANNEL_COLUMNS.length + SUMMARY_COLUMNS.length // 구분 + 총예약 + 채널 + 종합
@@ -105,11 +104,15 @@ function ColLabel({ label }: { label: string }) {
   )
 }
 
-const now = new Date()
-const CURRENT_MONTH = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+/** 이번 달(YYYY-MM) — 매 호출마다 평가해 자정/월 경계 후에도 최신. */
+const currentMonth = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
 
 /** 선택 월의 조회 범위(등록일). 진행 중인 달은 전일까지, 지난 달은 말일까지. */
 function periodRange(period: string): { from: string; to: string; lastDay: number } {
+  const now = new Date()
   const y = Number(period.slice(0, 4))
   const m = Number(period.slice(5, 7))
   const daysInMonth = new Date(y, m, 0).getDate()
@@ -126,13 +129,10 @@ export function ReservationStatsSystemPage() {
 
   const { from, to, lastDay } = periodRange(appliedMonth)
   const { dailies, isLoading, isFetching, isError } = useReservationStatsSystem(from, to, hasSearched)
-  // 조회 전에는 빈 상태. 조회 후 운영 데이터가 오면 카운트→행 계산, 미연결(503)은 시드로 폴백.
+  // 조회 전에는 빈 상태. 운영 데이터가 오면 카운트→행 계산.
+  // 미연결/실패(503)는 시드로 폴백하지 않는다(잘못된 수치 표시 방지) — tbody에서 미연결 안내.
   const live = Boolean(dailies && !isError)
-  const rows = !hasSearched
-    ? []
-    : live
-      ? getDisplayRowsFromCounts(granularity, dailies!, appliedMonth, lastDay)
-      : getDisplayRows(granularity, appliedMonth)
+  const rows = !hasSearched || !live ? [] : getDisplayRowsFromCounts(granularity, dailies!, appliedMonth, lastDay)
   const hasData = rows.length > 0
 
   const { isLocked, fillSnapshot, isFilling } = useReservationStatsSnapshots()
@@ -170,7 +170,7 @@ export function ReservationStatsSystemPage() {
       <ReservationStatsToolbar
         draftMonth={draftMonth}
         onDraftMonthChange={setDraftMonth}
-        maxMonth={CURRENT_MONTH}
+        maxMonth={currentMonth()}
         granularity={granularity}
         onGranularityChange={setGranularity}
         onSearch={handleSearch}
@@ -271,7 +271,9 @@ export function ReservationStatsSystemPage() {
                 ) : (
                   <tr>
                     <td colSpan={TOTAL_COL_SPAN} className={`${labelCell} bg-white py-8 text-sm text-muted-foreground`}>
-                      {monthFullLabel(appliedMonth)} 조회 결과가 없습니다.
+                      {isError
+                        ? '운영 데이터에 연결되지 않았습니다 (미연결). 잠시 후 다시 조회해주세요.'
+                        : `${monthFullLabel(appliedMonth)} 조회 결과가 없습니다.`}
                     </td>
                   </tr>
                 )}

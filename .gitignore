@@ -22,6 +22,7 @@ backend/data/reservation-stats/*
 !backend/data/reservation-stats/2026-03.json
 !backend/data/reservation-stats/2026-04.json
 !backend/data/reservation-stats/2026-05.json
+!backend/data/reservation-stats/2026-06.json
 !backend/data/reservation-stats-cataract/
 backend/data/reservation-stats-cataract/*
 !backend/data/reservation-stats-cataract/2026-01.json
