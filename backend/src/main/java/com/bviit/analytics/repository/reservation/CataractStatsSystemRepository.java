@@ -15,8 +15,10 @@ import java.util.List;
  * 시력교정 RSS와 동일한 PK+예약날짜 LEFT JOIN 모델. 채널 소스:
  *   - 컨택센터 콜(신규문의/신환/재문의): CtiRptLst(+CtiClg) 백내장 코드
  *   - 카톡(검사예약/노안/취소/문의): HappyTalk 백내장검사·백내장외래
- *   - 총예약·온라인: RESERVATION(FLAG='H') + RESERVE_HISTORY(예약저장) 등록일 기준
- *   - 내원/부도/취소(종합)·취소(온라인/CRM): RESERVATION(FLAG='H') 예약일 기준
+ *   - 온라인예약: RESERVATION(FLAG='H') + RESERVE_HISTORY(예약저장) RESERVE_PATH 온라인/네이버
+ *   - 총예약(백내장): 채널 예약 합(콜 ★신환 + 카톡 검사예약 + 온라인예약) — PDF 정의와 일치(캘리브레이션)
+ *   - 내원(종합): Cataract_Exam(실제 검사기록, EXAM_DATE, 중단 제외) — PDF '내원' 정의와 일치(캘리브레이션)
+ *   - 부도/취소(종합)·취소(온라인/CRM): RESERVATION(FLAG='H') 예약일 기준
  *
  * 데이터 미보유로 0 고정인 칸: inboundCall·answeredCall(EICN 백내장 큐 미확인),
  *   tmTotalDb·tmValidDb·tmReservation(DB_CUSTOM에 백내장 없음 — 수기 엑셀), totalPresbyopia(노안 구분자 부재).
@@ -92,8 +94,7 @@ public class CataractStatsSystemRepository {
             ),
             CH_VISIT AS (
               SELECT DISTINCT
-                CASE WHEN R.RESERVE_STATE IN ('I','H') THEN '백내장_내원'
-                     WHEN R.RESERVE_STATE='Y' AND R.RESERVE_DATE < CAST(GETDATE() AS DATE) THEN '백내장_부도'
+                CASE WHEN R.RESERVE_STATE='Y' AND R.RESERVE_DATE < CAST(GETDATE() AS DATE) THEN '백내장_부도'
                      WHEN R.RESERVE_STATE='C' THEN '백내장_취소' END AS GB,
                 CASE WHEN R.RESERVE_PATH IN ('ONLINE','APP','NAVER') THEN 'ONLINE' ELSE 'CRM' END AS GB2,
                 R.RESERVE_DATE AS [예약날짜], CONVERT(VARCHAR(100), R.RESERVE_NUM) AS PK
@@ -102,11 +103,19 @@ public class CataractStatsSystemRepository {
                 AND R.RESERVE_FLAG='H' AND R.RESERVE_JINRYO<>'16' AND RH.MEMO='예약저장'
                 AND R.CUST_NUM<>'8888888888888' AND NOT (R.CUST_NAME LIKE '%테스트%' OR R.CUST_NAME LIKE '%TEST%')
             ),
+            -- 내원: 실제 백내장 검사기록(Cataract_Exam, EXAM_DATE 기준, 중단 제외) — PDF '내원' 정의와 일치(RESERVATION STATE보다 정확).
+            CH_EXAM AS (
+              SELECT DISTINCT '백내장_내원' AS GB, '' AS GB2, e.EXAM_DATE AS [예약날짜],
+                     CONVERT(VARCHAR(100), e.CUST_NUM) + '_' + CONVERT(VARCHAR(20), e.SEQ) AS PK
+              FROM Cataract_Exam e WITH(NOLOCK)
+              WHERE e.EXAM_DATE >= :from AND e.EXAM_DATE <= :to AND ISNULL(e.Stop_YN,'') <> 'Y'
+            ),
             CH_ALL AS (
               SELECT GB, GB2, PK, [예약날짜] FROM CH_CALL
               UNION ALL SELECT GB, GB2, PK, [예약날짜] FROM CH_KAKAO
               UNION ALL SELECT GB, GB2, PK, [예약날짜] FROM CH_RES
               UNION ALL SELECT GB, GB2, PK, [예약날짜] FROM CH_VISIT
+              UNION ALL SELECT GB, GB2, PK, [예약날짜] FROM CH_EXAM
             ),
             R AS (
               SELECT CONVERT(VARCHAR(10), CtiRgtDtm, 23) AS RESERVE_DATE, CONVERT(VARCHAR(100), CtiCallID) AS PK FROM CtiRptLst WITH(NOLOCK)
@@ -117,6 +126,8 @@ public class CataractStatsSystemRepository {
                WHERE HISTORY_TIME >= :from AND HISTORY_TIME < DATEADD(DAY,1,CONVERT(datetime,:to))
               UNION SELECT CONVERT(VARCHAR(10), RESERVE_DATE, 23), CONVERT(VARCHAR(100), RESERVE_NUM) FROM RESERVATION WITH(NOLOCK)
                WHERE RESERVE_DATE >= :from AND RESERVE_DATE < DATEADD(DAY,1,CONVERT(datetime,:to))
+              UNION SELECT e.EXAM_DATE, CONVERT(VARCHAR(100), e.CUST_NUM) + '_' + CONVERT(VARCHAR(20), e.SEQ) FROM Cataract_Exam e WITH(NOLOCK)
+               WHERE e.EXAM_DATE >= :from AND e.EXAM_DATE <= :to AND ISNULL(e.Stop_YN,'') <> 'Y'
             )
             SELECT
               Z.RESERVE_DATE AS d,
@@ -129,7 +140,7 @@ public class CataractStatsSystemRepository {
               Z.visit, Z.noShowReservation, Z.cancel
             FROM (
               SELECT R.RESERVE_DATE AS RESERVE_DATE,
-                SUM(CASE WHEN CH.GB IN ('백내장_예약','백내장_온라인예약') THEN 1 ELSE 0 END) AS totalCataract,
+                SUM(CASE WHEN CH.GB IN ('백내장_신환','카톡_검사예약','백내장_온라인예약') THEN 1 ELSE 0 END) AS totalCataract,
                 SUM(CASE WHEN CH.GB IN ('백내장_신규문의','백내장_신환') THEN 1 ELSE 0 END) AS newExamInquiry,
                 SUM(CASE WHEN CH.GB='백내장_재문의' THEN 1 ELSE 0 END) AS newReInquiry,
                 SUM(CASE WHEN CH.GB='백내장_신환' THEN 1 ELSE 0 END) AS newPatient,
