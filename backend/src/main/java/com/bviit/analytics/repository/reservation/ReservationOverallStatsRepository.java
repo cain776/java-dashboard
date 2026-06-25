@@ -1,5 +1,6 @@
 package com.bviit.analytics.repository.reservation;
 
+import com.bviit.analytics.util.SqlLoader;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -28,12 +29,16 @@ import java.util.Map;
 @Profile("mssql")
 public class ReservationOverallStatsRepository {
 
+    static final String MONTHLY_SQL = "sql/reservation-overall/monthly.sql";
+
     private final NamedParameterJdbcTemplate jdbc;
+    private final String monthlySql;
 
     public ReservationOverallStatsRepository(
             @Qualifier("statsJdbcTemplate") NamedParameterJdbcTemplate jdbc
     ) {
         this.jdbc = jdbc;
+        this.monthlySql = SqlLoader.load(MONTHLY_SQL);
     }
 
     /**
@@ -49,34 +54,7 @@ public class ReservationOverallStatsRepository {
      * 등록일은 미래 불가라 당월까지 자연 완결, 이후 월은 행이 없어 null.
      */
     public List<Map<String, Object>> findReservationOverallMonthly(String from, String to) {
-        // 콜·온라인 공통 junk 제외(중복/재검/시뮬/차트있음/B2B 예약). 레거시 RSS가 양 채널 모두에 적용하므로
-        // WHERE 절에서 일괄 제외한다. (과거엔 콜에만 적용 → 온라인 중복예약이 월 12~54건 과대계상되던 것 보정)
-        String junkExclusion = """
-                ISNULL(r.RESERVE_SEQ, '') NOT IN ('8', '5')
-                AND ISNULL(r.COMMENT, '') NOT LIKE '%B2B(군인)%' AND ISNULL(r.COMMENT, '') NOT LIKE '%재검%'
-                AND ISNULL(r.COMMENT, '') NOT LIKE '%중복%' AND ISNULL(r.COMMENT, '') NOT LIKE '%시뮬%'
-                AND ISNULL(r.COMMENT, '') NOT LIKE '%차트있음%'
-                """;
-        String callPaths = "r.RESERVE_PATH IN ('CTI', 'CRM')";
-        String sql = """
-            SELECT YEAR(r.InsertedDateTime) AS yr,
-                   MONTH(r.InsertedDateTime) AS mo,
-                   COUNT(DISTINCT CASE WHEN (%1$s)
-                                         OR r.RESERVE_PATH IN ('ONLINE', 'APP', 'NAVER')
-                                       THEN r.RESERVE_NUM END) AS cnt,
-                   COUNT(DISTINCT CASE WHEN r.RESERVE_PATH IN ('ONLINE', 'APP', 'NAVER')
-                                       THEN r.RESERVE_NUM END) AS online_cnt,
-                   COUNT(DISTINCT CASE WHEN %1$s THEN r.RESERVE_NUM END) AS call_cnt
-            FROM RESERVATION r WITH(NOLOCK)
-            WHERE r.InsertedDateTime >= :from AND r.InsertedDateTime <= :to
-              AND r.RESERVE_FLAG = 'M'
-              AND r.RESERVE_JINRYO IN ('', '5', '6', '7', '24', '25')
-              AND NOT (r.CUST_NAME LIKE '%%테스트%%' OR r.CUST_NAME LIKE '%%TEST%%' OR r.CUST_NUM = '8888888888888')
-              AND (%2$s)
-            GROUP BY YEAR(r.InsertedDateTime), MONTH(r.InsertedDateTime)
-            ORDER BY yr, mo
-            """.formatted(callPaths, junkExclusion);
-        return jdbc.queryForList(sql, params(from, to));
+        return jdbc.queryForList(monthlySql, params(from, to));
     }
 
     private MapSqlParameterSource params(String from, String to) {

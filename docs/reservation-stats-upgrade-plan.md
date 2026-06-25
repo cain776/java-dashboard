@@ -138,8 +138,9 @@
 - **스냅샷 schemaVersion·저장 불변식 검증**(2026-06-25): 시력교정/백내장 스냅샷에 `schemaVersion`을 추가하고, 저장 직전 빈 days·period 밖 날짜·중복 날짜·날짜 형식을 검증한다.
 - **API 메타 응답 1차 적용**(2026-06-25): `data` 배열 shape는 유지하고 `ApiResponse.meta`에 `source`, `period`, `schemaVersion`, `formulaVersion`, `locked`, `confirmedAt`, `confirmedBy`를 추가했다. 프론트는 툴바에 `PDF 고정`/`스냅샷`/`라이브` 배지를 표시한다.
 - **공통 예외/에러 응답 정리**(2026-06-25): MSSQL 미연결, PDF 고정 스냅샷 차단, period/field 검증, SQL 리소스 로드 실패, 스냅샷 불변식 위반을 의미 있는 예외로 분리하고 `GlobalExceptionHandler`에서 400/409/500/503 응답을 일원화했다. `ErrorResponse.meta`는 미연결 응답의 출처 메타데이터를 보존한다.
+- **SQL 파일 분리 2차 시작**(2026-06-25): `ReservationListRepository`의 예약자 명단/카카오 카운트 SQL과 `ReservationOverallStatsRepository`의 예약 종합 월별 SQL을 리소스로 이동했다. 날짜 바인딩과 주요 제외 필터는 DB 없는 단위 테스트로 고정한다.
 
-아직 남은 것은 구현 과제가 아니라 운영 검증/고도화다. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~lock map 회수~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~row builder/CSV/summary 공통화~~·~~도메인별 formulas 계층화~~·~~헤더 메타 전체 데이터화~~·~~백엔드 스냅샷 store 공통화~~·~~SQL 파일 분리~~·~~진단/diff~~·~~row-level drill-down 1차~~·~~colSpan 1차~~·~~시드 dead code 정리~~·~~스냅샷 schemaVersion/불변식 검증~~·~~API 메타 응답 1차~~·~~공통 예외/에러 응답 정리~~는 완료.)
+아직 남은 것은 구현 과제가 아니라 운영 검증/고도화다. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~lock map 회수~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~row builder/CSV/summary 공통화~~·~~도메인별 formulas 계층화~~·~~헤더 메타 전체 데이터화~~·~~백엔드 스냅샷 store 공통화~~·~~SQL 파일 분리~~·~~진단/diff~~·~~row-level drill-down 1차~~·~~colSpan 1차~~·~~시드 dead code 정리~~·~~스냅샷 schemaVersion/불변식 검증~~·~~API 메타 응답 1차~~·~~공통 예외/에러 응답 정리~~·~~ReservationListRepository SQL 리소스 분리~~·~~ReservationOverallStatsRepository SQL 리소스 분리~~는 완료.)
 
 ## 4. 코드 품질 원칙
 

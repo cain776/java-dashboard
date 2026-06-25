@@ -14,6 +14,8 @@
 
 후속 대상은 `ReservationListRepository`, `ReservationOverallStatsRepository`, `ReservationStatsRepository`, `IntakeConversionStatsRepository` 순서로 별도 분리한다.
 
+> **2차 진행 상태(2026-06-25)**: `ReservationListRepository`와 `ReservationOverallStatsRepository` SQL 분리 완료. 명단 조회 SQL은 `sql/reservation-list/reservation-list.sql`, 카카오 카운트 SQL은 `sql/reservation-list/kakao-count.sql`, 예약 종합 월별 SQL은 `sql/reservation-overall/monthly.sql`로 이동했다. 각 Repository의 리소스 마커와 날짜 바인딩은 DB 없는 단위 테스트로 검증한다. 다음 대상은 `ReservationStatsRepository`.
+
 > **verbatim 원칙**: `.sql`은 **손으로 재타이핑하지 말고 현재 Java `SQL` 상수 값을 그대로 덤프**해서 만든다. 한글 alias·`%` LIKE 패턴·이중따옴표 오타 리스크를 원천 차단한다.
 
 ## 2. 치환/바인딩 규칙
@@ -169,7 +171,7 @@ jdbc.query(sql, params, mapper);
 ## 8. 보류 항목
 
 - 채널별 SQL 분리 실행은 이번 단계에서 하지 않는다. 현재 쿼리는 CTE와 temp table이 결합되어 있어 한 채널 실패를 독립적으로 격리하기 어렵다.
-- `source`, `formulaVersion` 등 API 응답 메타데이터 추가는 현재 계획상 보류다.
+- `source`, `formulaVersion` 등 API 응답 메타데이터는 예약통계 API 1차 범위에서 별도 완료됐다. SQL 파일 분리 자체의 필수 게이트는 아니다.
 - EICN 헬스 프로브는 SQL 파일 분리와 별도 작업으로 둔다.
 
 ## 9. 완료 기준
