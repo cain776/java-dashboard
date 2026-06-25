@@ -1,6 +1,6 @@
 package com.bviit.analytics.repository.reservation;
 
-import lombok.RequiredArgsConstructor;
+import com.bviit.analytics.util.SqlLoader;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -20,12 +20,28 @@ import java.util.Map;
 @Profile("mssql")
 public class ReservationStatsRepository {
 
+    static final String SUMMARY_SQL = "sql/reservation/summary.sql";
+    static final String DAILY_TREND_SQL = "sql/reservation/daily-trend.sql";
+    static final String SOURCE_BREAKDOWN_SQL = "sql/reservation/source-breakdown.sql";
+    static final String MONTHLY_BY_TYPE_SQL = "sql/reservation/monthly-by-type.sql";
+    static final String HOURLY_DISTRIBUTION_SQL = "sql/reservation/hourly-distribution.sql";
+
     private final NamedParameterJdbcTemplate jdbc;
+    private final String summarySql;
+    private final String dailyTrendSql;
+    private final String sourceBreakdownSql;
+    private final String monthlyByTypeSql;
+    private final String hourlyDistributionSql;
 
     public ReservationStatsRepository(
             @Qualifier("statsJdbcTemplate") NamedParameterJdbcTemplate jdbc
     ) {
         this.jdbc = jdbc;
+        this.summarySql = SqlLoader.load(SUMMARY_SQL);
+        this.dailyTrendSql = SqlLoader.load(DAILY_TREND_SQL);
+        this.sourceBreakdownSql = SqlLoader.load(SOURCE_BREAKDOWN_SQL);
+        this.monthlyByTypeSql = SqlLoader.load(MONTHLY_BY_TYPE_SQL);
+        this.hourlyDistributionSql = SqlLoader.load(HOURLY_DISTRIBUTION_SQL);
     }
 
     private MapSqlParameterSource dateParams(String from, String to) {
@@ -38,16 +54,7 @@ public class ReservationStatsRepository {
      * 요약: 전체 예약, 검사 완료(FLAG=F), 취소, 당일 예약
      */
     public Map<String, Object> findSummary(String from, String to) {
-        String sql = """
-            SELECT
-                COUNT(*) AS totalReservations,
-                SUM(CASE WHEN RESERVE_FLAG = 'F' THEN 1 ELSE 0 END) AS completedExaminations,
-                SUM(CASE WHEN RESERVE_STATE = 'C' THEN 1 ELSE 0 END) AS cancellations,
-                SUM(CASE WHEN TODAY_FLAG = 'Y' THEN 1 ELSE 0 END) AS walkInReservations
-            FROM RESERVATION WITH(NOLOCK)
-            WHERE RESERVE_DATE >= :from AND RESERVE_DATE <= :to
-            """;
-        return jdbc.queryForMap(sql, dateParams(from, to));
+        return jdbc.queryForMap(summarySql, dateParams(from, to));
     }
 
     /**
@@ -61,18 +68,7 @@ public class ReservationStatsRepository {
      * 일별 추이: 예약/검사/취소
      */
     public List<Map<String, Object>> findDailyTrend(String from, String to) {
-        String sql = """
-            SELECT
-                RESERVE_DATE AS date,
-                COUNT(*) AS reservations,
-                SUM(CASE WHEN RESERVE_FLAG = 'F' THEN 1 ELSE 0 END) AS examinations,
-                SUM(CASE WHEN RESERVE_STATE = 'C' THEN 1 ELSE 0 END) AS cancellations
-            FROM RESERVATION WITH(NOLOCK)
-            WHERE RESERVE_DATE >= :from AND RESERVE_DATE <= :to
-            GROUP BY RESERVE_DATE
-            ORDER BY RESERVE_DATE
-            """;
-        return jdbc.queryForList(sql, dateParams(from, to));
+        return jdbc.queryForList(dailyTrendSql, dateParams(from, to));
     }
 
     /**
@@ -83,30 +79,7 @@ public class ReservationStatsRepository {
      *   나머지(CRM, APP, ONLINE, EMR, Kiosk 등) → referral(기타)
      */
     public List<Map<String, Object>> findSourceBreakdown(String from, String to) {
-        String sql = """
-            SELECT
-                CASE
-                    WHEN RTRIM(ISNULL(RESERVE_PATH,'')) = 'CTI' THEN 'phone'
-                    WHEN RTRIM(ISNULL(RESERVE_PATH,'')) = 'NAVER' THEN 'naver'
-                    WHEN RTRIM(ISNULL(RESERVE_PATH,'')) = 'KAKAO' THEN 'kakao'
-                    WHEN TODAY_FLAG = 'Y' THEN 'walkIn'
-                    ELSE 'referral'
-                END AS source,
-                COUNT(*) AS count
-            FROM RESERVATION WITH(NOLOCK)
-            WHERE RESERVE_DATE >= :from AND RESERVE_DATE <= :to
-                AND RESERVE_STATE <> 'C'
-            GROUP BY
-                CASE
-                    WHEN RTRIM(ISNULL(RESERVE_PATH,'')) = 'CTI' THEN 'phone'
-                    WHEN RTRIM(ISNULL(RESERVE_PATH,'')) = 'NAVER' THEN 'naver'
-                    WHEN RTRIM(ISNULL(RESERVE_PATH,'')) = 'KAKAO' THEN 'kakao'
-                    WHEN TODAY_FLAG = 'Y' THEN 'walkIn'
-                    ELSE 'referral'
-                END
-            ORDER BY count DESC
-            """;
-        return jdbc.queryForList(sql, dateParams(from, to));
+        return jdbc.queryForList(sourceBreakdownSql, dateParams(from, to));
     }
 
     /**
@@ -125,20 +98,7 @@ public class ReservationStatsRepository {
                 .addValue("from", fromDate)
                 .addValue("to", toDate);
 
-        String sql = """
-            SELECT
-                YEAR(r.RESERVE_DATE) AS yr,
-                MONTH(r.RESERVE_DATE) AS mo,
-                SUM(CASE WHEN r.RESERVE_FLAG = 'O' THEN 1 ELSE 0 END) AS surgery,
-                SUM(CASE WHEN r.RESERVE_JINRYO = '2' THEN 1 ELSE 0 END) AS outpatient,
-                SUM(CASE WHEN r.RESERVE_FLAG = 'D' THEN 1 ELSE 0 END) AS dreamlens
-            FROM RESERVATION r WITH(NOLOCK)
-            WHERE r.RESERVE_DATE >= :from AND r.RESERVE_DATE <= :to
-                AND r.RESERVE_STATE <> 'C'
-            GROUP BY YEAR(r.RESERVE_DATE), MONTH(r.RESERVE_DATE)
-            ORDER BY YEAR(r.RESERVE_DATE), MONTH(r.RESERVE_DATE)
-            """;
-        return jdbc.queryForList(sql, params);
+        return jdbc.queryForList(monthlyByTypeSql, params);
     }
 
     /**
@@ -146,18 +106,6 @@ public class ReservationStatsRepository {
      * START_TIME 형식: 'HH:mm'
      */
     public List<Map<String, Object>> findHourlyDistribution(String from, String to) {
-        String sql = """
-            SELECT
-                LEFT(RTRIM(START_TIME), 2) + ':00' AS slot,
-                COUNT(*) AS count
-            FROM RESERVATION WITH(NOLOCK)
-            WHERE RESERVE_DATE >= :from AND RESERVE_DATE <= :to
-                AND RESERVE_STATE <> 'C'
-                AND START_TIME IS NOT NULL
-                AND RTRIM(START_TIME) <> ''
-            GROUP BY LEFT(RTRIM(START_TIME), 2)
-            ORDER BY LEFT(RTRIM(START_TIME), 2)
-            """;
-        return jdbc.queryForList(sql, dateParams(from, to));
+        return jdbc.queryForList(hourlyDistributionSql, dateParams(from, to));
     }
 }

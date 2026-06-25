@@ -14,7 +14,7 @@
 
 후속 대상은 `ReservationListRepository`, `ReservationOverallStatsRepository`, `ReservationStatsRepository`, `IntakeConversionStatsRepository` 순서로 별도 분리한다.
 
-> **2차 진행 상태(2026-06-25)**: `ReservationListRepository`와 `ReservationOverallStatsRepository` SQL 분리 완료. 명단 조회 SQL은 `sql/reservation-list/reservation-list.sql`, 카카오 카운트 SQL은 `sql/reservation-list/kakao-count.sql`, 예약 종합 월별 SQL은 `sql/reservation-overall/monthly.sql`로 이동했다. 각 Repository의 리소스 마커와 날짜 바인딩은 DB 없는 단위 테스트로 검증한다. 다음 대상은 `ReservationStatsRepository`.
+> **2차 진행 상태(2026-06-25)**: 후속 대상 4종 SQL 분리 완료. `ReservationListRepository`, `ReservationOverallStatsRepository`, `ReservationStatsRepository`, `IntakeConversionStatsRepository`의 Java 문자열 SQL을 `src/main/resources/sql/**` 리소스로 이동했다. 각 Repository의 리소스 마커와 날짜 바인딩은 DB 없는 단위 테스트로 검증한다.
 
 > **verbatim 원칙**: `.sql`은 **손으로 재타이핑하지 말고 현재 Java `SQL` 상수 값을 그대로 덤프**해서 만든다. 한글 alias·`%` LIKE 패턴·이중따옴표 오타 리스크를 원천 차단한다.
 
