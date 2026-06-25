@@ -1,6 +1,7 @@
 import { RotateCcw, Search, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/filters/Select'
+import { reservationStatsSourceLabel, type ReservationStatsResponseMeta } from '@/api/reservation/reservationStatsMeta'
 import { GRANULARITIES, type Granularity } from './reservationStatsSystemData'
 
 const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: `${i + 1}월` }))
@@ -23,6 +24,7 @@ interface Props {
   onRunDiagnostics?: () => void
   isDiagnosing?: boolean
   canRunDiagnostics?: boolean
+  dataMeta?: ReservationStatsResponseMeta
 }
 
 export function ReservationStatsToolbar({
@@ -38,6 +40,7 @@ export function ReservationStatsToolbar({
   onRunDiagnostics,
   isDiagnosing,
   canRunDiagnostics,
+  dataMeta,
 }: Props) {
   const year = Number(draftMonth.slice(0, 4))
   const month = Number(draftMonth.slice(5, 7))
@@ -49,6 +52,19 @@ export function ReservationStatsToolbar({
 
   const setYear = (y: number) => onDraftMonthChange(`${y}-${pad2(month)}`)
   const setMonth = (m: number) => onDraftMonthChange(`${year}-${pad2(m)}`)
+  const sourceLabel = dataMeta ? reservationStatsSourceLabel(dataMeta) : null
+  const sourceTitle = dataMeta
+    ? [
+        `source=${dataMeta.source}`,
+        `period=${dataMeta.period}`,
+        dataMeta.schemaVersion ? `schema=${dataMeta.schemaVersion}` : null,
+        dataMeta.formulaVersion ? `formula=${dataMeta.formulaVersion}` : null,
+        dataMeta.confirmedAt ? `confirmedAt=${dataMeta.confirmedAt}` : null,
+        dataMeta.confirmedBy ? `confirmedBy=${dataMeta.confirmedBy}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : undefined
 
   return (
     <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/70 bg-white px-2 py-1.5 text-xs shadow-sm">
@@ -73,6 +89,15 @@ export function ReservationStatsToolbar({
           </button>
         ))}
       </div>
+
+      {sourceLabel && (
+        <span
+          className="rounded bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700"
+          title={sourceTitle}
+        >
+          {sourceLabel}
+        </span>
+      )}
 
       <div className="ml-auto flex items-center gap-1.5">
         <Button type="button" variant="outline" size="sm" className="text-xs" onClick={onReset}>

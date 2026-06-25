@@ -9,6 +9,10 @@ import {
   type ReservationStatsDiff,
   type ReservationStatsParity,
 } from './reservationStatsDiagnostics'
+import {
+  reservationStatsResponseMetaSchema,
+  type ReservationStatsResponseMeta,
+} from './reservationStatsMeta'
 
 /**
  * 예약통계시스템 — BCRM RSS 컨택통계 일자별 원시 카운트(CH01~CH24).
@@ -45,8 +49,12 @@ const dailyCountsSchema = z.object({
 })
 
 export type ReservationStatsDailyCounts = z.infer<typeof dailyCountsSchema>
+export type ReservationStatsDailyCountsResult = {
+  data: ReservationStatsDailyCounts[]
+  meta?: ReservationStatsResponseMeta
+}
 
-const responseSchema = apiResponseOf(z.array(dailyCountsSchema))
+const responseSchema = apiResponseOf(z.array(dailyCountsSchema), reservationStatsResponseMetaSchema)
 
 /** 확정 월 요약: period + locked(PDF 고정이면 재확정 금지). */
 const snapshotInfoSchema = z.object({ period: z.string(), locked: z.boolean() })
@@ -58,9 +66,10 @@ const drillDownResponseSchema = apiResponseOf(reservationStatsDrillDownSchema)
 const parityResponseSchema = apiResponseOf(reservationStatsParitySchema)
 
 export const reservationStatsSystemApi = {
-  getDailyCounts: async (from: string, to: string): Promise<ReservationStatsDailyCounts[]> => {
+  getDailyCounts: async (from: string, to: string): Promise<ReservationStatsDailyCountsResult> => {
     const res = await api.get<unknown>(withQuery('/stats/reservation-stats-system', { from, to }))
-    return responseSchema.parse(res).data
+    const parsed = responseSchema.parse(res)
+    return { data: parsed.data, meta: parsed.meta }
   },
 
   /** 확정(스냅샷)된 월 목록(period + locked). */

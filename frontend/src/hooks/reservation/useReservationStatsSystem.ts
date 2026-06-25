@@ -14,7 +14,7 @@ export function useReservationStatsSystem(from: string, to: string, enabled = tr
     retry: false, // 503(미연결)은 재시도해도 동일 → 즉시 오류 상태
   })
 
-  return { dailies: data, isLoading, isFetching, isError, refetch }
+  return { dailies: data?.data, meta: data?.meta, isLoading, isFetching, isError, refetch }
 }
 
 /** 스냅샷 vs 라이브 진단(diff) 뮤테이션. */

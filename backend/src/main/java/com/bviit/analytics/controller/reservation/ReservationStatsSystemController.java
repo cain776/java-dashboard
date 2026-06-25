@@ -6,6 +6,7 @@ import com.bviit.analytics.dto.reservation.ReservationStatsDailyRow;
 import com.bviit.analytics.dto.reservation.ReservationStatsDiffResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsParityResponse;
+import com.bviit.analytics.dto.reservation.ReservationStatsResponseMeta;
 import com.bviit.analytics.dto.reservation.ReservationStatsSnapshot;
 import com.bviit.analytics.service.reservation.ReservationStatsDiagnosticDiffService;
 import com.bviit.analytics.service.reservation.ReservationStatsSnapshotStore;
@@ -42,6 +43,7 @@ import java.util.Optional;
 public class ReservationStatsSystemController {
 
     private static final int MAX_RANGE_DAYS = 92;
+    private static final String FORMULA_VERSION = "reservation-stats-system-v1";
 
     private final ReservationStatsSnapshotStore snapshotStore;
     private final Optional<ReservationStatsSystemService> service;
@@ -73,11 +75,14 @@ public class ReservationStatsSystemController {
             List<ReservationStatsDailyRow> days = snapshot.get().days().stream()
                     .filter(d -> d.date().compareTo(fromStr) >= 0 && d.date().compareTo(toStr) <= 0)
                     .toList();
-            return ResponseEntity.ok(ApiResponse.ok(days));
+            return ResponseEntity.ok(ApiResponse.ok(days, snapshotMeta(period, snapshot.get())));
         }
         return service
-                .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.getDailyCounts(from.toString(), to.toString()))))
-                .orElseGet(ReservationStatsSystemController::realDataUnavailable);
+                .map(svc -> ResponseEntity.ok(ApiResponse.ok(
+                        svc.getDailyCounts(from.toString(), to.toString()),
+                        liveMeta(period)
+                )))
+                .orElseGet(() -> realDataUnavailable(period));
     }
 
     /**
@@ -107,7 +112,10 @@ public class ReservationStatsSystemController {
         }
         String by = authentication != null ? authentication.getName() : "unknown";
         return service
-                .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.saveSnapshot(period, by))))
+                .map(svc -> {
+                    ReservationStatsSnapshot snapshot = svc.saveSnapshot(period, by);
+                    return ResponseEntity.ok(ApiResponse.ok(snapshot, snapshotMeta(period, snapshot)));
+                })
                 .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
     }
 
@@ -126,7 +134,10 @@ public class ReservationStatsSystemController {
         }
         String by = authentication != null ? authentication.getName() : "unknown";
         return service
-                .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.fillSnapshot(period, by))))
+                .map(svc -> {
+                    ReservationStatsSnapshot snapshot = svc.fillSnapshot(period, by);
+                    return ResponseEntity.ok(ApiResponse.ok(snapshot, snapshotMeta(period, snapshot)));
+                })
                 .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
     }
 
@@ -166,7 +177,33 @@ public class ReservationStatsSystemController {
                 .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
     }
 
-    private static ResponseEntity<ApiResponse<List<ReservationStatsDailyRow>>> realDataUnavailable() {
-        return ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다."));
+    private static ReservationStatsResponseMeta snapshotMeta(String period, ReservationStatsSnapshot snapshot) {
+        return ReservationStatsResponseMeta.snapshot(
+                period,
+                FORMULA_VERSION,
+                snapshot.locked(),
+                snapshot.confirmedAt(),
+                snapshot.confirmedBy(),
+                snapshot.schemaVersion()
+        );
+    }
+
+    private static ReservationStatsResponseMeta liveMeta(String period) {
+        return ReservationStatsResponseMeta.live(
+                period,
+                FORMULA_VERSION,
+                ReservationStatsSnapshot.CURRENT_SCHEMA_VERSION
+        );
+    }
+
+    private static ResponseEntity<ApiResponse<List<ReservationStatsDailyRow>>> realDataUnavailable(String period) {
+        return ResponseEntity.status(503).body(ApiResponse.error(
+                "실 데이터 소스(MSSQL)가 연결되지 않았습니다.",
+                ReservationStatsResponseMeta.unavailable(
+                        period,
+                        FORMULA_VERSION,
+                        ReservationStatsSnapshot.CURRENT_SCHEMA_VERSION
+                )
+        ));
     }
 }

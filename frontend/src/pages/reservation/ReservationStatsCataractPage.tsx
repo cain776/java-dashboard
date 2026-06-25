@@ -216,7 +216,7 @@ export function ReservationStatsCataractPage() {
   const [diagnosticParity, setDiagnosticParity] = useState<ReservationStatsParity | null>(null)
 
   const { from, to, lastDay } = periodRange(appliedMonth)
-  const { dailies, isLoading, isFetching, isError, refetch } = useReservationStatsCataract(from, to, hasSearched)
+  const { dailies, meta, isLoading, isFetching, isError, refetch } = useReservationStatsCataract(from, to, hasSearched)
   const live = Boolean(dailies && !isError)
   // 미연결/실패(503)는 시드로 폴백하지 않는다(잘못된 수치 표시 방지) — tbody에서 미연결 안내.
   const rows = !hasSearched || !live ? [] : getDisplayRowsFromCounts(granularity, dailies!, appliedMonth, lastDay)
@@ -341,6 +341,7 @@ export function ReservationStatsCataractPage() {
         onRunDiagnostics={handleRunDiagnostics}
         isDiagnosing={isDiffing}
         canRunDiagnostics={!isDiffing}
+        dataMeta={hasSearched ? meta : undefined}
       />
 
       <div className={`${tableViewportClass} overflow-auto rounded-md border border-slate-400 bg-white`}>

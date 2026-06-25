@@ -219,7 +219,7 @@ export function ReservationStatsSystemPage() {
   const [diagnosticParity, setDiagnosticParity] = useState<ReservationStatsParity | null>(null)
 
   const { from, to, lastDay } = periodRange(appliedMonth)
-  const { dailies, isLoading, isFetching, isError, refetch } = useReservationStatsSystem(from, to, hasSearched)
+  const { dailies, meta, isLoading, isFetching, isError, refetch } = useReservationStatsSystem(from, to, hasSearched)
   // 조회 전에는 빈 상태. 운영 데이터가 오면 카운트→행 계산.
   // 미연결/실패(503)는 시드로 폴백하지 않는다(잘못된 수치 표시 방지) — tbody에서 미연결 안내.
   const live = Boolean(dailies && !isError)
@@ -344,6 +344,7 @@ export function ReservationStatsSystemPage() {
         onRunDiagnostics={handleRunDiagnostics}
         isDiagnosing={isDiffing}
         canRunDiagnostics={!isDiffing}
+        dataMeta={hasSearched ? meta : undefined}
       />
 
       <div className={`${tableViewportClass} overflow-auto rounded-md border border-slate-400 bg-white`}>

@@ -15,7 +15,7 @@
 1. 계산 공식은 먼저 고정하고 보호한다.
 2. 시력교정과 백내장을 동시에 정리해 중복 구조가 굳지 않게 한다.
 3. 리팩토링은 출력 불변을 전제로 한다.
-4. 운영 데이터 미연결/오류 상태를 명확히 표시한다. (스냅샷/라이브 출처 구분 응답은 §6 결정으로 보류)
+4. 운영 데이터 미연결/오류 상태와 스냅샷/라이브 출처를 명확히 표시한다.
 5. 오류가 나면 작은 단위로 되돌릴 수 있게 작업을 쪼갠다.
 
 ## 2. 범위와 비범위
@@ -26,7 +26,7 @@
 - 시력교정/백내장 예약통계의 백엔드 스냅샷 공통화
 - 골든마스터 테스트 구축
 - SQL 파일 분리
-- 미연결 상태 표시 유지 (스냅샷 메타데이터 강화·출처 구분 응답은 §6 결정으로 **보류**)
+- 미연결 상태 표시 유지 및 스냅샷/라이브 출처 메타데이터 응답
 - 테이블 컴포넌트 분리
 - row-level 진단 및 diff 구현
 
@@ -67,7 +67,7 @@
 - 화면 컴포넌트가 테이블, 상태, 이벤트, 데이터 변환을 함께 처리한다.
 - 일부 `colSpan`과 UI 수치가 하드코딩되어 있다.
 - 구 시드 상수/함수(`CHANNEL_ROWS`·`SUMMARY_ROWS`·`SEED_WEEKLY`·`getDisplayRows` 등)는 제거 완료했고, 공식/row builder/CSV 계층 분리도 완료했다.
-- 데이터 출처(스냅샷/라이브/PDF 고정)는 응답에 미포함 — 단, 출처 구분 표시는 §6 결정으로 **보류**(미연결 표시만 유지)이므로 이번 범위 밖이다.
+- 데이터 출처(스냅샷/라이브/PDF 고정)는 `ApiResponse.meta`로 수신하고, 툴바 상태 배지로 표시한다.
 
 ### 백엔드
 
@@ -90,7 +90,7 @@
 - SQL이 Java 문자열에 길게 포함되어 있어 리뷰와 변경 추적이 어렵다.
 - `fillSnapshot`은 read, merge, save가 비원자적이라 동시에 호출하면 lost update 가능성이 있다.
 - 스냅샷 저장 경로가 상대경로 기본값이라 실행 위치에 따라 다른 폴더를 볼 수 있다.
-- 현행 제약: GET 응답은 `days[]`만 내려주며, 데이터 출처/확정 정보 전달은 §6 결정으로 보류한다.
+- GET 응답은 `data: days[]` shape를 유지하면서 `meta`로 source/schemaVersion/formulaVersion/locked/confirmed 정보를 함께 내려준다.
 
 ### 스냅샷 파일 상태
 
@@ -135,8 +135,10 @@
 - **SQL 파일 분리**(이번 작업): 시력교정/백내장 긴 Java SQL을 `src/main/resources/sql/reservation-stats/*.sql`로 이동하고 `SqlLoader`를 추가. system의 `OPENQUERY` placeholder(`__OQ_FROM__`, `__OQ_TO__`)와 MSSQL named parameter(`:from`, `:to`) 보존 테스트 추가.
 - **진단/diff 구현**(이번 작업): 확정 스냅샷 vs 라이브 재조회 결과를 일자/필드별로 비교하는 API와 프론트 진단 CSV 다운로드를 추가. 날짜 누락은 `null`로 표시해 실제 0과 구분한다.
 - **row-level drill-down 1차 구현**(이번 작업): diff가 난 일자/필드를 대상으로 원천 row 후보를 조회하는 API를 추가했다. 응답은 `source`, `GB`, `GB2`, `PK`, `contribution`을 포함하며, 프론트 진단 CSV에는 상세조회 URL을 함께 기재한다.
+- **스냅샷 schemaVersion·저장 불변식 검증**(2026-06-25): 시력교정/백내장 스냅샷에 `schemaVersion`을 추가하고, 저장 직전 빈 days·period 밖 날짜·중복 날짜·날짜 형식을 검증한다.
+- **API 메타 응답 1차 적용**(2026-06-25): `data` 배열 shape는 유지하고 `ApiResponse.meta`에 `source`, `period`, `schemaVersion`, `formulaVersion`, `locked`, `confirmedAt`, `confirmedBy`를 추가했다. 프론트는 툴바에 `PDF 고정`/`스냅샷`/`라이브` 배지를 표시한다.
 
-아직 남은 것은 구현 과제가 아니라 운영 검증/고도화다. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~lock map 회수~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~row builder/CSV/summary 공통화~~·~~도메인별 formulas 계층화~~·~~헤더 메타 전체 데이터화~~·~~백엔드 스냅샷 store 공통화~~·~~SQL 파일 분리~~·~~진단/diff~~·~~row-level drill-down 1차~~·~~colSpan 1차~~·~~시드 dead code 정리~~는 완료, `source/메타 응답`은 §6 결정에 따라 보류.)
+아직 남은 것은 구현 과제가 아니라 운영 검증/고도화다. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~lock map 회수~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~row builder/CSV/summary 공통화~~·~~도메인별 formulas 계층화~~·~~헤더 메타 전체 데이터화~~·~~백엔드 스냅샷 store 공통화~~·~~SQL 파일 분리~~·~~진단/diff~~·~~row-level drill-down 1차~~·~~colSpan 1차~~·~~시드 dead code 정리~~·~~스냅샷 schemaVersion/불변식 검증~~·~~API 메타 응답 1차~~는 완료.)
 
 ## 4. 코드 품질 원칙
 
@@ -193,7 +195,7 @@ empty
 
 - 조용한 fallback으로 숫자를 보여주지 않는다.
 - 미연결, 오류, 시드 표시 여부는 사용자에게 명확히 드러낸다.
-- `snapshot`/`live`/`pdfLocked` 같은 출처 기반 상태는 API 메타 응답을 채택하는 향후안에서만 다룬다.
+- `snapshot`/`live`/`pdfLocked` 같은 출처 기반 상태는 `ApiResponse.meta`를 기준으로 표시한다.
 
 ### 진단 가능한 실패
 
@@ -300,11 +302,7 @@ backend/src/main/resources/sql/reservation-stats/
 
 ## 6. API 응답 계획
 
-> ✅ **결정 확정(2026-06-24): 출처 표시는 ‘미연결’만 유지(백엔드 변경 없음). 아래 풀 메타 응답(`source`/`locked`/`confirmedBy`…)은 미채택 — 5단계·6장 보류.**
-> - 사유: 풀 메타 응답은 응답 shape를 `data: [...]` → `data: { …, days: [...] }`로 바꾸는 **breaking change**(“출력 불변” 원칙의 유일한 예외)이고, 출처 구분(스냅샷/라이브) 표시는 현 시점 요구가 아니다.
-> - 현행 유지: 프론트는 운영 데이터가 오면 표시, **미연결/실패(503) 시 ‘미연결’ 안내만**(시드 폴백 없음 — §3·§4 이미 반영). GET 응답은 `data: ReservationStatsDailyRow[]` 그대로.
-> - 추후 출처 구분이 정말 필요해지면, 그때 별도 과제로 (Zod·소비자 동시 수정 + 하위호환/버전) 재검토한다.
-> - 아래 ‘목표’ JSON과 `source` 표는 **보류된 향후안(참고용)**이다.
+> ✅ **2026-06-25 구현 완료**: 응답의 `data: ReservationStatsDailyRow[]` shape는 유지하고, `ApiResponse.meta` 선택 필드로 출처 정보를 추가했다. 기존 소비자는 `data`를 그대로 읽을 수 있고, 예약통계 화면은 `meta`를 사용해 툴바에 `PDF 고정`/`스냅샷`/`라이브` 배지를 표시한다.
 
 현재:
 
@@ -322,18 +320,17 @@ backend/src/main/resources/sql/reservation-stats/
 ```json
 {
   "success": true,
-  "data": {
-    "source": "PDF_LOCKED",
-    "locked": true,
+  "data": [
+    { "date": "2026-04-01" }
+  ],
+  "meta": {
+    "source": "SNAPSHOT",
     "period": "2026-04",
-    "from": "2026-04-01",
-    "to": "2026-04-30",
+    "schemaVersion": 1,
+    "formulaVersion": "reservation-stats-system-v1",
+    "locked": true,
     "confirmedAt": "2026-06-24T00:00:00",
-    "confirmedBy": "PDF(골든와이즈 RSS 2026)",
-    "formulaVersion": "reservation-stats-v1",
-    "days": [
-      { "date": "2026-04-01" }
-    ]
+    "confirmedBy": "PDF(골든와이즈 RSS 2026)"
   }
 }
 ```
@@ -342,12 +339,11 @@ backend/src/main/resources/sql/reservation-stats/
 
 | 값 | 의미 |
 |----|------|
-| `PDF_LOCKED` | git에 고정된 PDF 기반 locked 스냅샷 |
-| `SNAPSHOT` | 런타임 확정 스냅샷 |
+| `SNAPSHOT` | 확정 스냅샷. `locked=true`면 PDF 기반 고정 스냅샷 |
 | `LIVE` | 운영 DB 라이브 조회 |
 | `UNAVAILABLE` | 운영 DB 미연결 |
 
-향후 채택 시 프론트는 이 메타데이터를 기준으로 툴바 또는 상태 영역에 데이터 출처를 표시한다.
+프론트는 이 메타데이터를 기준으로 툴바에 데이터 출처를 표시한다. `formulaVersion`은 시력교정 `reservation-stats-system-v1`, 백내장 `reservation-stats-cataract-v1`로 분리한다.
 
 ## 7. 단계별 계획
 
@@ -481,7 +477,7 @@ backend/src/main/resources/sql/reservation-stats/
 작업:
 
 - 공통 `MonthlySnapshotStore<T>` + `SnapshotInfo`(목록용) 추출 — 기존 레이어(`service/reservation/`) 유지(§5 (B))
-- `SnapshotMetadata`는 **내부 보존**만(응답 노출 X — §6 메타 응답 보류). `SnapshotResponse<T>`는 보류(미정의)
+- `schemaVersion`은 스냅샷 JSON에 보존하고, source/locked/confirmed 정보는 `ApiResponse.meta`로 노출한다. `SnapshotResponse<T>`처럼 `data` shape를 바꾸는 wrapper는 만들지 않는다.
 - 파일 저장 경로는 현행 유지(`stats.snapshot.dir` 설정값 + 서버시작.bat이 작업 디렉터리를 `backend`로 고정 → 절대경로 불필요로 정리됨, 2026-06-24)
 - locked PDF seed 파일은 계속 git에 유지
 - 런타임 확정값은 **파일 저장 유지(원자적 rename)** — DB 이관은 마이그레이션·정합성 부담만 큰 YAGNI라 보류
@@ -495,11 +491,11 @@ backend/src/main/resources/sql/reservation-stats/
 출력 영향:
 
 - days 값 영향 없음
-- **응답 shape 불변**: GET은 `ReservationStatsDailyRow[]` 그대로(메타 응답 보류 — §6) → 프론트 API adapter 수정 불필요.
+- **응답 data shape 불변**: GET은 `data: ReservationStatsDailyRow[]` 그대로 유지하고 `meta`만 선택 추가한다.
 
-### 5단계. API 메타 응답 적용 — ⏸ 보류(미채택)
+### 5단계. API 메타 응답 적용
 
-> ✅ **2026-06-24 결정으로 보류**: 출처 표시는 ‘미연결’만 유지(백엔드 변경 없음, §6 참조). 응답 shape를 바꾸는 breaking change라 이번 업그레이드에서 제외한다. 아래 내용은 향후 재검토용 참고.
+> ✅ 2026-06-25 구현 완료: `data` 배열은 유지하고 `ApiResponse.meta` 선택 필드로 source/schemaVersion/formulaVersion/locked/confirmed 정보를 추가했다. 프론트는 예약통계 툴바에 출처 배지를 표시한다.
 
 목적:
 
@@ -507,16 +503,16 @@ backend/src/main/resources/sql/reservation-stats/
 
 작업:
 
-- GET 응답을 `days[]`에서 metadata 포함 객체로 변경
-- source 값 계산
-- `formulaVersion` 포함
-- `confirmedAt`, `confirmedBy`, `locked` 포함
-- API 클라이언트 Zod schema 수정
-- toolbar/status 영역에 출처 표시
+- ~~GET 응답의 `data: days[]` shape 유지 + `meta` 선택 필드 추가~~
+- ~~source 값 계산 (`SNAPSHOT`/`LIVE`/`UNAVAILABLE`)~~
+- ~~`schemaVersion`, `formulaVersion` 포함~~
+- ~~`confirmedAt`, `confirmedBy`, `locked` 포함~~
+- ~~API 클라이언트 Zod schema 수정~~
+- ~~toolbar/status 영역에 출처 표시~~
 
 검증:
 
-- locked 스냅샷 조회 시 `PDF_LOCKED` 또는 정책상 동등한 source 표시
+- locked 스냅샷 조회 시 `source=SNAPSHOT`, `locked=true` 표시
 - runtime snapshot 조회 시 `SNAPSHOT` 표시
 - snapshot이 없고 mssql 연결 시 `LIVE` 표시
 - mssql 미연결 시 `UNAVAILABLE` 또는 오류 상태 표시
@@ -652,7 +648,7 @@ daily SQL과 drill-down SQL 분리 유지 결정:
 3. `refactor: 예약통계 프론트 shared core 추출`
 4. `refactor: 예약통계 테이블 컴포넌트 분리`
 5. `refactor: 예약통계 백엔드 스냅샷 공통화`
-6. `chore: 예약통계 stale 주석·시드 dead code 정리` (응답 메타데이터 추가는 §6 보류로 제외)
+6. `chore: 예약통계 stale 주석·시드 dead code 정리`
 7. `refactor: 예약통계 SQL 파일 분리`
 8. `feat: 예약통계 진단 diff 추가`
 9. `feat: 예약통계 row drill-down 진단 추가`
@@ -700,7 +696,7 @@ gradlew.bat test
 | 스냅샷 파일 경로 혼선 | `stats.snapshot.dir` 설정값 + 서버시작.bat이 작업 디렉터리를 `backend`로 고정(절대경로 불필요로 정리), locked seed는 git 유지 |
 | 6월 데이터 드리프트 | unlocked/live 데이터는 골든마스터에서 제외 |
 | 동시 fill로 저장 유실 | period lock 선적용 |
-| 데이터 출처 표시 불가 | 현 결정상 ‘미연결’ 상태만 표시(백엔드 변경 없음). 스냅샷/라이브 구분(메타 API)은 보류 — §6 참조 |
+| 데이터 출처 표시 불일치 | `ApiResponse.meta` source/locked/formulaVersion을 기준으로 표시하고, `data` 배열 shape는 유지 |
 | SQL 분리 중 파라미터 누락 | SQL loader 테스트와 기존 결과 diff |
 | 진단 기능이 집계와 다른 기준 사용 | drill-down SQL 기준을 문서화하고 registry/SQL 테스트 + parity API로 대조 |
 
@@ -713,7 +709,7 @@ gradlew.bat test
 - 화면 컴포넌트는 계산을 직접 수행하지 않는다.
 - locked 스냅샷 기반 골든마스터 테스트가 있다.
 - DisplayRow와 CSV 드리프트를 CI에서 감지한다.
-- (보류) 스냅샷 응답 메타데이터(source/locked/confirmedBy/formulaVersion) — 5단계·6장 보류 결정에 따라 이번 완료 기준에서 제외(향후 재검토).
+- 스냅샷/라이브 응답 메타데이터(source/locked/confirmedBy/formulaVersion/schemaVersion)가 있다.
 - 테이블 header/body/CSV가 같은 column config를 사용한다.
 - `fillSnapshot` 동시 호출이 안전하다.
 - SQL은 파일로 분리되어 있다.

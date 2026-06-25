@@ -7,6 +7,7 @@ import com.bviit.analytics.dto.reservation.CataractStatsSnapshot;
 import com.bviit.analytics.dto.reservation.ReservationStatsDiffResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsParityResponse;
+import com.bviit.analytics.dto.reservation.ReservationStatsResponseMeta;
 import com.bviit.analytics.service.reservation.CataractStatsDiagnosticDiffService;
 import com.bviit.analytics.service.reservation.CataractStatsSnapshotStore;
 import com.bviit.analytics.service.reservation.CataractStatsSystemService;
@@ -44,6 +45,7 @@ import java.util.Optional;
 public class CataractStatsSystemController {
 
     private static final int MAX_RANGE_DAYS = 92;
+    private static final String FORMULA_VERSION = "reservation-stats-cataract-v1";
 
     private final CataractStatsSnapshotStore snapshotStore;
     private final Optional<CataractStatsSystemService> service;
@@ -74,11 +76,14 @@ public class CataractStatsSystemController {
             List<CataractStatsDailyRow> days = snapshot.get().days().stream()
                     .filter(d -> d.date().compareTo(fromStr) >= 0 && d.date().compareTo(toStr) <= 0)
                     .toList();
-            return ResponseEntity.ok(ApiResponse.ok(days));
+            return ResponseEntity.ok(ApiResponse.ok(days, snapshotMeta(period, snapshot.get())));
         }
         return service
-                .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.getDailyCounts(from.toString(), to.toString()))))
-                .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("확정 스냅샷·라이브 소스(MSSQL)가 없습니다.")));
+                .map(svc -> ResponseEntity.ok(ApiResponse.ok(
+                        svc.getDailyCounts(from.toString(), to.toString()),
+                        liveMeta(period)
+                )))
+                .orElseGet(() -> realDataUnavailable(period));
     }
 
     /** 조회 시 자동 채움 필요 여부 — 당월·미잠금이고 오늘 아직 안 채운 경우만(하루 1회). */
@@ -104,7 +109,10 @@ public class CataractStatsSystemController {
         }
         String by = authentication != null ? authentication.getName() : "unknown";
         return service
-                .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.saveSnapshot(period, by))))
+                .map(svc -> {
+                    CataractStatsSnapshot snapshot = svc.saveSnapshot(period, by);
+                    return ResponseEntity.ok(ApiResponse.ok(snapshot, snapshotMeta(period, snapshot)));
+                })
                 .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
     }
 
@@ -120,7 +128,10 @@ public class CataractStatsSystemController {
         }
         String by = authentication != null ? authentication.getName() : "unknown";
         return service
-                .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.fillSnapshot(period, by))))
+                .map(svc -> {
+                    CataractStatsSnapshot snapshot = svc.fillSnapshot(period, by);
+                    return ResponseEntity.ok(ApiResponse.ok(snapshot, snapshotMeta(period, snapshot)));
+                })
                 .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
     }
 
@@ -158,5 +169,35 @@ public class CataractStatsSystemController {
         return diagnosticDiffService
                 .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.parity(period, field))))
                 .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
+    }
+
+    private static ReservationStatsResponseMeta snapshotMeta(String period, CataractStatsSnapshot snapshot) {
+        return ReservationStatsResponseMeta.snapshot(
+                period,
+                FORMULA_VERSION,
+                snapshot.locked(),
+                snapshot.confirmedAt(),
+                snapshot.confirmedBy(),
+                snapshot.schemaVersion()
+        );
+    }
+
+    private static ReservationStatsResponseMeta liveMeta(String period) {
+        return ReservationStatsResponseMeta.live(
+                period,
+                FORMULA_VERSION,
+                CataractStatsSnapshot.CURRENT_SCHEMA_VERSION
+        );
+    }
+
+    private static ResponseEntity<ApiResponse<List<CataractStatsDailyRow>>> realDataUnavailable(String period) {
+        return ResponseEntity.status(503).body(ApiResponse.error(
+                "확정 스냅샷·라이브 소스(MSSQL)가 없습니다.",
+                ReservationStatsResponseMeta.unavailable(
+                        period,
+                        FORMULA_VERSION,
+                        CataractStatsSnapshot.CURRENT_SCHEMA_VERSION
+                )
+        ));
     }
 }
