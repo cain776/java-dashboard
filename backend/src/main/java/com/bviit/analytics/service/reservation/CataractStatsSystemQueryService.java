@@ -6,7 +6,7 @@ import com.bviit.analytics.dto.reservation.ReservationStatsDiagnosticsHealthResp
 import com.bviit.analytics.dto.reservation.ReservationStatsDiffResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsParityResponse;
-import com.bviit.analytics.dto.reservation.ReservationStatsResponseMeta;
+import com.bviit.analytics.dto.stats.StatsResponseMeta;
 import com.bviit.analytics.dto.reservation.ReservationStatsResult;
 import com.bviit.analytics.exception.DataSourceUnavailableException;
 import com.bviit.analytics.exception.SnapshotLockedException;
@@ -100,11 +100,11 @@ public class CataractStatsSystemQueryService {
 
     public ReservationStatsDiagnosticsHealthResponse health(String period) {
         Optional<CataractStatsSnapshot> snapshot = snapshotStore.find(period);
-        ReservationStatsResponseMeta.Source source = snapshot.isPresent()
-                ? ReservationStatsResponseMeta.Source.SNAPSHOT
+        StatsResponseMeta.Source source = snapshot.isPresent()
+                ? StatsResponseMeta.Source.SNAPSHOT
                 : liveService.isPresent()
-                ? ReservationStatsResponseMeta.Source.LIVE
-                : ReservationStatsResponseMeta.Source.UNAVAILABLE;
+                ? StatsResponseMeta.Source.LIVE
+                : StatsResponseMeta.Source.UNAVAILABLE;
 
         return new ReservationStatsDiagnosticsHealthResponse(
                 period,
@@ -166,8 +166,8 @@ public class CataractStatsSystemQueryService {
         ));
     }
 
-    private static ReservationStatsResponseMeta snapshotMeta(String period, CataractStatsSnapshot snapshot) {
-        return ReservationStatsResponseMeta.snapshot(
+    private static StatsResponseMeta snapshotMeta(String period, CataractStatsSnapshot snapshot) {
+        return StatsResponseMeta.snapshot(
                 period,
                 FORMULA_VERSION,
                 snapshot.locked(),
@@ -177,8 +177,8 @@ public class CataractStatsSystemQueryService {
         );
     }
 
-    private static ReservationStatsResponseMeta liveMeta(String period) {
-        return ReservationStatsResponseMeta.live(
+    private static StatsResponseMeta liveMeta(String period) {
+        return StatsResponseMeta.live(
                 period,
                 FORMULA_VERSION,
                 CataractStatsSnapshot.CURRENT_SCHEMA_VERSION
@@ -188,7 +188,7 @@ public class CataractStatsSystemQueryService {
     private static DataSourceUnavailableException dataSourceUnavailable(String period, String message) {
         return new DataSourceUnavailableException(
                 message,
-                ReservationStatsResponseMeta.unavailable(
+                StatsResponseMeta.unavailable(
                         period,
                         FORMULA_VERSION,
                         CataractStatsSnapshot.CURRENT_SCHEMA_VERSION

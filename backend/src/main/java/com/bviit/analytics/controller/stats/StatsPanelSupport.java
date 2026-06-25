@@ -1,6 +1,7 @@
 package com.bviit.analytics.controller.stats;
 
 import com.bviit.analytics.dto.ApiResponse;
+import com.bviit.analytics.dto.stats.StatsResponseMeta;
 import com.bviit.analytics.exception.DataSourceUnavailableException;
 import org.springframework.http.ResponseEntity;
 
@@ -22,11 +23,11 @@ public final class StatsPanelSupport {
             Supplier<T> mockFetcher
     ) {
         if (mock) {
-            return ResponseEntity.ok(ApiResponse.ok(mockFetcher.get()));
+            return ResponseEntity.ok(ApiResponse.ok(mockFetcher.get(), StatsResponseMeta.live()));
         }
 
         return realService
-                .map(service -> ResponseEntity.ok(ApiResponse.ok(realFetcher.apply(service))))
+                .map(service -> ResponseEntity.ok(ApiResponse.ok(realFetcher.apply(service), StatsResponseMeta.live())))
                 .orElseThrow(StatsPanelSupport::realDataUnavailable);
     }
 
@@ -35,7 +36,7 @@ public final class StatsPanelSupport {
             Function<S, T> realFetcher
     ) {
         return realService
-                .map(service -> ResponseEntity.ok(ApiResponse.ok(realFetcher.apply(service))))
+                .map(service -> ResponseEntity.ok(ApiResponse.ok(realFetcher.apply(service), StatsResponseMeta.live())))
                 .orElseThrow(StatsPanelSupport::realDataUnavailable);
     }
 
@@ -49,6 +50,6 @@ public final class StatsPanelSupport {
     }
 
     private static DataSourceUnavailableException realDataUnavailable() {
-        return new DataSourceUnavailableException(REAL_DATA_UNAVAILABLE_MESSAGE);
+        return new DataSourceUnavailableException(REAL_DATA_UNAVAILABLE_MESSAGE, StatsResponseMeta.unavailable());
     }
 }
