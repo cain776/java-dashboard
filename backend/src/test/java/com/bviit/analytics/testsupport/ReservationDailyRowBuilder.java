@@ -1,6 +1,6 @@
 package com.bviit.analytics.testsupport;
 
-import com.bviit.analytics.dto.reservation.ReservationStatsDailyRow;
+import com.bviit.analytics.reservation.dto.ReservationStatsDailyRow;
 
 /**
  * 테스트용 {@link ReservationStatsDailyRow} 빌더 — 모든 카운트는 0 기본, 필요한 필드만 설정한다.

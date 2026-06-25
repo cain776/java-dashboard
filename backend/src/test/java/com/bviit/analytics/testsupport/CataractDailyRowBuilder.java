@@ -1,6 +1,6 @@
 package com.bviit.analytics.testsupport;
 
-import com.bviit.analytics.dto.reservation.CataractStatsDailyRow;
+import com.bviit.analytics.reservation.dto.CataractStatsDailyRow;
 
 /**
  * 테스트용 {@link CataractStatsDailyRow} 빌더 — 모든 카운트는 0 기본, 필요한 필드만 설정한다.

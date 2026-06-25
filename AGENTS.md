@@ -20,21 +20,28 @@
 project-root/
 ├── backend/
 │   ├── src/main/java/com/bviit/analytics/
-│   │   ├── config/
-│   │   │   ├── SecurityConfig.java      # Spring Security + CORS (localhost:5173 허용)
-│   │   │   ├── JwtUtil.java             # JWT 생성/검증 (HMAC-SHA256)
-│   │   │   └── DataInitializer.java     # 초기 admin 계정 시딩
-│   │   ├── controller/
-│   │   │   └── AuthController.java      # POST /api/auth/login
-│   │   ├── service/
-│   │   │   └── AuthService.java         # 인증 로직
-│   │   ├── entity/
-│   │   │   └── User.java               # id, email, password, name
-│   │   ├── repository/
-│   │   │   └── UserRepository.java      # findByEmail()
-│   │   └── dto/
-│   │       ├── LoginRequest.java        # @Email, @NotBlank
-│   │       └── LoginResponse.java       # token + UserDto
+│   │   ├── AnalyticsApplication.java
+│   │   ├── auth/                        # 로그인/JWT/사용자 계정
+│   │   │   ├── config/                  # SecurityConfig, JwtUtil, DataInitializer
+│   │   │   ├── controller/              # POST /api/auth/login
+│   │   │   ├── dto/
+│   │   │   ├── entity/
+│   │   │   ├── repository/
+│   │   │   └── service/
+│   │   ├── common/                      # 공통 응답, 예외, 설정, 유틸, 통계 helper
+│   │   │   ├── config/
+│   │   │   ├── dto/
+│   │   │   ├── exception/
+│   │   │   ├── stats/
+│   │   │   ├── util/
+│   │   │   └── web/
+│   │   ├── reservation/                 # 예약/예약통계/스냅샷/진단
+│   │   ├── exam/                        # 검사 통계 및 검사자 리스트
+│   │   ├── surgery/                     # 수술 통계 및 수술 리스트
+│   │   ├── consultation/                # 상담/전환율/중단사유
+│   │   ├── outpatient/                  # 외래/내원 관련 통계
+│   │   ├── overall/                     # 종합 주간 지표
+│   │   └── etc/                         # B2B 등 기타 통계
 │   ├── src/main/resources/
 │   │   ├── application.properties           # H2 인메모리 (개발 기본)
 │   │   └── application-postgres.properties  # PostgreSQL (운영)
@@ -96,7 +103,7 @@ project-root/
 
 ### 미구현 (플레이스홀더)
 
-일부 통계 페이지와 고급 진단/diff 기능. 전체 페이지 목록의 기준은 `frontend/src/config/statsPages.ts`.
+일부 통계 페이지. 전체 페이지 목록의 기준은 `frontend/src/config/statsPages.ts`.
 
 ## 대표 통계 페이지 목록
 
@@ -150,6 +157,8 @@ GET    /api/stats/{pageId}/compare?compareTo=PREVIOUS_PERIOD
 ### 코딩 스타일
 
 - 패키지: `com.bviit.analytics`
+- 백엔드는 도메인 중심 패키지를 기본으로 한다. 예: `reservation/controller`, `reservation/service`, `reservation/repository`, `reservation/dto`.
+- 인증은 `auth`, 공통 응답/예외/유틸/통계 helper는 `common` 아래에 둔다.
 - Entity에 `@Setter` 금지 — 의미 있는 메서드로 상태 변경
 - DTO <-> Entity: 정적 팩토리 (`XxxResponse.from(entity)`)
 - 예외: `@RestControllerAdvice` + 커스텀 예외 클래스
@@ -160,11 +169,12 @@ GET    /api/stats/{pageId}/compare?compareTo=PREVIOUS_PERIOD
 
 ### 신규 통계 API 추가 순서
 
-1. Entity/DTO 정의 (`entity/`, `dto/request/`, `dto/response/`)
-2. Repository 작성 (`repository/`)
-3. Service 비즈니스 로직 (`service/`)
-4. Controller 엔드포인트 (`controller/`)
-5. 프론트 API 함수 + 페이지 연결
+1. 도메인 패키지 선택 또는 생성 (`reservation/`, `exam/`, `surgery/` 등)
+2. Entity/DTO 정의 (`<domain>/entity`, `<domain>/dto`)
+3. Repository 작성 (`<domain>/repository`)
+4. Service 비즈니스 로직 (`<domain>/service`)
+5. Controller 엔드포인트 (`<domain>/controller`)
+6. 프론트 API 함수 + 페이지 연결
 
 ## 프론트엔드 컨벤션
 

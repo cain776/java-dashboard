@@ -8,9 +8,9 @@
 
 | 대상 | 현재 위치 | 예정 리소스 |
 |---|---|---|
-| 예약통계_시력교정 일자별 원시 카운트 | `backend/src/main/java/com/bviit/analytics/repository/reservation/ReservationStatsSystemRepository.java` | `backend/src/main/resources/sql/reservation-stats/system-daily-counts.sql` |
-| 예약통계_백내장 일자별 원시 카운트 | `backend/src/main/java/com/bviit/analytics/repository/reservation/CataractStatsSystemRepository.java` | `backend/src/main/resources/sql/reservation-stats/cataract-daily-counts.sql` |
-| SQL 로더(신규) | — | `backend/src/main/java/com/bviit/analytics/util/SqlLoader.java` |
+| 예약통계_시력교정 일자별 원시 카운트 | `backend/src/main/java/com/bviit/analytics/reservation/repository/ReservationStatsSystemRepository.java` | `backend/src/main/resources/sql/reservation-stats/system-daily-counts.sql` |
+| 예약통계_백내장 일자별 원시 카운트 | `backend/src/main/java/com/bviit/analytics/reservation/repository/CataractStatsSystemRepository.java` | `backend/src/main/resources/sql/reservation-stats/cataract-daily-counts.sql` |
+| SQL 로더(신규) | — | `backend/src/main/java/com/bviit/analytics/common/util/SqlLoader.java` |
 
 > **2차 진행 상태(2026-06-25)**: 후속 대상 4종 SQL 분리 완료. `ReservationListRepository`, `ReservationOverallStatsRepository`, `ReservationStatsRepository`, `IntakeConversionStatsRepository`의 Java 문자열 SQL을 `src/main/resources/sql/**` 리소스로 이동했다. 각 Repository의 리소스 마커와 날짜 바인딩은 DB 없는 단위 테스트로 검증한다.
 
@@ -45,7 +45,7 @@
 
 ## 3. SQL loader 요구사항
 
-- 위치: `com.bviit.analytics.util.SqlLoader` (레이어 중립 util — CLAUDE.md `util/` 컨벤션).
+- 위치: `com.bviit.analytics.common.util.SqlLoader` (레이어 중립 util — CLAUDE.md `util/` 컨벤션).
 - 형태: **정적 유틸** 권장(Spring 컨텍스트 없이 단위테스트 가능). 시그니처:
   ```java
   public static String load(String classpathLocation);

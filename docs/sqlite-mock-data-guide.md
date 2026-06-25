@@ -79,7 +79,7 @@ sqlite3 backend/src/main/resources/mock/mock-data.db "SELECT count(*) FROM surge
 ### 3-2. Repository 작성
 
 ```java
-package com.bviit.analytics.repository;
+package com.bviit.analytics.surgery.repository;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;

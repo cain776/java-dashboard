@@ -73,16 +73,16 @@
 
 주요 파일:
 
-- `backend/src/main/java/com/bviit/analytics/controller/reservation/ReservationStatsSystemController.java`
-- `backend/src/main/java/com/bviit/analytics/service/reservation/ReservationStatsSystemService.java`
-- `backend/src/main/java/com/bviit/analytics/service/reservation/ReservationStatsSnapshotStore.java`
-- `backend/src/main/java/com/bviit/analytics/repository/reservation/ReservationStatsSystemRepository.java`
-- `backend/src/main/java/com/bviit/analytics/dto/reservation/ReservationStatsDailyRow.java`
-- `backend/src/main/java/com/bviit/analytics/controller/reservation/CataractStatsSystemController.java`
-- `backend/src/main/java/com/bviit/analytics/service/reservation/CataractStatsSystemService.java`
-- `backend/src/main/java/com/bviit/analytics/service/reservation/CataractStatsSnapshotStore.java`
-- `backend/src/main/java/com/bviit/analytics/repository/reservation/CataractStatsSystemRepository.java`
-- `backend/src/main/java/com/bviit/analytics/dto/reservation/CataractStatsDailyRow.java`
+- `backend/src/main/java/com/bviit/analytics/reservation/controller/ReservationStatsSystemController.java`
+- `backend/src/main/java/com/bviit/analytics/reservation/service/ReservationStatsSystemService.java`
+- `backend/src/main/java/com/bviit/analytics/reservation/service/ReservationStatsSnapshotStore.java`
+- `backend/src/main/java/com/bviit/analytics/reservation/repository/ReservationStatsSystemRepository.java`
+- `backend/src/main/java/com/bviit/analytics/reservation/dto/ReservationStatsDailyRow.java`
+- `backend/src/main/java/com/bviit/analytics/reservation/controller/CataractStatsSystemController.java`
+- `backend/src/main/java/com/bviit/analytics/reservation/service/CataractStatsSystemService.java`
+- `backend/src/main/java/com/bviit/analytics/reservation/service/CataractStatsSnapshotStore.java`
+- `backend/src/main/java/com/bviit/analytics/reservation/repository/CataractStatsSystemRepository.java`
+- `backend/src/main/java/com/bviit/analytics/reservation/dto/CataractStatsDailyRow.java`
 
 현 상태의 문제:
 
@@ -143,8 +143,9 @@
 - **진단 API 운영 상태 점검 추가**(2026-06-25): `/diagnostics/health` 응답을 추가해 period별 현재 출처(`SNAPSHOT`/`LIVE`/`UNAVAILABLE`), 스냅샷 존재·잠금·일수·최신일, schemaVersion, formulaVersion, live/diagnostic 서비스 가용 여부를 확인할 수 있게 했다.
 - **SQL 파일 분리 3차 완료**(2026-06-25): `exam`, `surgery`, `overall`, `consultation`, `outpatient`, `etc`, `mock` repository에 남아 있던 Java text block SQL과 `StringBuilder` SQL 조립을 `src/main/resources/sql/**` 리소스와 작은 placeholder 치환으로 이동했다. `RepositorySqlResourceCoverageTest`가 repository Java의 text block/StringBuilder 재유입, SQL 리소스 누락, Java 문자열 조합 흔적을 차단한다.
 - **Controller 공통 미연결 처리 정리**(2026-06-25): list/단독 조회 controller의 수동 `DataSourceUnavailableException` 생성과 optional 분기를 `StatsPanelSupport.require/requireData`로 이동했다. controller는 요청 검증 후 서비스 호출 의도만 남긴다.
+- **도메인 중심 패키지 재배치**(2026-06-25): 기존 최상위 레이어 구조(`controller/service/repository/dto/...`)를 `reservation`, `exam`, `surgery`, `consultation`, `outpatient`, `overall`, `etc`, `auth`, `common` 중심으로 재배치했다. 각 도메인 아래에 `controller/service/repository/dto`를 두고, 공통 응답·예외·유틸·stats helper는 `common`으로 이동했다.
 
-예약통계 도메인의 핵심 구현과 백엔드 repository SQL 리소스화는 완료 상태다. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~lock map 회수~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~row builder/CSV/summary 공통화~~·~~도메인별 formulas 계층화~~·~~헤더 메타 전체 데이터화~~·~~백엔드 스냅샷 store 공통화~~·~~예약통계 SQL 파일 분리~~·~~진단/diff~~·~~row-level drill-down~~·~~colSpan 1차~~·~~시드 dead code 정리~~·~~스냅샷 schemaVersion/불변식 검증~~·~~API 메타 응답 1차~~·~~공통 예외/에러 응답 정리~~·~~예약 리스트/종합/기본/유입 통계 SQL 리소스 분리~~·~~Controller 파사드화~~·~~Controller 공통 미연결 처리~~·~~진단 health API~~·~~repository SQL 리소스화 가드 테스트~~는 완료.)
+예약통계 도메인의 핵심 구현과 백엔드 repository SQL 리소스화는 완료 상태다. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~lock map 회수~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~row builder/CSV/summary 공통화~~·~~도메인별 formulas 계층화~~·~~헤더 메타 전체 데이터화~~·~~백엔드 스냅샷 store 공통화~~·~~예약통계 SQL 파일 분리~~·~~진단/diff~~·~~row-level drill-down~~·~~colSpan 1차~~·~~시드 dead code 정리~~·~~스냅샷 schemaVersion/불변식 검증~~·~~API 메타 응답 1차~~·~~공통 예외/에러 응답 정리~~·~~예약 리스트/종합/기본/유입 통계 SQL 리소스 분리~~·~~Controller 파사드화~~·~~Controller 공통 미연결 처리~~·~~진단 health API~~·~~repository SQL 리소스화 가드 테스트~~·~~도메인 중심 패키지 재배치~~는 완료.)
 
 ### 최종 추천 순서 기준 진행 상태(2026-06-25)
 
@@ -157,7 +158,7 @@
 | 5 | SQL 실행 계층 정리 | 완료 | repository Java의 text block SQL과 `StringBuilder` SQL 조립을 제거하고 `src/main/resources/sql/**` 리소스로 이동했다. 재유입은 `RepositorySqlResourceCoverageTest`가 차단한다. |
 | 6 | 진단 API 운영 도구화 | 완료 | diff/drill-down/parity에 health API를 추가했다. 실제 MSSQL 대표 일자 대조는 운영 검증 과제다. |
 | 7 | 테스트 fixture/builder 정리 | 부분 완료 | 골든마스터·SQL resource·snapshot store·diagnostic·query facade 테스트는 있음. 테스트 fixture 전용 builder 분리는 추가 개선 여지. |
-| 8 | 도메인 패키지 구조 재배치 | 미완 | 현재 패키지는 동작 중심으로 정리됐지만, 도메인 단위 패키지 재배치는 아직 하지 않았다. |
+| 8 | 도메인 패키지 구조 재배치 | 완료 | `auth/common/reservation/exam/surgery/consultation/outpatient/overall/etc` 중심으로 재배치했다. 기존 구 레이어 패키지 참조는 제거했고, backend test 통과로 검증했다. |
 
 ## 4. 코드 품질 원칙
 
@@ -313,11 +314,10 @@ backend/src/main/resources/sql/reservation-stats/
 - controller는 request validation과 response wrapping만 담당한다.
 - 스냅샷 store는 제네릭/공통화하되, locked PDF seed 파일의 git provenance는 유지한다.
 
-> ✅ **패키지 컨벤션 — (B) 권장**: 위 `reservationstats/{common,system,cataract}`는 **피처(수직) 패키지**로, 현재 CLAUDE.md의 **레이어 우선**(`controller`/`service`/`repository` → 도메인 하위) 컨벤션과 어긋난다.
-> - **(A) 비권장**: 이 모듈만 피처 패키지 예외 허용 → 나머지 코드베이스와 불일치·유지보수 혼선. CLAUDE.md 예외 명시+팀 합의가 필요하고, 그만한 이득이 없다.
-> - **(B) ✅ 채택**: 기존 레이어 구조(`service/reservation/` 등) 유지 + 제네릭(`MonthlySnapshotStore<T>` 등)만 추출. 컨벤션 불변·중복만 제거. 4단계도 (B)로 동일 효과.
->
-> 따라서 위 §5 목표 구조의 피처 패키지 트리는 **개념적 그룹핑(참고)**으로만 읽고, 실제 이전은 레이어 구조를 유지한다.
+> ✅ **패키지 컨벤션 — 2026-06-25 갱신**: 백엔드 전체를 얕은 도메인 중심 패키지로 재배치했다. 예약통계는 `com.bviit.analytics.reservation.{controller,service,repository,dto}` 아래에 두고, 공통 응답·예외·유틸·stats helper는 `com.bviit.analytics.common` 아래에 둔다.
+> - full DDD(`application/domain/infrastructure`)까지는 가지 않는다.
+> - 각 도메인은 기존 controller/service/repository/dto 역할을 유지한다.
+> - 새 통계 API도 최상위 레이어 폴더가 아니라 해당 도메인 패키지 아래에 추가한다.
 
 ## 6. API 응답 계획
 
@@ -495,7 +495,7 @@ backend/src/main/resources/sql/reservation-stats/
 
 작업:
 
-- 공통 `MonthlySnapshotStore<T>` + `SnapshotInfo`(목록용) 추출 — 기존 레이어(`service/reservation/`) 유지(§5 (B))
+- 공통 `MonthlySnapshotStore<T>` + `SnapshotInfo`(목록용) 추출 — `reservation/service/` 안에서 시력교정·백내장 wrapper가 공유
 - `schemaVersion`은 스냅샷 JSON에 보존하고, source/locked/confirmed 정보는 `ApiResponse.meta`로 노출한다. `SnapshotResponse<T>`처럼 `data` shape를 바꾸는 wrapper는 만들지 않는다.
 - 파일 저장 경로는 현행 유지(`stats.snapshot.dir` 설정값 + 서버시작.bat이 작업 디렉터리를 `backend`로 고정 → 절대경로 불필요로 정리됨, 2026-06-24)
 - locked PDF seed 파일은 계속 git에 유지
