@@ -23,8 +23,13 @@ import java.util.List;
  *   - 내원(종합): Cataract_Exam(실제 검사기록, EXAM_DATE, 중단 제외) 중 같은 날 백내장 예약(FLAG='H' I/H) 보유분 — 협진/타과 의뢰 제외, PDF '내원'과 일치
  *   - 부도/취소(종합)·취소(온라인/CRM): RESERVATION(FLAG='H') 예약일 기준
  *
- * 데이터 미보유로 0 고정인 칸: inboundCall·answeredCall(EICN 백내장 큐 미확인), totalPresbyopia(노안 구분자 부재).
+ * 인입콜·응대콜: EICN_MySQL 상담원 그룹 기준(백내장 전담팀 group_code='0016'). 인입 큐는 시력교정과
+ * 공유하므로 hunt_number가 아닌 응대 그룹으로 분리한다(시력교정 CH_01과 동일 방식). 2026-06-23 = 29/29 검증.
+ * 데이터 미보유로 0 고정인 칸: totalPresbyopia(노안 구분자 부재).
  * 근거: docs/db/예약통계_백내장-데이터소스-분석.md
+ *
+ * 날짜 바인딩: MSSQL 측은 :from/:to 네임드 파라미터, OPENQUERY 내부(MySQL 리터럴)는 바인딩 불가하므로
+ * ISO(yyyy-MM-dd) 재검증 후 __OQ_FROM__/__OQ_TO__ 치환(주입 방지, 시력교정 repo와 동일 패턴).
  *
  * READ-ONLY · MSSQL 2014 호환(WITH(NOLOCK), 네임드 파라미터 :from/:to).
  */
@@ -34,6 +39,7 @@ public class CataractStatsSystemRepository {
 
     private static final String SQL_LOCATION = "sql/reservation-stats/cataract-daily-counts.sql";
     private static final String DRILL_DOWN_SQL_LOCATION = "sql/reservation-stats/cataract-drill-down.sql";
+    private static final String ISO_DATE = "\\d{4}-\\d{2}-\\d{2}";
 
     private final NamedParameterJdbcTemplate jdbc;
     private final String sql;
@@ -46,7 +52,8 @@ public class CataractStatsSystemRepository {
     }
 
     public List<CataractStatsDailyRow> findDailyCounts(String from, String to) {
-        return jdbc.query(sql,
+        String resolvedSql = resolveOpenQuerySql(sql, from, to);
+        return jdbc.query(resolvedSql,
                 new MapSqlParameterSource().addValue("from", from).addValue("to", to),
                 (rs, n) -> new CataractStatsDailyRow(
                         rs.getString("d"),
@@ -58,6 +65,14 @@ public class CataractStatsSystemRepository {
                         rs.getInt("onlineReservation"), rs.getInt("onlineNoShow"),
                         rs.getInt("cancelOnline"), rs.getInt("cancelCrm"), rs.getInt("cancelKakao"),
                         rs.getInt("visit"), rs.getInt("noShowReservation"), rs.getInt("cancel")));
+    }
+
+    static String resolveOpenQuerySql(String baseSql, String from, String to) {
+        // OPENQUERY 리터럴 치환 전 ISO 형식 재검증(주입 방지). 컨트롤러가 LocalDate로 이미 검증하나 이중 가드.
+        if (from == null || to == null || !from.matches(ISO_DATE) || !to.matches(ISO_DATE)) {
+            throw new IllegalArgumentException("from/to must be ISO yyyy-MM-dd dates");
+        }
+        return baseSql.replace("__OQ_FROM__", from).replace("__OQ_TO__", to);
     }
 
     public List<ReservationStatsDrillDownRow> findDrillDownRows(String date, String field) {
