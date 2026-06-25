@@ -152,6 +152,41 @@ class MonthlySnapshotStoreTest {
         assertThat(cataract.schemaVersion()).isEqualTo(CataractStatsSnapshot.CURRENT_SCHEMA_VERSION);
     }
 
+    @Test
+    void 저장은_지원_범위를_벗어난_schemaVersion을_거부한다() {
+        MonthlySnapshotStore<TestSnapshot, TestDaily> store = newStore();
+        List<TestDaily> days = List.of(new TestDaily("2026-05-01", 10));
+
+        assertThatThrownBy(() -> store.save(snapshot("2026-05", false, days, TEST_CURRENT_SCHEMA_VERSION + 1)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("schemaVersion");
+        assertThatThrownBy(() -> store.save(snapshot("2026-05", false, days, 0)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("schemaVersion");
+    }
+
+    @Test
+    void 읽기는_지원_버전보다_높은_schemaVersion_파일을_거부한다() throws IOException {
+        MonthlySnapshotStore<TestSnapshot, TestDaily> store = newStore();
+        Files.createDirectories(dir);
+        Files.writeString(dir.resolve("2026-05.json"), """
+                {
+                  "period": "2026-05",
+                  "confirmedAt": "2026-06-24T10:00:00",
+                  "confirmedBy": "tester",
+                  "locked": true,
+                  "days": [{ "date": "2026-05-01", "count": 1 }],
+                  "schemaVersion": %d
+                }
+                """.formatted(TEST_CURRENT_SCHEMA_VERSION + 1));
+
+        assertThatThrownBy(() -> store.find("2026-05"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("코드 업데이트 필요");
+    }
+
+    private static final int TEST_CURRENT_SCHEMA_VERSION = 1;
+
     private MonthlySnapshotStore<TestSnapshot, TestDaily> newStore() {
         return new MonthlySnapshotStore<>(
                 new ObjectMapper(),
@@ -161,12 +196,18 @@ class MonthlySnapshotStoreTest {
                 TestSnapshot::locked,
                 TestSnapshot::days,
                 TestDaily::date,
+                TestSnapshot::schemaVersion,
+                TEST_CURRENT_SCHEMA_VERSION,
                 "테스트 스냅샷"
         );
     }
 
     private static TestSnapshot snapshot(String period, boolean locked, List<TestDaily> days) {
-        return new TestSnapshot(period, "2026-06-24T10:00:00", "tester", locked, days);
+        return snapshot(period, locked, days, TEST_CURRENT_SCHEMA_VERSION);
+    }
+
+    private static TestSnapshot snapshot(String period, boolean locked, List<TestDaily> days, int schemaVersion) {
+        return new TestSnapshot(period, "2026-06-24T10:00:00", "tester", locked, days, schemaVersion);
     }
 
     public record TestSnapshot(
@@ -174,7 +215,8 @@ class MonthlySnapshotStoreTest {
             String confirmedAt,
             String confirmedBy,
             boolean locked,
-            List<TestDaily> days
+            List<TestDaily> days,
+            int schemaVersion
     ) {
     }
 

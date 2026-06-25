@@ -31,6 +31,8 @@ public class CataractStatsSnapshotStore {
                 CataractStatsSnapshot::locked,
                 CataractStatsSnapshot::days,
                 CataractStatsDailyRow::date,
+                CataractStatsSnapshot::schemaVersion,
+                CataractStatsSnapshot.CURRENT_SCHEMA_VERSION,
                 "백내장 스냅샷"
         );
     }
