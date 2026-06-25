@@ -1,5 +1,6 @@
 package com.bviit.analytics.repository.reservation;
 
+import com.bviit.analytics.util.SqlLoader;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -29,60 +30,23 @@ import java.util.Map;
 @Profile("mssql")
 public class ReservationListRepository {
 
+    static final String RESERVATION_LIST_SQL = "sql/reservation-list/reservation-list.sql";
+    static final String KAKAO_COUNT_SQL = "sql/reservation-list/kakao-count.sql";
+
     private final NamedParameterJdbcTemplate jdbc;
+    private final String reservationListSql;
+    private final String kakaoCountSql;
 
     public ReservationListRepository(
             @Qualifier("statsJdbcTemplate") NamedParameterJdbcTemplate jdbc
     ) {
         this.jdbc = jdbc;
+        this.reservationListSql = SqlLoader.load(RESERVATION_LIST_SQL);
+        this.kakaoCountSql = SqlLoader.load(KAKAO_COUNT_SQL);
     }
 
     public List<Map<String, Object>> findReservationList(String from, String to) {
-        String sql = """
-            SELECT
-              CONVERT(varchar(10), r.InsertedDateTime, 23)            AS registeredAt,
-              ISNULL(CONVERT(varchar(5), r.InsertedDateTime, 108), '') AS registeredTime,
-              ISNULL(r.RESERVE_DATE, '')                              AS reserveDate,
-              ISNULL(LTRIM(RTRIM(r.START_TIME)), '')                  AS reserveTime,
-              ISNULL(LTRIM(RTRIM(r.CUST_NUM)), '')                    AS chartNo,
-              ISNULL(r.CUST_NAME, '')                                 AS name,
-              ISNULL(r.RESERVE_STATE, '')                             AS reserveState,
-              CASE
-                WHEN r.RESERVE_PATH = 'CTI' THEN '인콜'
-                WHEN r.RESERVE_PATH = 'CRM' THEN '아웃콜'
-                WHEN r.RESERVE_PATH = 'ONLINE' THEN '홈페이지'
-                WHEN r.RESERVE_PATH = 'APP' THEN '앱'
-                WHEN r.RESERVE_PATH = 'NAVER' THEN '네이버'
-                WHEN r.RESERVE_PATH = 'KAKAO' THEN '카카오'
-                ELSE ISNULL(r.RESERVE_PATH, '')
-              END                                                     AS channel,
-              CASE
-                WHEN r.RESERVE_PATH IN ('CTI', 'CRM') THEN '콜'
-                WHEN r.RESERVE_PATH IN ('ONLINE', 'APP', 'NAVER', 'KAKAO') THEN '온라인'
-                ELSE '기타'
-              END                                                     AS channelGroup,
-              ISNULL(doc.EMP_NAME, '')                                AS doctor,
-              ISNULL(cns.EMP_NAME, '')                                AS counselor,
-              ISNULL(r.COMMENT, '')                                   AS comment
-            FROM RESERVATION r WITH(NOLOCK)
-            LEFT JOIN EMPLOYEE doc WITH(NOLOCK)
-              ON doc.EMP_NUM = ISNULL(NULLIF(r.SELECT_DOC, ''), r.RESERVE_DOC)
-             AND doc.EMP_STATE <> 'N'
-            LEFT JOIN EMPLOYEE cns WITH(NOLOCK)
-              ON cns.EMP_NUM = r.RESERVE_EMP
-            WHERE r.InsertedDateTime >= :from
-              AND r.InsertedDateTime < DATEADD(DAY, 1, CONVERT(datetime, :to))
-              AND r.RESERVE_FLAG = 'M'
-              AND r.RESERVE_JINRYO IN ('', '5', '6', '7', '24', '25')
-              AND NOT (r.CUST_NAME LIKE '%테스트%' OR r.CUST_NAME LIKE '%TEST%' OR r.CUST_NUM = '8888888888888')
-              AND r.RESERVE_PATH IN ('CTI', 'CRM', 'ONLINE', 'APP', 'NAVER')
-              AND ISNULL(r.RESERVE_SEQ, '') NOT IN ('8', '5')
-              AND ISNULL(r.COMMENT, '') NOT LIKE '%B2B(군인)%' AND ISNULL(r.COMMENT, '') NOT LIKE '%재검%'
-              AND ISNULL(r.COMMENT, '') NOT LIKE '%중복%' AND ISNULL(r.COMMENT, '') NOT LIKE '%시뮬%'
-              AND ISNULL(r.COMMENT, '') NOT LIKE '%차트있음%'
-            ORDER BY r.InsertedDateTime, r.RESERVE_NUM
-            """;
-        return jdbc.queryForList(sql, new MapSqlParameterSource()
+        return jdbc.queryForList(reservationListSql, new MapSqlParameterSource()
                 .addValue("from", from)
                 .addValue("to", to));
     }
@@ -94,17 +58,7 @@ public class ReservationListRepository {
      * 등록일 기준 ms 단위 등록시각 distinct, 명단 행 범위와 같은 날짜창(< to+1일).
      */
     public int countKakao(String from, String to) {
-        String sql = """
-                SELECT COUNT(DISTINCT CONVERT(VARCHAR(23), H.InsertedDateTime, 21))
-                FROM HappyTalk_Counsel_List H WITH(NOLOCK)
-                INNER JOIN HappyTalk_Category01 C01 ON C01.Seq = H.Category01
-                LEFT JOIN HappyTalk_Category02 C02 ON C02.Pkey = H.Category02 AND C02.Fkey = H.Category01
-                WHERE H.InsertedDateTime >= :from
-                  AND H.InsertedDateTime < DATEADD(DAY, 1, CONVERT(datetime, :to))
-                  AND C01.Name = '수술전'
-                  AND C02.NAME = '★신환'
-                """;
-        Integer count = jdbc.queryForObject(sql, new MapSqlParameterSource()
+        Integer count = jdbc.queryForObject(kakaoCountSql, new MapSqlParameterSource()
                 .addValue("from", from)
                 .addValue("to", to), Integer.class);
         return count == null ? 0 : count;
