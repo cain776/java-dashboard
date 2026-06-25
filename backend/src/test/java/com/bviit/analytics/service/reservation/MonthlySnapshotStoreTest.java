@@ -1,5 +1,7 @@
 package com.bviit.analytics.service.reservation;
 
+import com.bviit.analytics.dto.reservation.CataractStatsSnapshot;
+import com.bviit.analytics.dto.reservation.ReservationStatsSnapshot;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -39,8 +41,8 @@ class MonthlySnapshotStoreTest {
         Files.createDirectories(dir);
         Files.writeString(dir.resolve("memo.txt"), "ignored");
         Files.writeString(dir.resolve("2026-5.json"), "{}");
-        store.save(snapshot("2026-07", false, List.of()));
-        store.save(snapshot("2026-06", true, List.of()));
+        store.save(snapshot("2026-07", false, List.of(new TestDaily("2026-07-01", 1))));
+        store.save(snapshot("2026-06", true, List.of(new TestDaily("2026-06-01", 1))));
 
         assertThat(store.listSnapshots())
                 .containsExactly(
@@ -77,6 +79,77 @@ class MonthlySnapshotStoreTest {
         assertThatThrownBy(() -> store.find("2026-5"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("YYYY-MM");
+    }
+
+    @Test
+    void 저장은_빈_days를_거부한다() {
+        MonthlySnapshotStore<TestSnapshot, TestDaily> store = newStore();
+
+        assertThatThrownBy(() -> store.save(snapshot("2026-05", false, List.of())))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("days must not be empty");
+    }
+
+    @Test
+    void 저장은_period_밖의_날짜를_거부한다() {
+        MonthlySnapshotStore<TestSnapshot, TestDaily> store = newStore();
+
+        assertThatThrownBy(() -> store.save(snapshot(
+                "2026-05",
+                false,
+                List.of(new TestDaily("2026-06-01", 10))
+        )))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("must belong to period");
+    }
+
+    @Test
+    void 저장은_중복_날짜를_거부한다() {
+        MonthlySnapshotStore<TestSnapshot, TestDaily> store = newStore();
+
+        assertThatThrownBy(() -> store.save(snapshot(
+                "2026-05",
+                false,
+                List.of(
+                        new TestDaily("2026-05-01", 10),
+                        new TestDaily("2026-05-01", 20)
+                )
+        )))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("duplicate day date");
+    }
+
+    @Test
+    void 저장은_날짜_형식을_검증한다() {
+        MonthlySnapshotStore<TestSnapshot, TestDaily> store = newStore();
+
+        assertThatThrownBy(() -> store.save(snapshot(
+                "2026-05",
+                false,
+                List.of(new TestDaily("2026-5-1", 10))
+        )))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("yyyy-MM-dd");
+    }
+
+    @Test
+    void schemaVersion이_없는_기존_JSON은_현재_버전으로_읽는다() throws IOException {
+        ObjectMapper mapper = new ObjectMapper();
+        String json = """
+                {
+                  "period": "2026-05",
+                  "confirmedAt": "2026-06-24T10:00:00",
+                  "confirmedBy": "tester",
+                  "locked": true,
+                  "days": [{ "date": "2026-05-01" }]
+                }
+                """;
+
+        ReservationStatsSnapshot system = mapper.readValue(json, ReservationStatsSnapshot.class);
+        CataractStatsSnapshot cataract = mapper.readValue(json, CataractStatsSnapshot.class);
+
+        assertThat(system.schemaVersion()).isEqualTo(ReservationStatsSnapshot.CURRENT_SCHEMA_VERSION);
+        assertThat(cataract.schemaVersion()).isEqualTo(CataractStatsSnapshot.CURRENT_SCHEMA_VERSION);
     }
 
     private MonthlySnapshotStore<TestSnapshot, TestDaily> newStore() {

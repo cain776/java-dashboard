@@ -67,8 +67,33 @@ class ReservationStatsSqlResourceTest {
                 .contains(":from", ":to")
                 .contains("Cataract_Exam", "DB_CUSTOM", "HappyTalk_Counsel_List")
                 .contains("<= :to")
-                .contains("0 AS totalPresbyopia", "0 AS inboundCall");
-        assertThat(sql).doesNotContain("OPENQUERY", "__OQ_");
+                .contains("0 AS totalPresbyopia")
+                // 인입콜/응대콜은 EICN 상담원 그룹(group_code='0016') OPENQUERY로 채운다(더 이상 0 고정 아님).
+                .contains("OPENQUERY(EICN_MySQL", "stat_user_inbound_bseye", "group_code", "0016", "__OQ_FROM__", "__OQ_TO__")
+                .doesNotContain("0 AS inboundCall", "0 AS answeredCall");
+    }
+
+    @Test
+    void cataract_sql은_openquery_placeholder만_iso_날짜로_치환한다() {
+        String baseSql = SqlLoader.load(CATARACT_SQL);
+        String resolvedSql = CataractStatsSystemRepository.resolveOpenQuerySql(baseSql, "2026-06-23", "2026-06-24");
+
+        assertThat(resolvedSql)
+                .contains("'2026-06-23'", "'2026-06-24'")
+                .doesNotContain("__OQ_FROM__", "__OQ_TO__")
+                .contains(":from", ":to", "OPENQUERY(EICN_MySQL");
+        assertThat(countOccurrences(resolvedSql, ":from")).isEqualTo(countOccurrences(baseSql, ":from"));
+        assertThat(countOccurrences(resolvedSql, ":to")).isEqualTo(countOccurrences(baseSql, ":to"));
+    }
+
+    @Test
+    void cataract_sql은_잘못된_openquery_치환_날짜를_거부한다() {
+        String baseSql = SqlLoader.load(CATARACT_SQL);
+
+        assertThatThrownBy(() -> CataractStatsSystemRepository.resolveOpenQuerySql(baseSql, "2026-6-23", "2026-06-24"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> CataractStatsSystemRepository.resolveOpenQuerySql(baseSql, "2026-06-23'; DROP", "2026-06-24"))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
