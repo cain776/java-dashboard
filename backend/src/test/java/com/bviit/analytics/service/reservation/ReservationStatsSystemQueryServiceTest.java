@@ -4,7 +4,7 @@ import com.bviit.analytics.dto.reservation.CataractStatsDailyRow;
 import com.bviit.analytics.dto.reservation.CataractStatsSnapshot;
 import com.bviit.analytics.dto.reservation.ReservationStatsDailyRow;
 import com.bviit.analytics.dto.reservation.ReservationStatsDiagnosticsHealthResponse;
-import com.bviit.analytics.dto.reservation.ReservationStatsResponseMeta;
+import com.bviit.analytics.dto.stats.StatsResponseMeta;
 import com.bviit.analytics.dto.reservation.ReservationStatsResult;
 import com.bviit.analytics.dto.reservation.ReservationStatsSnapshot;
 import com.bviit.analytics.exception.DataSourceUnavailableException;
@@ -69,8 +69,8 @@ class ReservationStatsSystemQueryServiceTest {
         );
 
         assertThat(result.data()).containsExactly(systemRow("2026-05-02", 2));
-        ReservationStatsResponseMeta meta = (ReservationStatsResponseMeta) result.meta();
-        assertThat(meta.source()).isEqualTo(ReservationStatsResponseMeta.Source.SNAPSHOT);
+        StatsResponseMeta meta = (StatsResponseMeta) result.meta();
+        assertThat(meta.source()).isEqualTo(StatsResponseMeta.Source.SNAPSHOT);
         assertThat(meta.locked()).isTrue();
         assertThat(meta.schemaVersion()).isEqualTo(ReservationStatsSnapshot.CURRENT_SCHEMA_VERSION);
         verifyNoInteractions(reservationLiveService);
@@ -92,9 +92,9 @@ class ReservationStatsSystemQueryServiceTest {
         ))
                 .isInstanceOf(DataSourceUnavailableException.class)
                 .satisfies(error -> {
-                    ReservationStatsResponseMeta meta =
-                            (ReservationStatsResponseMeta) ((DataSourceUnavailableException) error).getMeta();
-                    assertThat(meta.source()).isEqualTo(ReservationStatsResponseMeta.Source.UNAVAILABLE);
+                    StatsResponseMeta meta =
+                            (StatsResponseMeta) ((DataSourceUnavailableException) error).getMeta();
+                    assertThat(meta.source()).isEqualTo(StatsResponseMeta.Source.UNAVAILABLE);
                     assertThat(meta.period()).isEqualTo("2026-05");
                 });
     }
@@ -118,7 +118,7 @@ class ReservationStatsSystemQueryServiceTest {
         ReservationStatsDiagnosticsHealthResponse response = service.health("2026-05");
 
         assertThat(response.statsType()).isEqualTo("system");
-        assertThat(response.currentSource()).isEqualTo(ReservationStatsResponseMeta.Source.SNAPSHOT);
+        assertThat(response.currentSource()).isEqualTo(StatsResponseMeta.Source.SNAPSHOT);
         assertThat(response.liveServiceAvailable()).isTrue();
         assertThat(response.diagnosticServiceAvailable()).isTrue();
         assertThat(response.snapshotExists()).isTrue();
@@ -140,7 +140,7 @@ class ReservationStatsSystemQueryServiceTest {
         ReservationStatsDiagnosticsHealthResponse response = service.health("2026-05");
 
         assertThat(response.statsType()).isEqualTo("cataract");
-        assertThat(response.currentSource()).isEqualTo(ReservationStatsResponseMeta.Source.LIVE);
+        assertThat(response.currentSource()).isEqualTo(StatsResponseMeta.Source.LIVE);
         assertThat(response.liveServiceAvailable()).isTrue();
         assertThat(response.diagnosticServiceAvailable()).isFalse();
         assertThat(response.snapshotExists()).isFalse();

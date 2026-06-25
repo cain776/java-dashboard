@@ -5,7 +5,7 @@ import com.bviit.analytics.dto.reservation.ReservationStatsDiagnosticsHealthResp
 import com.bviit.analytics.dto.reservation.ReservationStatsDiffResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsParityResponse;
-import com.bviit.analytics.dto.reservation.ReservationStatsResponseMeta;
+import com.bviit.analytics.dto.stats.StatsResponseMeta;
 import com.bviit.analytics.dto.reservation.ReservationStatsResult;
 import com.bviit.analytics.dto.reservation.ReservationStatsSnapshot;
 import com.bviit.analytics.exception.DataSourceUnavailableException;
@@ -89,11 +89,11 @@ public class ReservationStatsSystemQueryService {
 
     public ReservationStatsDiagnosticsHealthResponse health(String period) {
         Optional<ReservationStatsSnapshot> snapshot = snapshotStore.find(period);
-        ReservationStatsResponseMeta.Source source = snapshot.isPresent()
-                ? ReservationStatsResponseMeta.Source.SNAPSHOT
+        StatsResponseMeta.Source source = snapshot.isPresent()
+                ? StatsResponseMeta.Source.SNAPSHOT
                 : liveService.isPresent()
-                ? ReservationStatsResponseMeta.Source.LIVE
-                : ReservationStatsResponseMeta.Source.UNAVAILABLE;
+                ? StatsResponseMeta.Source.LIVE
+                : StatsResponseMeta.Source.UNAVAILABLE;
 
         return new ReservationStatsDiagnosticsHealthResponse(
                 period,
@@ -148,8 +148,8 @@ public class ReservationStatsSystemQueryService {
         return diagnosticService.orElseThrow(() -> dataSourceUnavailable(period));
     }
 
-    private static ReservationStatsResponseMeta snapshotMeta(String period, ReservationStatsSnapshot snapshot) {
-        return ReservationStatsResponseMeta.snapshot(
+    private static StatsResponseMeta snapshotMeta(String period, ReservationStatsSnapshot snapshot) {
+        return StatsResponseMeta.snapshot(
                 period,
                 FORMULA_VERSION,
                 snapshot.locked(),
@@ -159,8 +159,8 @@ public class ReservationStatsSystemQueryService {
         );
     }
 
-    private static ReservationStatsResponseMeta liveMeta(String period) {
-        return ReservationStatsResponseMeta.live(
+    private static StatsResponseMeta liveMeta(String period) {
+        return StatsResponseMeta.live(
                 period,
                 FORMULA_VERSION,
                 ReservationStatsSnapshot.CURRENT_SCHEMA_VERSION
@@ -170,7 +170,7 @@ public class ReservationStatsSystemQueryService {
     private static DataSourceUnavailableException dataSourceUnavailable(String period) {
         return new DataSourceUnavailableException(
                 "실 데이터 소스(MSSQL)가 연결되지 않았습니다.",
-                ReservationStatsResponseMeta.unavailable(
+                StatsResponseMeta.unavailable(
                         period,
                         FORMULA_VERSION,
                         ReservationStatsSnapshot.CURRENT_SCHEMA_VERSION

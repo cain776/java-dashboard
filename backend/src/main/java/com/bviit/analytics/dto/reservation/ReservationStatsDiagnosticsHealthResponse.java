@@ -1,5 +1,7 @@
 package com.bviit.analytics.dto.reservation;
 
+import com.bviit.analytics.dto.stats.StatsResponseMeta;
+
 /**
  * 예약통계 진단 API의 운영 상태.
  *
@@ -9,7 +11,7 @@ package com.bviit.analytics.dto.reservation;
 public record ReservationStatsDiagnosticsHealthResponse(
         String period,
         String statsType,
-        ReservationStatsResponseMeta.Source currentSource,
+        StatsResponseMeta.Source currentSource,
         boolean liveServiceAvailable,
         boolean diagnosticServiceAvailable,
         boolean snapshotExists,
