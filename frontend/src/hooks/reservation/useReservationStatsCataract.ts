@@ -1,5 +1,8 @@
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { reservationStatsCataractApi } from '@/api/reservation/reservationStatsCataract'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  reservationStatsCataractApi,
+  type CataractEditableField,
+} from '@/api/reservation/reservationStatsCataract'
 
 /**
  * 예약통계_백내장 일자별 카운트 조회 훅. from~to(등록일) 범위로 서버 조회.
@@ -15,6 +18,32 @@ export function useReservationStatsCataract(from: string, to: string, enabled = 
   })
 
   return { dailies: data?.data, meta: data?.meta, isLoading, isFetching, isError, refetch }
+}
+
+/**
+ * 셀 손보정(인입콜/응대콜) 뮤테이션. 성공 시 백내장 조회 캐시를 무효화해 표를 갱신한다.
+ * 휴가 등으로 라이브가 어긋나는 일자를 PDF/레거시 값으로 직접 고칠 때 사용.
+ */
+export function useReservationStatsCataractCellEdit() {
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: ({
+      period,
+      date,
+      field,
+      value,
+    }: {
+      period: string
+      date: string
+      field: CataractEditableField
+      value: number
+    }) => reservationStatsCataractApi.editCell(period, date, field, value),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['reservation-stats-cataract'] })
+    },
+  })
+
+  return { editCell: mutation.mutateAsync, isEditing: mutation.isPending }
 }
 
 /** 스냅샷 vs 라이브 진단(diff) 뮤테이션. */

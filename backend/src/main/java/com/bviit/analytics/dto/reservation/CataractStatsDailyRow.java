@@ -1,5 +1,9 @@
 package com.bviit.analytics.dto.reservation;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
+
+import java.util.List;
+
 /**
  * 예약통계_백내장 — 일자별 원시 카운트 1행.
  *
@@ -8,6 +12,8 @@ package com.bviit.analytics.dto.reservation;
  * 공식으로 계산하므로 여기서는 원시 카운트만 담는다.
  *
  * 채널 구성이 시력교정(ReservationStatsDailyRow)과 달라 별도 스키마로 둔다.
+ *
+ * manualEdits: 셀 수기 보정 이력(없으면 직렬화 생략). 라이브 집계가 어긋나는 날을 손보정하면 남는다.
  */
 public record CataractStatsDailyRow(
         String date,                    // 예약(등록)일 yyyy-MM-dd
@@ -38,6 +44,33 @@ public record CataractStatsDailyRow(
         // 종합(내원·부도·취소) — 방문일 기준
         int visit,                      // 내원
         int noShowReservation,          // 예약(부도)
-        int cancel                      // 취소
+        int cancel,                     // 취소
+        // 수기 보정 이력(비어있으면 JSON 직렬화 생략) — 이 일자에서 손보정한 셀 목록
+        @JsonInclude(JsonInclude.Include.NON_EMPTY) List<CataractStatsCellEdit> manualEdits
 ) {
+
+    public CataractStatsDailyRow {
+        manualEdits = manualEdits == null ? List.of() : List.copyOf(manualEdits);
+    }
+
+    /** 라이브 조회/기존 코드용 — 수기 보정 이력 없이 생성. */
+    public CataractStatsDailyRow(
+            String date,
+            int totalCataract, int totalPresbyopia,
+            int inboundCall, int answeredCall,
+            int newExamInquiry, int newReInquiry, int newPatient,
+            int tmTotalDb, int tmValidDb, int tmReservation,
+            int kakaoTotalInquiry, int kakaoCataractReservation, int kakaoPresbyopiaReservation,
+            int onlineReservation, int onlineNoShow,
+            int cancelOnline, int cancelCrm, int cancelKakao,
+            int visit, int noShowReservation, int cancel
+    ) {
+        this(date, totalCataract, totalPresbyopia, inboundCall, answeredCall,
+                newExamInquiry, newReInquiry, newPatient,
+                tmTotalDb, tmValidDb, tmReservation,
+                kakaoTotalInquiry, kakaoCataractReservation, kakaoPresbyopiaReservation,
+                onlineReservation, onlineNoShow,
+                cancelOnline, cancelCrm, cancelKakao,
+                visit, noShowReservation, cancel, List.of());
+    }
 }
