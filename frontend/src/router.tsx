@@ -2,7 +2,6 @@ import {
   createRootRoute,
   createRoute,
   createRouter,
-  redirect,
   Outlet,
 } from '@tanstack/react-router'
 import { AppLayout } from './components/layout/AppLayout'
@@ -10,7 +9,7 @@ import { statsPages } from './config/navigation'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { StatsPlaceholderPage } from './pages/StatsPlaceholderPage'
-import { readStoredAuthSession } from './stores/auth-session'
+import { requireAuth } from './auth-guard'
 import { PAGE_COMPONENTS, isRouteBlocked } from './pages/pageRegistry'
 
 // Root
@@ -29,10 +28,7 @@ const loginRoute = createRoute({
 const authLayout = createRoute({
   getParentRoute: () => rootRoute,
   id: 'auth',
-  beforeLoad: () => {
-    const { token } = readStoredAuthSession()
-    if (!token) throw redirect({ to: '/login' })
-  },
+  beforeLoad: requireAuth,
   component: AppLayout,
 })
 
