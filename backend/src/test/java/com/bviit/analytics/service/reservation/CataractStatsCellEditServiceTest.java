@@ -2,6 +2,7 @@ package com.bviit.analytics.service.reservation;
 
 import com.bviit.analytics.dto.reservation.CataractStatsDailyRow;
 import com.bviit.analytics.dto.reservation.CataractStatsSnapshot;
+import com.bviit.analytics.testsupport.CataractDailyRowBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,8 +29,7 @@ class CataractStatsCellEditServiceTest {
     }
 
     private static CataractStatsDailyRow day(String date, int inbound, int answered) {
-        return new CataractStatsDailyRow(date, 0, 0, inbound, answered, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+        return CataractDailyRowBuilder.row(date).inboundCall(inbound).answeredCall(answered).build();
     }
 
     private void seed(String period, boolean locked, CataractStatsDailyRow... days) {

@@ -8,6 +8,8 @@ import com.bviit.analytics.dto.stats.StatsResponseMeta;
 import com.bviit.analytics.dto.reservation.ReservationStatsResult;
 import com.bviit.analytics.dto.reservation.ReservationStatsSnapshot;
 import com.bviit.analytics.exception.DataSourceUnavailableException;
+import com.bviit.analytics.testsupport.CataractDailyRowBuilder;
+import com.bviit.analytics.testsupport.ReservationDailyRowBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -148,30 +150,11 @@ class ReservationStatsSystemQueryServiceTest {
     }
 
     private static ReservationStatsDailyRow systemRow(String date, int inboundCall) {
-        return new ReservationStatsDailyRow(
-                date,
-                inboundCall, 0, 0, 0,
-                0, 0, 0, 0, 0, 0,
-                0, 0,
-                0, 0, 0, 0,
-                0, 0,
-                0, 0, 0,
-                0, 0, 0
-        );
+        return ReservationDailyRowBuilder.row(date).inboundCall(inboundCall).build();
     }
 
     @SuppressWarnings("unused")
     private static CataractStatsDailyRow cataractRow(String date, int inboundCall) {
-        return new CataractStatsDailyRow(
-                date,
-                0, 0,
-                inboundCall, 0,
-                0, 0, 0,
-                0, 0, 0,
-                0, 0, 0,
-                0, 0,
-                0, 0, 0,
-                0, 0, 0
-        );
+        return CataractDailyRowBuilder.row(date).inboundCall(inboundCall).build();
     }
 }

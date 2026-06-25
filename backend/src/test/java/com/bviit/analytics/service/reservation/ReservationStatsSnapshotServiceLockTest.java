@@ -6,6 +6,8 @@ import com.bviit.analytics.dto.reservation.ReservationStatsDailyRow;
 import com.bviit.analytics.dto.reservation.ReservationStatsSnapshot;
 import com.bviit.analytics.repository.reservation.CataractStatsSystemRepository;
 import com.bviit.analytics.repository.reservation.ReservationStatsSystemRepository;
+import com.bviit.analytics.testsupport.CataractDailyRowBuilder;
+import com.bviit.analytics.testsupport.ReservationDailyRowBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -248,31 +250,11 @@ class ReservationStatsSnapshotServiceLockTest {
     }
 
     private static ReservationStatsDailyRow reservationRow(String date) {
-        return new ReservationStatsDailyRow(
-                date,
-                0, 0, 0, 0,
-                0, 0, 0,
-                0, 0, 0,
-                0, 0,
-                0, 0, 0, 0,
-                0, 0,
-                0, 0, 0,
-                0, 0, 0
-        );
+        return ReservationDailyRowBuilder.row(date).build();
     }
 
     private static CataractStatsDailyRow cataractRow(String date) {
-        return new CataractStatsDailyRow(
-                date,
-                0, 0,
-                0, 0,
-                0, 0, 0,
-                0, 0, 0,
-                0, 0, 0,
-                0, 0,
-                0, 0, 0,
-                0, 0, 0
-        );
+        return CataractDailyRowBuilder.row(date).build();
     }
 
     private static void await(CountDownLatch latch) {
