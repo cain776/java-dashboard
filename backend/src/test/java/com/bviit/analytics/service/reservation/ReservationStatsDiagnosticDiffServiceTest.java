@@ -12,6 +12,8 @@ import com.bviit.analytics.dto.reservation.ReservationStatsParityResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsSnapshot;
 import com.bviit.analytics.repository.reservation.CataractStatsSystemRepository;
 import com.bviit.analytics.repository.reservation.ReservationStatsSystemRepository;
+import com.bviit.analytics.testsupport.CataractDailyRowBuilder;
+import com.bviit.analytics.testsupport.ReservationDailyRowBuilder;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -347,31 +349,12 @@ class ReservationStatsDiagnosticDiffServiceTest {
             int newInquiry,
             int callReservation
     ) {
-        return new ReservationStatsDailyRow(
-                date,
-                inboundCall, 0, newInquiry, callReservation,
-                0, 0, 0,
-                0, 0, 0,
-                0, 0,
-                0, 0, 0, 0,
-                0, 0,
-                0, 0, 0,
-                0, 0, 0
-        );
+        return ReservationDailyRowBuilder.row(date)
+                .inboundCall(inboundCall).newInquiry(newInquiry).callReservation(callReservation).build();
     }
 
     private static CataractStatsDailyRow cataractRow(String date, int totalCataract, int cancel) {
-        return new CataractStatsDailyRow(
-                date,
-                totalCataract, 0,
-                0, 0,
-                0, 0, 0,
-                0, 0, 0,
-                0, 0, 0,
-                0, 0,
-                0, 0, 0,
-                0, 0, cancel
-        );
+        return CataractDailyRowBuilder.row(date).totalCataract(totalCataract).cancel(cancel).build();
     }
 
     private static ReservationStatsDrillDownRow drillRow(
