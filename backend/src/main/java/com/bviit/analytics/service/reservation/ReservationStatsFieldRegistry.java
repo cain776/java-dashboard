@@ -54,7 +54,7 @@ final class ReservationStatsFieldRegistry {
             field("kakaoCataractReservation", "카카오 검사예약", CataractStatsDailyRow::kakaoCataractReservation),
             field("kakaoPresbyopiaReservation", "카카오 노안", CataractStatsDailyRow::kakaoPresbyopiaReservation),
             field("onlineReservation", "온라인 예약", CataractStatsDailyRow::onlineReservation),
-            zeroField("onlineNoShow", "온라인 부도", CataractStatsDailyRow::onlineNoShow),
+            field("onlineNoShow", "온라인 부도", CataractStatsDailyRow::onlineNoShow),
             field("cancelOnline", "온라인 취소", CataractStatsDailyRow::cancelOnline),
             field("cancelCrm", "CRM 취소", CataractStatsDailyRow::cancelCrm),
             field("cancelKakao", "카카오 취소", CataractStatsDailyRow::cancelKakao),

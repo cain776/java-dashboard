@@ -66,7 +66,8 @@ class ReservationStatsSqlResourceTest {
         assertThat(sql)
                 .contains(":from", ":to")
                 .contains("Cataract_Exam", "DB_CUSTOM", "HappyTalk_Counsel_List")
-                .contains("<= :to")
+                // 내원은 RESERVATION(FLAG='H' STATE I/H) 기반, 날짜 종료는 반열림 < DATEADD(DAY,1,:to)로 바인딩.
+                .contains("< DATEADD(DAY,1,CONVERT(datetime,:to))")
                 .contains("0 AS totalPresbyopia")
                 // 인입콜/응대콜은 EICN 상담원 그룹(group_code='0016') OPENQUERY로 채운다(더 이상 0 고정 아님).
                 .contains("OPENQUERY(EICN_MySQL", "stat_user_inbound_bseye", "group_code", "0016", "__OQ_FROM__", "__OQ_TO__")

@@ -10,6 +10,7 @@ import com.bviit.analytics.dto.reservation.ReservationStatsParityResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsResponseMeta;
 import com.bviit.analytics.exception.DataSourceUnavailableException;
 import com.bviit.analytics.exception.SnapshotLockedException;
+import com.bviit.analytics.service.reservation.CataractStatsCellEditService;
 import com.bviit.analytics.service.reservation.CataractStatsDiagnosticDiffService;
 import com.bviit.analytics.service.reservation.CataractStatsSnapshotStore;
 import com.bviit.analytics.service.reservation.CataractStatsSystemService;
@@ -35,6 +36,7 @@ import java.util.Optional;
  *        조회=호출 통합: 당월·미잠금이고 오늘 아직 안 채웠으면 D-1까지 1회 증분 채움(있으면 보존) 후 반환.
  *   POST /api/stats/reservation-stats-cataract/snapshot?period      해당 월 1회 조회해 확정 저장(월 전체 덮어쓰기).
  *   POST /api/stats/reservation-stats-cataract/fill?period          호출(증분 채움) — D-1까지 비어있는 날짜만 적재.
+ *   POST /api/stats/reservation-stats-cataract/cell?period&date&field&value  셀 손보정(인입콜/응대콜) — 휴가일 등 라이브 어긋남 교정.
  *   GET  /api/stats/reservation-stats-cataract/snapshots            확정된 월 목록.
  *
  * 라이브 집계/저장은 mssql 프로파일에서만. 스냅샷 읽기는 프로파일 무관(스냅샷 없고 라이브도 없으면 503 → 프론트 미연결 안내).
@@ -50,6 +52,7 @@ public class CataractStatsSystemController {
     private static final String FORMULA_VERSION = "reservation-stats-cataract-v1";
 
     private final CataractStatsSnapshotStore snapshotStore;
+    private final CataractStatsCellEditService cellEditService;
     private final Optional<CataractStatsSystemService> service;
     private final Optional<CataractStatsDiagnosticDiffService> diagnosticDiffService;
 
@@ -122,6 +125,24 @@ public class CataractStatsSystemController {
         String by = authentication != null ? authentication.getName() : "unknown";
         CataractStatsSnapshot snapshot = requireLiveService(period).fillSnapshot(period, by);
         return ResponseEntity.ok(ApiResponse.ok(snapshot, snapshotMeta(period, snapshot)));
+    }
+
+    /**
+     * 셀 손보정 — 특정 일자의 인입콜/응대콜을 PDF/레거시 값으로 직접 고친다(휴가 등 라이브 어긋남 교정).
+     * 스냅샷 파일만 갱신(라이브/MSSQL 불필요)하며 수정 이력을 남긴다. locked 월도 허용(이력으로 추적).
+     */
+    @PostMapping("/cell")
+    public ResponseEntity<ApiResponse<CataractStatsDailyRow>> editCell(
+            @RequestParam String period,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam String field,
+            @RequestParam int value,
+            Authentication authentication
+    ) {
+        StatsRequestValidator.validatePeriod(period);
+        String by = authentication != null ? authentication.getName() : "unknown";
+        CataractStatsDailyRow updated = cellEditService.editCell(period, date.toString(), field, value, by);
+        return ResponseEntity.ok(ApiResponse.ok(updated));
     }
 
     @GetMapping("/snapshots")

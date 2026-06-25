@@ -1,6 +1,12 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
 import { withQuery } from '@/api/_shared'
+import {
+  CATARACT_EDITABLE_FIELDS,
+  type CataractEditableField,
+  type CataractStatsCellEdit,
+  type CataractStatsDailyCounts,
+} from '@/api/reservation/reservationStatsCataract'
 import {
   buildReservationStatsDiffCsv,
   buildReservationStatsDrillDownCsv,
@@ -13,6 +19,7 @@ import {
 import { downloadCsv } from '@/utils/csv'
 import {
   useReservationStatsCataract,
+  useReservationStatsCataractCellEdit,
   useReservationStatsCataractSnapshots,
 } from '@/hooks/reservation/useReservationStatsCataract'
 import { ReservationStatsDiagnosticsModal } from './ReservationStatsDiagnosticsModal'
@@ -206,6 +213,30 @@ const cataractHeaderModel = (period: string): StatsHeaderModel<CataractHeaderCol
   nodes: CATARACT_HEADER_NODES,
 })
 
+/* ── 셀 손보정(인입콜/응대콜) ── */
+const EDITABLE_FIELD_SET = new Set<string>(CATARACT_EDITABLE_FIELDS)
+const EDITABLE_FIELD_LABEL: Record<CataractEditableField, string> = {
+  inboundCall: '총 인입콜',
+  answeredCall: '응대콜',
+}
+
+type ManualEditsByDate = Map<string, Record<string, CataractStatsCellEdit>>
+
+/** dailies → date별 수기 보정 이력(field → 이력) 맵. 마커·툴팁 표시에 사용. */
+function buildManualEditsByDate(dailies: CataractStatsDailyCounts[] | undefined): ManualEditsByDate {
+  const map: ManualEditsByDate = new Map()
+  for (const d of dailies ?? []) {
+    if (!d.manualEdits?.length) continue
+    const byField: Record<string, CataractStatsCellEdit> = {}
+    for (const e of d.manualEdits) byField[e.field] = e
+    map.set(d.date, byField)
+  }
+  return map
+}
+
+const editMarkTitle = (edit: CataractStatsCellEdit): string =>
+  `수기 보정: ${edit.value} (${edit.editedBy}, ${edit.editedAt.replace('T', ' ').slice(0, 16)})`
+
 export function ReservationStatsCataractPage() {
   const [draftMonth, setDraftMonth] = useState(DEFAULT_PERIOD)
   const [appliedMonth, setAppliedMonth] = useState(DEFAULT_PERIOD)
@@ -224,7 +255,22 @@ export function ReservationStatsCataractPage() {
 
   const { getDiff, isDiffing, getDrillDown, isDrillingDown, getParity, isCheckingParity } =
     useReservationStatsCataractSnapshots()
+  const { editCell, isEditing } = useReservationStatsCataractCellEdit()
   const tableViewportClass = granularity === 'month' ? 'max-h-[72vh]' : 'min-h-0 flex-1'
+
+  // 셀 손보정: 확정 스냅샷일 때만(라이브는 저장 대상 없음). 일(day) 행의 인입콜/응대콜만 대상.
+  const cellEditEnabled = live && meta?.source === 'SNAPSHOT'
+  // 일자별 수기 보정 이력(date → field → 이력) — 마커·툴팁 표시용.
+  const manualEditsByDate = useMemo(() => buildManualEditsByDate(dailies), [dailies])
+
+  const handleEditCell = async (date: string, field: CataractEditableField, value: number) => {
+    try {
+      await editCell({ period: appliedMonth, date, field, value })
+      toast.success('수정 완료', { description: `${date} ${EDITABLE_FIELD_LABEL[field]} → ${value}` })
+    } catch (e) {
+      toast.error('수정 실패', { description: e instanceof Error ? e.message : undefined })
+    }
+  }
 
   // 조회 = 호출 통합: 서버 GET이 당월·미잠금이면 자동 증분 채움까지 처리한다.
   // 같은 월을 다시 조회하면 쿼리 키가 안 바뀌므로 refetch로 강제 갱신(서버 자동 채움 재평가).
@@ -361,7 +407,16 @@ export function ReservationStatsCataractPage() {
             ) : isLoading || isFetching ? (
               <SkeletonRows />
             ) : hasData ? (
-              rows.map((row) => <BodyRow key={`${granularity}-${row.label}`} row={row} />)
+              rows.map((row) => (
+                <BodyRow
+                  key={`${granularity}-${row.label}`}
+                  row={row}
+                  edits={row.date ? manualEditsByDate.get(row.date) : undefined}
+                  cellEditEnabled={cellEditEnabled}
+                  isEditing={isEditing}
+                  onEditCell={handleEditCell}
+                />
+              ))
             ) : (
               <tr>
                 <td colSpan={TOTAL_COL_SPAN} className={`${labelCell} bg-white py-8 text-sm text-muted-foreground`}>
@@ -419,9 +474,23 @@ function SkeletonRows() {
   )
 }
 
-function BodyRow({ row }: { row: CataractDisplayRow }) {
+function BodyRow({
+  row,
+  edits,
+  cellEditEnabled,
+  isEditing,
+  onEditCell,
+}: {
+  row: CataractDisplayRow
+  edits: Record<string, CataractStatsCellEdit> | undefined
+  cellEditEnabled: boolean
+  isEditing: boolean
+  onEditCell: (date: string, field: CataractEditableField, value: number) => void
+}) {
   const { channel, summary, tier, muted, weekStart } = row
   const isSunday = row.weekday === '일'
+  // 손보정 가능 셀 = 일(day) 행 + 확정 스냅샷 + 미음영(데이터 있는 날).
+  const canEditRow = cellEditEnabled && tier === 'day' && !muted && Boolean(row.date)
 
   const rowBg =
     tier === 'month'
@@ -448,22 +517,39 @@ function BodyRow({ row }: { row: CataractDisplayRow }) {
         {row.weekday ? ` (${row.weekday})` : ''}
       </th>
 
-      {CATARACT_COLUMNS.map((col) =>
-        muted ? (
-          <td key={col.key} className={`${numCell} text-slate-300`}>
-            –
-          </td>
-        ) : (
+      {CATARACT_COLUMNS.map((col) => {
+        if (muted) {
+          return (
+            <td key={col.key} className={`${numCell} text-slate-300`}>
+              –
+            </td>
+          )
+        }
+        const edit = edits?.[col.key]
+        if (canEditRow && row.date && EDITABLE_FIELD_SET.has(col.key)) {
+          return (
+            <EditableNumberCell
+              key={col.key}
+              value={channel[col.key]}
+              edit={edit}
+              busy={isEditing}
+              onSave={(next) => onEditCell(row.date!, col.key as CataractEditableField, next)}
+            />
+          )
+        }
+        return (
           <td
             key={col.key}
+            title={edit ? editMarkTitle(edit) : undefined}
             className={`${numCell} ${col.emphasis ? 'text-rose-600' : ''} ${
               col.key === 'totalSum' ? 'bg-sky-50/60 font-semibold text-sky-700' : ''
             }`}
           >
             {formatChannelValue(channel[col.key], col.fmt)}
+            {edit ? <EditMark /> : null}
           </td>
-        ),
-      )}
+        )
+      })}
 
       {SUMMARY_COLUMNS.map((col, i) =>
         muted ? (
@@ -480,5 +566,79 @@ function BodyRow({ row }: { row: CataractDisplayRow }) {
         ),
       )}
     </tr>
+  )
+}
+
+/** 수기 보정 표시 — 작은 빨강 점. title은 셀(td)에 둔다. */
+function EditMark() {
+  return <span className="ml-0.5 align-super text-[8px] leading-none text-rose-500">●</span>
+}
+
+/**
+ * 인입콜/응대콜 손보정 셀 — 클릭하면 입력으로 전환, Enter/포커스아웃 저장, Esc 취소.
+ * 휴가 등으로 라이브가 어긋나는 일자를 PDF/레거시 값으로 직접 고칠 때 쓴다.
+ */
+function EditableNumberCell({
+  value,
+  edit,
+  busy,
+  onSave,
+}: {
+  value: number
+  edit: CataractStatsCellEdit | undefined
+  busy: boolean
+  onSave: (next: number) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+
+  const start = () => {
+    setDraft(String(value))
+    setEditing(true)
+  }
+  const commit = () => {
+    setEditing(false)
+    const next = Number(draft)
+    if (!Number.isInteger(next) || next < 0 || next === value) return
+    onSave(next)
+  }
+
+  if (editing) {
+    return (
+      <td className={`${numCell} bg-amber-50 p-0`}>
+        <input
+          type="number"
+          min={0}
+          autoFocus
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onFocus={(e) => e.currentTarget.select()}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              commit()
+            } else if (e.key === 'Escape') {
+              e.preventDefault()
+              setEditing(false)
+            }
+          }}
+          className="w-14 bg-transparent px-1.5 py-1 text-right tabular-nums outline-none ring-1 ring-amber-400"
+        />
+      </td>
+    )
+  }
+
+  return (
+    <td
+      onClick={busy ? undefined : start}
+      title={edit ? editMarkTitle(edit) : '클릭하여 수정'}
+      className={`${numCell} cursor-pointer hover:bg-amber-50 ${edit ? 'text-rose-600' : ''} ${
+        busy ? 'opacity-60' : ''
+      }`}
+    >
+      {formatChannelValue(value, 'num')}
+      {edit ? <EditMark /> : null}
+    </td>
   )
 }

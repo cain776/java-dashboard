@@ -10,6 +10,7 @@ import type { SummaryRow } from './reservationStatsSummary'
 export interface StatsDisplayRow<TChannel, TSummary = SummaryRow> {
   label: string
   tier: RowTier
+  date?: string // 일(day) 행만 채움: yyyy-MM-dd (셀 손보정 대상 식별용)
   weekday?: string
   isTotal?: boolean
   muted?: boolean
@@ -66,6 +67,7 @@ export function buildDisplayRowsFromCounts<
     weekBuckets.set(week, [...(weekBuckets.get(week) ?? []), counts])
     dayRows.push(
       deps.buildRow(counts, `${day}일`, 'day', {
+        date: dateStr,
         weekday: weekdayKo(weekdayIdx),
         muted: deps.isZeroCounts(counts),
         weekStart: day === 1 || weekdayIdx === 0,

@@ -536,9 +536,9 @@
     "date" : "2026-06-24",
     "totalCataract" : 4,
     "totalPresbyopia" : 0,
-    "inboundCall" : 17,
-    "answeredCall" : 17,
-    "newExamInquiry" : 9,
+    "inboundCall" : 30,
+    "answeredCall" : 29,
+    "newExamInquiry" : 8,
     "newReInquiry" : 0,
     "newPatient" : 3,
     "tmTotalDb" : 3,
@@ -548,12 +548,23 @@
     "kakaoCataractReservation" : 0,
     "kakaoPresbyopiaReservation" : 0,
     "onlineReservation" : 0,
-    "onlineNoShow" : 0,
+    "onlineNoShow" : 1,
     "cancelOnline" : 0,
     "cancelCrm" : 3,
     "cancelKakao" : 0,
-    "visit" : 2,
+    "visit" : 4,
     "noShowReservation" : 1,
-    "cancel" : 3
+    "cancel" : 3,
+    "manualEdits" : [ {
+      "field" : "inboundCall",
+      "value" : 30,
+      "editedBy" : "수기보정(노안백내장 RSS)",
+      "editedAt" : "2026-06-25T00:00:00"
+    }, {
+      "field" : "answeredCall",
+      "value" : 29,
+      "editedBy" : "수기보정(노안백내장 RSS)",
+      "editedAt" : "2026-06-25T00:00:00"
+    } ]
   } ]
 }
