@@ -58,14 +58,18 @@ describe('reservation stats diagnostics csv', () => {
           gb: '내원',
           gb2: '',
           primaryKey: 'RSV-1',
+          custNum: 'CUST-1',
+          reserveNum: 'RSV-1',
+          reserveState: 'I',
+          exclusionReasonCandidate: '',
           contribution: 1,
         },
       ],
     }
 
     expect(buildReservationStatsDrillDownCsv(drillDown).split('\r\n')).toEqual([
-      '기간,일자,필드,필드키,스냅샷여부,스냅샷,라이브,차이,source,GB,GB2,PK,기여도',
-      '2026-06,2026-06-22,내원,visit,Y,32,33,1,CH_09,내원,,RSV-1,1',
+      '기간,일자,필드,필드키,스냅샷여부,스냅샷,라이브,차이,source,GB,GB2,PK,차트번호,예약번호,예약상태,제외후보,기여도',
+      '2026-06,2026-06-22,내원,visit,Y,32,33,1,CH_09,내원,,RSV-1,CUST-1,RSV-1,I,,1',
     ])
   })
 

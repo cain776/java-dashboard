@@ -189,6 +189,10 @@ export function ReservationStatsDiagnosticsModal({
                         <th className="border-b border-slate-300 px-3 py-2 text-left">GB</th>
                         <th className="border-b border-slate-300 px-3 py-2 text-left">GB2</th>
                         <th className="border-b border-slate-300 px-3 py-2 text-left">PK</th>
+                        <th className="border-b border-slate-300 px-3 py-2 text-left">차트</th>
+                        <th className="border-b border-slate-300 px-3 py-2 text-left">예약</th>
+                        <th className="border-b border-slate-300 px-3 py-2 text-left">상태</th>
+                        <th className="border-b border-slate-300 px-3 py-2 text-left">제외후보</th>
                         <th className="border-b border-slate-300 px-3 py-2 text-right">기여도</th>
                       </tr>
                     </thead>
@@ -200,6 +204,16 @@ export function ReservationStatsDiagnosticsModal({
                           <td className="border-b border-slate-200 px-3 py-2 text-slate-600">{row.gb2}</td>
                           <td className="border-b border-slate-200 px-3 py-2 font-mono text-[11px] text-slate-600">
                             {row.primaryKey ?? '-'}
+                          </td>
+                          <td className="border-b border-slate-200 px-3 py-2 font-mono text-[11px] text-slate-600">
+                            {row.custNum || '-'}
+                          </td>
+                          <td className="border-b border-slate-200 px-3 py-2 font-mono text-[11px] text-slate-600">
+                            {row.reserveNum || '-'}
+                          </td>
+                          <td className="border-b border-slate-200 px-3 py-2 text-slate-600">{row.reserveState || '-'}</td>
+                          <td className="border-b border-slate-200 px-3 py-2 text-slate-600">
+                            {row.exclusionReasonCandidate || '-'}
                           </td>
                           <td className="border-b border-slate-200 px-3 py-2 text-right font-semibold tabular-nums">
                             {row.contribution.toLocaleString('ko-KR')}

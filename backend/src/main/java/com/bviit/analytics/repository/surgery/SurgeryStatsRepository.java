@@ -1,5 +1,7 @@
 package com.bviit.analytics.repository.surgery;
 
+import com.bviit.analytics.util.SqlLoader;
+
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -27,10 +29,21 @@ public class SurgeryStatsRepository {
 
     private final NamedParameterJdbcTemplate jdbc;
 
+    private static final String FIND_VISION_MONTHLY_BY_TYPE_SQL = "sql/surgery/find-vision-monthly-by-type.sql";
+    private static final String FIND_CATARACT_MONTHLY_BY_TYPE_SQL = "sql/surgery/find-cataract-monthly-by-type.sql";
+    private static final String FIND_REOPERATION_MONTHLY_SQL = "sql/surgery/find-reoperation-monthly.sql";
+
+    private final String findVisionMonthlyByTypeSql;
+    private final String findCataractMonthlyByTypeSql;
+    private final String findReoperationMonthlySql;
+
     public SurgeryStatsRepository(
             @Qualifier("statsJdbcTemplate") NamedParameterJdbcTemplate jdbc
     ) {
         this.jdbc = jdbc;
+        this.findVisionMonthlyByTypeSql = SqlLoader.load(FIND_VISION_MONTHLY_BY_TYPE_SQL);
+        this.findCataractMonthlyByTypeSql = SqlLoader.load(FIND_CATARACT_MONTHLY_BY_TYPE_SQL);
+        this.findReoperationMonthlySql = SqlLoader.load(FIND_REOPERATION_MONTHLY_SQL);
     }
 
     /**
@@ -47,103 +60,7 @@ public class SurgeryStatsRepository {
                 .addValue("from", minYear + "-01-01")
                 .addValue("to", maxYear + "-12-31");
 
-        // 수술 코드 분류 (R/L 공통)
-        String classifyCase = """
-                CASE
-                    WHEN op_code LIKE '%SMILE Pro%' OR op_code LIKE '%SMILEpro%'
-                         OR op_code LIKE '%SMILE PRO%' THEN 'smilePro'
-                    WHEN op_code LIKE '%SMILE%' THEN 'smile'
-                    WHEN op_code LIKE '%VIVA%' THEN 'viva'
-                    WHEN op_code LIKE '%T-ICL%' OR op_code LIKE '%T-IPCL%'
-                         OR op_code LIKE '%T-GLAZE%' OR op_code LIKE '%T-ECHO%' THEN 'tIcl'
-                    WHEN op_code LIKE '%ICL%' OR op_code LIKE '%IPCL%'
-                         OR op_code LIKE '%ARF%' OR op_code LIKE '%ART%'
-                         OR op_code LIKE '%ARTIFLEX%' OR op_code LIKE '%GLAZE%'
-                         OR op_code LIKE '%ECHO%' THEN 'icl'
-                    WHEN op_code LIKE '%T-KPL%' THEN 'tKpl'
-                    WHEN op_code LIKE '%KPL%' THEN 'kpl'
-                    WHEN op_code LIKE '%FLAP LIFT%' OR op_code LIKE '%OPTI%'
-                         OR op_code LIKE '%iFS%' OR op_code LIKE '%VISU%'
-                         OR op_code LIKE '%fs200%' OR op_code LIKE '%Fs200%'
-                         OR op_code LIKE '%Micro+%' OR op_code LIKE '%Hybrid%' THEN 'lasik'
-                    WHEN op_code LIKE '%EYECLE%' OR op_code LIKE '%T-prk%'
-                         OR op_code LIKE '%EYE CLE%' OR op_code LIKE '%EYE+%'
-                         OR op_code LIKE '%FLAP PRK%' OR op_code LIKE '%PtK%'
-                         OR op_code LIKE '%M-LE%' THEN 'lasek'
-                    ELSE 'other'
-                END
-                """;
-
-        // 환자 수 기준 COUNT(DISTINCT CUST_NUM)
-        String sql = """
-                SELECT
-                    YEAR(e.op_date) AS yr,
-                    MONTH(e.op_date) AS mo,
-                    COUNT(DISTINCT CASE WHEN e.op_type = 'lasek'    THEN e.cust_num END) AS lasek,
-                    COUNT(DISTINCT CASE WHEN e.op_type = 'lasik'    THEN e.cust_num END) AS lasik,
-                    COUNT(DISTINCT CASE WHEN e.op_type = 'smile'    THEN e.cust_num END) AS smile,
-                    COUNT(DISTINCT CASE WHEN e.op_type = 'smilePro' THEN e.cust_num END) AS smilePro,
-                    COUNT(DISTINCT CASE WHEN e.op_type = 'icl'      THEN e.cust_num END) AS icl,
-                    COUNT(DISTINCT CASE WHEN e.op_type = 'tIcl'     THEN e.cust_num END) AS tIcl,
-                    COUNT(DISTINCT CASE WHEN e.op_type = 'kpl'      THEN e.cust_num END) AS kpl,
-                    COUNT(DISTINCT CASE WHEN e.op_type = 'tKpl'     THEN e.cust_num END) AS tKpl,
-                    COUNT(DISTINCT CASE WHEN e.op_type = 'viva'     THEN e.cust_num END) AS viva,
-                    COUNT(DISTINCT CASE WHEN e.raw LIKE '%+X%'  THEN e.cust_num END) AS xtra,
-                    COUNT(DISTINCT CASE WHEN e.raw LIKE '%W.V%' THEN e.cust_num END) AS waveVision,
-                    COUNT(DISTINCT CASE WHEN e.raw LIKE 'MONO%' THEN e.cust_num END) AS monoVision,
-                    COUNT(DISTINCT CASE WHEN e.raw LIKE '%CONT%' THEN e.cust_num END) AS contra,
-                    COUNT(DISTINCT CASE WHEN e.raw LIKE '%P.E%'  THEN e.cust_num END) AS personal,
-                    COUNT(DISTINCT CASE WHEN e.raw LIKE '%EYECLE%' AND e.raw LIKE '%EX500%' THEN e.cust_num END) AS lasekEx,
-                    COUNT(DISTINCT CASE WHEN e.raw LIKE '%EYECLE%' AND e.raw LIKE '%RED%'   THEN e.cust_num END) AS lasekRed,
-                    COUNT(DISTINCT e.cust_num) AS visionPatients
-                FROM (
-                    SELECT o.OPERATION_DATE AS op_date,
-                           o.CUST_NUM AS cust_num,
-                           o.OPERATIONR AS raw,
-                """
-                + classifyCase.replace("op_code", "o.OPERATIONR") +
-                """
-                         AS op_type
-                    FROM OPERATIONDATA o WITH(NOLOCK)
-                    LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = o.CUST_NUM
-                    WHERE o.OPERATION_DATE >= :from AND o.OPERATION_DATE <= :to
-                      AND o.OPERATIONR IS NOT NULL AND RTRIM(o.OPERATIONR) <> ''
-                      AND o.OPERATIONR NOT IN ('X','OP불가','모든수술가능','op x','Strabismus','TEST-TEST')
-                      AND NOT EXISTS (
-                          SELECT 1
-                          FROM Cataract_Operationdata co WITH(NOLOCK)
-                          WHERE co.CUST_NUM = o.CUST_NUM
-                      )
-                      AND NOT (
-                          ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
-                          OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
-                      )
-                    UNION ALL
-                    SELECT o.OPERATION_DATE AS op_date,
-                           o.CUST_NUM AS cust_num,
-                           o.OPERATIONL AS raw,
-                """
-                + classifyCase.replace("op_code", "o.OPERATIONL") +
-                """
-                         AS op_type
-                    FROM OPERATIONDATA o WITH(NOLOCK)
-                    LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = o.CUST_NUM
-                    WHERE o.OPERATION_DATE >= :from AND o.OPERATION_DATE <= :to
-                      AND o.OPERATIONL IS NOT NULL AND RTRIM(o.OPERATIONL) <> ''
-                      AND o.OPERATIONL NOT IN ('X','OP불가','모든수술가능','op x','Strabismus','TEST-TEST')
-                      AND NOT EXISTS (
-                          SELECT 1
-                          FROM Cataract_Operationdata co WITH(NOLOCK)
-                          WHERE co.CUST_NUM = o.CUST_NUM
-                      )
-                      AND NOT (
-                          ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
-                          OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
-                      )
-                ) e
-                GROUP BY YEAR(e.op_date), MONTH(e.op_date)
-                ORDER BY YEAR(e.op_date), MONTH(e.op_date)
-                """;
+        String sql = findVisionMonthlyByTypeSql;
         return jdbc.queryForList(sql, params);
     }
 
@@ -167,70 +84,7 @@ public class SurgeryStatsRepository {
                 .addValue("from", minYear + "-01-01")
                 .addValue("to", maxYear + "-12-31");
 
-        String classifyCase = """
-                CASE
-                    WHEN op_code LIKE '%EDOF%' OR op_code LIKE '%Vivity%'
-                         OR op_code LIKE '%Eyhance%' OR op_code LIKE '%PureSee%'
-                         OR op_code LIKE '%Isopure%' OR op_code LIKE '%Symfony%' THEN 'catEdof'
-                    WHEN op_code LIKE '%K-flex%' OR op_code LIKE '%Kflex%' THEN 'catMono'
-                    WHEN op_code LIKE '%Clareon%' OR op_code LIKE '%Panoptix%'
-                         OR op_code LIKE '%RESTOR%' OR op_code LIKE '%Lara%'
-                         OR op_code LIKE '%LISA%' OR op_code LIKE '%CTR(M)%'
-                         OR op_code LIKE '%CTRmulti%' OR op_code LIKE '%CTR(multi)%'
-                         OR op_code LIKE '%3PodF%' OR op_code LIKE '%T-CTR%'
-                         OR op_code LIKE '%T-CATARACT%' OR op_code LIKE '%Precizon%'
-                         OR op_code LIKE '%LAL%' OR op_code LIKE '%ELANA%'
-                         OR op_code LIKE '%Gemetric%' THEN 'catMulti'
-                    ELSE 'catMono'
-                END
-                """;
-
-        String sql = """
-                SELECT
-                    YEAR(e.op_date) AS yr,
-                    MONTH(e.op_date) AS mo,
-                    COUNT(DISTINCT CASE WHEN e.cat_type = 'catMulti' THEN e.eye_key END) AS catMulti,
-                    COUNT(DISTINCT CASE WHEN e.cat_type = 'catMono'  THEN e.eye_key END) AS catMono,
-                    COUNT(DISTINCT CASE WHEN e.cat_type = 'catEdof'  THEN e.eye_key END) AS catEdof,
-                    COUNT(DISTINCT e.eye_key) AS cataractPatients
-                FROM (
-                    SELECT c.OPERATIONR_DATE AS op_date,
-                           c.CUST_NUM AS cust_num,
-                           LTRIM(RTRIM(ISNULL(c.CUST_NUM, ''))) + '|' + c.OPERATIONR_DATE + '|R' AS eye_key,
-                """
-                + classifyCase.replace("op_code", "c.OPERATIONR") +
-                """
-                         AS cat_type
-                    FROM Cataract_Operationdata c WITH(NOLOCK)
-                    LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = c.CUST_NUM
-                    WHERE c.OPERATIONR_DATE >= :from AND c.OPERATIONR_DATE <= :to
-                      AND c.OPERATIONR IS NOT NULL AND RTRIM(c.OPERATIONR) <> ''
-                      AND c.OPERATIONR NOT IN ('X','OP불가','TEST-TEST')
-                      AND NOT (
-                          ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
-                          OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
-                      )
-                    UNION ALL
-                    SELECT c.OPERATIONL_DATE AS op_date,
-                           c.CUST_NUM AS cust_num,
-                           LTRIM(RTRIM(ISNULL(c.CUST_NUM, ''))) + '|' + c.OPERATIONL_DATE + '|L' AS eye_key,
-                """
-                + classifyCase.replace("op_code", "c.OPERATIONL") +
-                """
-                         AS cat_type
-                    FROM Cataract_Operationdata c WITH(NOLOCK)
-                    LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = c.CUST_NUM
-                    WHERE c.OPERATIONL_DATE >= :from AND c.OPERATIONL_DATE <= :to
-                      AND c.OPERATIONL IS NOT NULL AND RTRIM(c.OPERATIONL) <> ''
-                      AND c.OPERATIONL NOT IN ('X','OP불가','TEST-TEST')
-                      AND NOT (
-                          ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
-                          OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
-                      )
-                ) e
-                GROUP BY YEAR(e.op_date), MONTH(e.op_date)
-                ORDER BY YEAR(e.op_date), MONTH(e.op_date)
-                """;
+        String sql = findCataractMonthlyByTypeSql;
         return jdbc.queryForList(sql, params);
     }
 
@@ -258,72 +112,7 @@ public class SurgeryStatsRepository {
                 .addValue("from", minYear + "-01-01")
                 .addValue("to", maxYear + "-12-31");
 
-        // 재수술 적격 조건 (op_col 자리에 AGAIN_R/AGAIN_L 치환). 제외 패턴 외이면 적격.
-        String qualify = """
-                    op_col IS NOT NULL AND RTRIM(op_col) <> ''
-                    AND op_col NOT LIKE 'Irrigation%'
-                    AND op_col NOT LIKE 'repo%'
-                    AND op_col NOT LIKE '%reposition%'
-                    AND op_col NOT LIKE 'Clareon%'
-                    AND op_col NOT LIKE 'T-Clareon%'
-                    AND op_col NOT LIKE 'Tecnis%'
-                    AND op_col NOT LIKE 'LAL%'
-                    AND op_col NOT LIKE 'ELANA%'
-                """;
-
-        // 레코드 단위: AGAIN_R 적격 OR AGAIN_L 적격이면 그 행을 1건으로 카운트.
-        // 레이저/렌즈 분류(레거시 p.27): **적격인 눈의 시술명으로만** 판정한다.
-        // (제외된 눈 — repo/Clareon 등 — 의 텍스트는 무시. 예: R=repo+T-ICL(제외)·L=bio+T-PRK(레이저) → 레이저)
-        // 렌즈 마커(remo·exch·ICL·ART·EVO·ECHO·precizon 등) 우선, 그 외는 레이저(각막 재교정). 2026 1~4월 레이저/렌즈 분리 레거시 일치(총건수만 ±1).
-        String lensMarkers = """
-                    qt LIKE '%remo%' OR qt LIKE '%exch%' OR qt LIKE '%ICL%'
-                    OR qt LIKE '%ARF%' OR qt LIKE '%ART%' OR qt LIKE '%EVO%'
-                    OR qt LIKE '%ECHO%' OR qt LIKE '%GLAZE%' OR qt LIKE '%precizon%'
-                    OR qt LIKE '%Lisa%' OR qt LIKE '%Gemetric%' OR qt LIKE '%encla%'
-                """;
-
-        String sql = """
-                SELECT
-                    x.yr, x.mo,
-                    COUNT(*) AS reoperation,
-                    SUM(CASE WHEN x.cat = 'lens' THEN 0 ELSE 1 END) AS reopLaser,
-                    SUM(CASE WHEN x.cat = 'lens' THEN 1 ELSE 0 END) AS reopLens
-                FROM (
-                    SELECT
-                        CAST(LEFT(y.d, 4) AS int)         AS yr,
-                        CAST(SUBSTRING(y.d, 6, 2) AS int) AS mo,
-                        CASE WHEN (
-                """
-                + lensMarkers.replace("qt", "y.qt") +
-                """
-                        ) THEN 'lens' ELSE 'laser' END AS cat
-                    FROM (
-                        SELECT
-                            r.REOP_DATE AS d,
-                            (CASE WHEN
-                """
-                + qualify.replace("op_col", "r.AGAIN_R") +
-                """
-                             THEN ISNULL(r.AGAIN_R, '') ELSE '' END)
-                            + '|' +
-                            (CASE WHEN
-                """
-                + qualify.replace("op_col", "r.AGAIN_L") +
-                """
-                             THEN ISNULL(r.AGAIN_L, '') ELSE '' END) AS qt
-                        FROM RE_OPERATION r WITH(NOLOCK)
-                        LEFT JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = r.CUST_NUM
-                        WHERE r.REOP_DATE >= :from AND r.REOP_DATE <= :to
-                          AND NOT (
-                              ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
-                              OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
-                          )
-                    ) y
-                    WHERE REPLACE(y.qt, '|', '') <> ''
-                ) x
-                GROUP BY x.yr, x.mo
-                ORDER BY x.yr, x.mo
-                """;
+        String sql = findReoperationMonthlySql;
         return jdbc.queryForList(sql, params);
     }
 }

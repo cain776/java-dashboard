@@ -39,4 +39,26 @@ class StatsPanelSupportTest {
                 .isInstanceOf(DataSourceUnavailableException.class)
                 .hasMessageContaining("MSSQL");
     }
+
+    @Test
+    void requireWrapsRealPayload() {
+        ResponseEntity<ApiResponse<String>> response = StatsPanelSupport.require(
+                Optional.of("real"),
+                service -> service + "-payload"
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).isNotNull();
+        assertThat(response.getBody().getData()).isEqualTo("real-payload");
+    }
+
+    @Test
+    void requireDataReturnsRawPayloadWithoutApiWrapper() {
+        String response = StatsPanelSupport.requireData(
+                Optional.of("real"),
+                service -> service + "-raw"
+        );
+
+        assertThat(response).isEqualTo("real-raw");
+    }
 }

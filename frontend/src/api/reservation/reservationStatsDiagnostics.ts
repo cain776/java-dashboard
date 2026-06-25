@@ -26,6 +26,10 @@ export const reservationStatsDrillDownRowSchema = z.object({
   gb: z.string(),
   gb2: z.string(),
   primaryKey: z.string().nullable(),
+  custNum: z.string().nullable().optional(),
+  reserveNum: z.string().nullable().optional(),
+  reserveState: z.string().nullable().optional(),
+  exclusionReasonCandidate: z.string().nullable().optional(),
   contribution: z.number(),
 })
 
@@ -108,7 +112,25 @@ export const buildReservationStatsDiffCsv = (
 
 export const buildReservationStatsDrillDownCsv = (drillDown: ReservationStatsDrillDown): string =>
   toCsv(
-    ['기간', '일자', '필드', '필드키', '스냅샷여부', '스냅샷', '라이브', '차이', 'source', 'GB', 'GB2', 'PK', '기여도'],
+    [
+      '기간',
+      '일자',
+      '필드',
+      '필드키',
+      '스냅샷여부',
+      '스냅샷',
+      '라이브',
+      '차이',
+      'source',
+      'GB',
+      'GB2',
+      'PK',
+      '차트번호',
+      '예약번호',
+      '예약상태',
+      '제외후보',
+      '기여도',
+    ],
     drillDown.rows.map((row) => [
       drillDown.period,
       drillDown.date,
@@ -122,6 +144,10 @@ export const buildReservationStatsDrillDownCsv = (drillDown: ReservationStatsDri
       row.gb,
       row.gb2,
       row.primaryKey ?? '',
+      row.custNum ?? '',
+      row.reserveNum ?? '',
+      row.reserveState ?? '',
+      row.exclusionReasonCandidate ?? '',
       row.contribution,
     ]),
   )

@@ -1,9 +1,9 @@
 package com.bviit.analytics.controller.reservation;
 
 import com.bviit.analytics.controller.stats.StatsRequestValidator;
+import com.bviit.analytics.controller.stats.StatsPanelSupport;
 import com.bviit.analytics.dto.ApiResponse;
 import com.bviit.analytics.dto.reservation.ReservationListResult;
-import com.bviit.analytics.exception.DataSourceUnavailableException;
 import com.bviit.analytics.service.reservation.ReservationListService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -36,12 +36,9 @@ public class ReservationListController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
         StatsRequestValidator.validateDateRange(from, to, MAX_RANGE_DAYS);
-        return reservationListService
-                .map(service -> ResponseEntity.ok(ApiResponse.ok(service.getReservationList(from.toString(), to.toString()))))
-                .orElseThrow(ReservationListController::realDataUnavailable);
-    }
-
-    private static DataSourceUnavailableException realDataUnavailable() {
-        return new DataSourceUnavailableException("실 데이터 소스(MSSQL)가 연결되지 않았습니다.");
+        return StatsPanelSupport.require(
+                reservationListService,
+                service -> service.getReservationList(from.toString(), to.toString())
+        );
     }
 }

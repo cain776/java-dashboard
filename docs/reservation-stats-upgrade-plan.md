@@ -139,8 +139,25 @@
 - **API 메타 응답 1차 적용**(2026-06-25): `data` 배열 shape는 유지하고 `ApiResponse.meta`에 `source`, `period`, `schemaVersion`, `formulaVersion`, `locked`, `confirmedAt`, `confirmedBy`를 추가했다. 프론트는 툴바에 `PDF 고정`/`스냅샷`/`라이브` 배지를 표시한다.
 - **공통 예외/에러 응답 정리**(2026-06-25): MSSQL 미연결, PDF 고정 스냅샷 차단, period/field 검증, SQL 리소스 로드 실패, 스냅샷 불변식 위반을 의미 있는 예외로 분리하고 `GlobalExceptionHandler`에서 400/409/500/503 응답을 일원화했다. `ErrorResponse.meta`는 미연결 응답의 출처 메타데이터를 보존한다.
 - **SQL 파일 분리 2차 완료**(2026-06-25): `ReservationListRepository`, `ReservationOverallStatsRepository`, `ReservationStatsRepository`, `IntakeConversionStatsRepository`의 Java 문자열 SQL을 `src/main/resources/sql/**` 리소스로 이동했다. 날짜 바인딩과 주요 제외 필터/채널 매핑은 DB 없는 단위 테스트로 고정한다.
+- **Controller 파사드화**(2026-06-25): `ReservationStatsSystemQueryService`, `CataractStatsSystemQueryService`를 추가해 controller에서 자동 채움, 스냅샷/라이브 출처 판단, 잠금 차단, 미연결 메타 생성, 진단 서비스 optional 처리 로직을 제거했다. controller는 요청 검증과 `ApiResponse` 포장만 담당한다.
+- **진단 API 운영 상태 점검 추가**(2026-06-25): `/diagnostics/health` 응답을 추가해 period별 현재 출처(`SNAPSHOT`/`LIVE`/`UNAVAILABLE`), 스냅샷 존재·잠금·일수·최신일, schemaVersion, formulaVersion, live/diagnostic 서비스 가용 여부를 확인할 수 있게 했다.
+- **SQL 파일 분리 3차 완료**(2026-06-25): `exam`, `surgery`, `overall`, `consultation`, `outpatient`, `etc`, `mock` repository에 남아 있던 Java text block SQL과 `StringBuilder` SQL 조립을 `src/main/resources/sql/**` 리소스와 작은 placeholder 치환으로 이동했다. `RepositorySqlResourceCoverageTest`가 repository Java의 text block/StringBuilder 재유입, SQL 리소스 누락, Java 문자열 조합 흔적을 차단한다.
+- **Controller 공통 미연결 처리 정리**(2026-06-25): list/단독 조회 controller의 수동 `DataSourceUnavailableException` 생성과 optional 분기를 `StatsPanelSupport.require/requireData`로 이동했다. controller는 요청 검증 후 서비스 호출 의도만 남긴다.
 
-아직 남은 것은 구현 과제가 아니라 운영 검증/고도화다. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~lock map 회수~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~row builder/CSV/summary 공통화~~·~~도메인별 formulas 계층화~~·~~헤더 메타 전체 데이터화~~·~~백엔드 스냅샷 store 공통화~~·~~SQL 파일 분리~~·~~진단/diff~~·~~row-level drill-down 1차~~·~~colSpan 1차~~·~~시드 dead code 정리~~·~~스냅샷 schemaVersion/불변식 검증~~·~~API 메타 응답 1차~~·~~공통 예외/에러 응답 정리~~·~~예약 리스트/종합/기본/유입 통계 SQL 리소스 분리~~는 완료.)
+예약통계 도메인의 핵심 구현과 백엔드 repository SQL 리소스화는 완료 상태다. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~lock map 회수~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~row builder/CSV/summary 공통화~~·~~도메인별 formulas 계층화~~·~~헤더 메타 전체 데이터화~~·~~백엔드 스냅샷 store 공통화~~·~~예약통계 SQL 파일 분리~~·~~진단/diff~~·~~row-level drill-down~~·~~colSpan 1차~~·~~시드 dead code 정리~~·~~스냅샷 schemaVersion/불변식 검증~~·~~API 메타 응답 1차~~·~~공통 예외/에러 응답 정리~~·~~예약 리스트/종합/기본/유입 통계 SQL 리소스 분리~~·~~Controller 파사드화~~·~~Controller 공통 미연결 처리~~·~~진단 health API~~·~~repository SQL 리소스화 가드 테스트~~는 완료.)
+
+### 최종 추천 순서 기준 진행 상태(2026-06-25)
+
+| 순서 | 항목 | 상태 | 비고 |
+|---:|---|---|---|
+| 1 | 스냅샷 `schemaVersion` + save 불변식 검증 | 완료 | 누락 schemaVersion은 현재 버전으로 읽고, 저장 전 빈 days·period 밖 날짜·중복·날짜 형식을 거부한다. |
+| 2 | API 응답 메타데이터 표준화 | 완료 | `ApiResponse.meta`로 source/schemaVersion/formulaVersion/locked/confirmed 정보를 내려준다. |
+| 3 | 예외/에러 응답 통일 | 완료 | period/field, locked, datasource unavailable, SQL resource, snapshot invariant 예외를 `GlobalExceptionHandler`에서 표준 응답으로 처리한다. |
+| 4 | Controller 얇게 만들기 | 완료 | 예약통계 controller의 출처 판단·자동 채움·잠금·진단 optional 처리를 query service 파사드로 이동했고, 일반 controller의 수동 미연결 처리는 `StatsPanelSupport.require/requireData`로 통일했다. |
+| 5 | SQL 실행 계층 정리 | 완료 | repository Java의 text block SQL과 `StringBuilder` SQL 조립을 제거하고 `src/main/resources/sql/**` 리소스로 이동했다. 재유입은 `RepositorySqlResourceCoverageTest`가 차단한다. |
+| 6 | 진단 API 운영 도구화 | 완료 | diff/drill-down/parity에 health API를 추가했다. 실제 MSSQL 대표 일자 대조는 운영 검증 과제다. |
+| 7 | 테스트 fixture/builder 정리 | 부분 완료 | 골든마스터·SQL resource·snapshot store·diagnostic·query facade 테스트는 있음. 테스트 fixture 전용 builder 분리는 추가 개선 여지. |
+| 8 | 도메인 패키지 구조 재배치 | 미완 | 현재 패키지는 동작 중심으로 정리됐지만, 도메인 단위 패키지 재배치는 아직 하지 않았다. |
 
 ## 4. 코드 품질 원칙
 
@@ -527,6 +544,10 @@ backend/src/main/resources/sql/reservation-stats/
 ### 6단계. SQL 파일 분리
 
 > ✅ 2026-06-24 구현 완료: `SqlLoader` + `system-daily-counts.sql` / `cataract-daily-counts.sql` 리소스 분리. DB 없는 문자열 테스트로 UTF-8, OPENQUERY 치환, named parameter 보존, cataract 핵심 마커를 검증했다. 실제 MSSQL/work DB row diff(C2)는 후속 운영 검증으로 남긴다.
+>
+> ✅ 2026-06-25 2차 완료: `ReservationListRepository`, `ReservationOverallStatsRepository`, `ReservationStatsRepository`, `IntakeConversionStatsRepository`도 SQL 리소스로 분리했다.
+>
+> ✅ 2026-06-25 3차 완료: `exam`, `surgery`, `overall`, `consultation`, `outpatient`, `etc`, `mock` repository에 남은 Java SQL text block과 `StringBuilder` SQL 조립을 리소스로 분리했다. `RepositorySqlResourceCoverageTest`가 repository Java text block/StringBuilder, SQL resource 로드, B2B 템플릿 placeholder 잔류를 검증한다.
 
 목적:
 
@@ -567,7 +588,7 @@ daily SQL과 drill-down SQL 분리 유지 결정:
 
 ### 7단계. 진단/diff 및 row-level drill-down 기능 구현
 
-> ✅ 2026-06-24 구현 완료: snapshot vs live 일자/컬럼별 diff API, 프론트 진단 CSV 다운로드, row-level drill-down API, daily/drill-down parity API를 추가했다. drill-down 1차 응답은 집계 쿼리와 같은 기준으로 `source`, `GB`, `GB2`, `PK`, `contribution`을 내려준다. `CUST_NUM`, `RESERVE_NUM`, 예약상태, 제외 사유 후보는 운영 DB 검증 후 필요할 때 확장하는 고도화 항목으로 둔다.
+> ✅ 2026-06-24 구현 완료 / 2026-06-25 고도화: snapshot vs live 일자/컬럼별 diff API, 프론트 진단 CSV 다운로드, row-level drill-down API, daily/drill-down parity API를 추가했다. drill-down 응답은 집계 쿼리와 같은 기준으로 `source`, `GB`, `GB2`, `PK`, `CUST_NUM`, `RESERVE_NUM`, 예약상태, 제외 사유 후보, `contribution`을 내려준다. 또한 `/diagnostics/health`로 스냅샷/라이브/진단 서비스 가용 상태를 가볍게 확인할 수 있다.
 
 목적:
 
@@ -577,10 +598,11 @@ daily SQL과 drill-down SQL 분리 유지 결정:
 
 - ~~snapshot vs live 일자/컬럼별 diff API~~
 - ~~row-level drill-down API 설계 및 1차 구현~~
-- ~~drill-down 응답 1차: `source`, `GB`, `GB2`, `PK`, `contribution` 포함~~
+- ~~drill-down 응답: `source`, `GB`, `GB2`, `PK`, `CUST_NUM`, `RESERVE_NUM`, 예약상태, 제외 사유 후보, `contribution` 포함~~
 - ~~daily 집계값과 drill-down 기여도 합계 parity API~~
 - ~~진단 UI field label 표시 및 parity CSV export~~
-- 운영 고도화 후보: `CUST_NUM`, `RESERVE_NUM`, 예약상태, 제외 사유 후보 확장
+- ~~운영 고도화 후보였던 `CUST_NUM`, `RESERVE_NUM`, 예약상태, 제외 사유 후보 확장~~
+- ~~period별 진단 health API~~
 - ~~프론트 diff CSV export~~
 - ~~프론트 diff CSV에 drill-down 상세조회 URL 기재~~
 

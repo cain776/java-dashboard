@@ -5,8 +5,6 @@ import com.bviit.analytics.controller.stats.StatsPanelSupport;
 
 import com.bviit.analytics.dto.ApiResponse;
 import com.bviit.analytics.dto.reservation.ReservationMonthlyItem;
-import com.bviit.analytics.dto.reservation.ReservationStatsResponse;
-import com.bviit.analytics.exception.DataSourceUnavailableException;
 import com.bviit.analytics.service.reservation.ReservationStatsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -44,11 +42,10 @@ public class ReservationStatsController {
     ) {
         StatsRequestValidator.validateDateRange(from, to, MAX_RANGE_DAYS);
 
-        if (statsService.isEmpty()) {
-            throw new DataSourceUnavailableException("실 데이터 소스(MSSQL)가 연결되지 않았습니다.");
-        }
-
-        return ResponseEntity.ok(statsService.get().getStats(from, to));
+        return ResponseEntity.ok(StatsPanelSupport.requireData(
+                statsService,
+                service -> service.getStats(from, to)
+        ));
     }
 
     /**

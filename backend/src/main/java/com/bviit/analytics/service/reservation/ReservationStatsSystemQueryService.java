@@ -1,0 +1,180 @@
+package com.bviit.analytics.service.reservation;
+
+import com.bviit.analytics.dto.reservation.ReservationStatsDailyRow;
+import com.bviit.analytics.dto.reservation.ReservationStatsDiagnosticsHealthResponse;
+import com.bviit.analytics.dto.reservation.ReservationStatsDiffResponse;
+import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownResponse;
+import com.bviit.analytics.dto.reservation.ReservationStatsParityResponse;
+import com.bviit.analytics.dto.reservation.ReservationStatsResponseMeta;
+import com.bviit.analytics.dto.reservation.ReservationStatsResult;
+import com.bviit.analytics.dto.reservation.ReservationStatsSnapshot;
+import com.bviit.analytics.exception.DataSourceUnavailableException;
+import com.bviit.analytics.exception.SnapshotLockedException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Optional;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class ReservationStatsSystemQueryService {
+
+    private static final String STATS_TYPE = "system";
+    private static final String FORMULA_VERSION = "reservation-stats-system-v1";
+
+    private final ReservationStatsSnapshotStore snapshotStore;
+    private final Optional<ReservationStatsSystemService> liveService;
+    private final Optional<ReservationStatsDiagnosticDiffService> diagnosticService;
+
+    public ReservationStatsResult<List<ReservationStatsDailyRow>> getDailyCounts(
+            LocalDate from,
+            LocalDate to,
+            String username
+    ) {
+        String period = from.toString().substring(0, 7);
+        autoFillIfNeeded(period, username);
+
+        Optional<ReservationStatsSnapshot> snapshot = snapshotStore.find(period);
+        if (snapshot.isPresent()) {
+            List<ReservationStatsDailyRow> days = ReservationStatsQuerySupport.filterDays(
+                    snapshot.get().days(),
+                    ReservationStatsDailyRow::date,
+                    from,
+                    to
+            );
+            return new ReservationStatsResult<>(days, snapshotMeta(period, snapshot.get()));
+        }
+
+        ReservationStatsSystemService service = requireLiveService(period);
+        return new ReservationStatsResult<>(
+                service.getDailyCounts(from.toString(), to.toString()),
+                liveMeta(period)
+        );
+    }
+
+    public ReservationStatsResult<ReservationStatsSnapshot> saveSnapshot(String period, String username) {
+        ensureWritable(period, "재확정(덮어쓰기)");
+        ReservationStatsSnapshot snapshot = requireLiveService(period)
+                .saveSnapshot(period, ReservationStatsQuerySupport.actor(username));
+        return new ReservationStatsResult<>(snapshot, snapshotMeta(period, snapshot));
+    }
+
+    public ReservationStatsResult<ReservationStatsSnapshot> fillSnapshot(String period, String username) {
+        ensureWritable(period, "호출(채움)");
+        ReservationStatsSnapshot snapshot = requireLiveService(period)
+                .fillSnapshot(period, ReservationStatsQuerySupport.actor(username));
+        return new ReservationStatsResult<>(snapshot, snapshotMeta(period, snapshot));
+    }
+
+    public List<ReservationStatsSnapshotStore.SnapshotInfo> listSnapshots() {
+        return snapshotStore.listSnapshots();
+    }
+
+    public ReservationStatsDiffResponse diff(String period) {
+        return requireDiagnosticService(period).diff(period);
+    }
+
+    public ReservationStatsDrillDownResponse drillDown(String period, String date, String field) {
+        return requireDiagnosticService(period).drillDown(period, date, field);
+    }
+
+    public ReservationStatsParityResponse parity(String period, String field) {
+        return requireDiagnosticService(period).parity(period, field);
+    }
+
+    public ReservationStatsDiagnosticsHealthResponse health(String period) {
+        Optional<ReservationStatsSnapshot> snapshot = snapshotStore.find(period);
+        ReservationStatsResponseMeta.Source source = snapshot.isPresent()
+                ? ReservationStatsResponseMeta.Source.SNAPSHOT
+                : liveService.isPresent()
+                ? ReservationStatsResponseMeta.Source.LIVE
+                : ReservationStatsResponseMeta.Source.UNAVAILABLE;
+
+        return new ReservationStatsDiagnosticsHealthResponse(
+                period,
+                STATS_TYPE,
+                source,
+                liveService.isPresent(),
+                diagnosticService.isPresent(),
+                snapshot.isPresent(),
+                snapshot.map(ReservationStatsSnapshot::locked).orElse(false),
+                snapshot.map(ReservationStatsSnapshot::schemaVersion)
+                        .orElse(ReservationStatsSnapshot.CURRENT_SCHEMA_VERSION),
+                snapshot.map(s -> s.days().size()).orElse(0),
+                snapshot.map(s -> ReservationStatsQuerySupport.latestDate(s.days(), ReservationStatsDailyRow::date))
+                        .orElse(null),
+                snapshot.map(ReservationStatsSnapshot::confirmedAt).orElse(null),
+                snapshot.map(ReservationStatsSnapshot::confirmedBy).orElse(null),
+                FORMULA_VERSION,
+                LocalDateTime.now().toString()
+        );
+    }
+
+    private void autoFillIfNeeded(String period, String username) {
+        if (liveService.isEmpty()) return;
+
+        Optional<ReservationStatsSnapshot> snapshot = snapshotStore.find(period);
+        boolean needsAutoFill = ReservationStatsQuerySupport.needsAutoFill(
+                period,
+                snapshotStore.isLocked(period),
+                snapshot,
+                ReservationStatsSnapshot::confirmedAt
+        );
+        if (!needsAutoFill) return;
+
+        try {
+            liveService.get().fillSnapshot(period, username == null ? "auto" : username);
+        } catch (RuntimeException e) {
+            log.warn("조회 중 자동 채움 실패(기존 데이터로 계속): period={}, err={}", period, e.getMessage());
+        }
+    }
+
+    private void ensureWritable(String period, String action) {
+        if (snapshotStore.isLocked(period)) {
+            throw new SnapshotLockedException("PDF 고정 스냅샷이라 " + action + "할 수 없습니다: " + period);
+        }
+    }
+
+    private ReservationStatsSystemService requireLiveService(String period) {
+        return liveService.orElseThrow(() -> dataSourceUnavailable(period));
+    }
+
+    private ReservationStatsDiagnosticDiffService requireDiagnosticService(String period) {
+        return diagnosticService.orElseThrow(() -> dataSourceUnavailable(period));
+    }
+
+    private static ReservationStatsResponseMeta snapshotMeta(String period, ReservationStatsSnapshot snapshot) {
+        return ReservationStatsResponseMeta.snapshot(
+                period,
+                FORMULA_VERSION,
+                snapshot.locked(),
+                snapshot.confirmedAt(),
+                snapshot.confirmedBy(),
+                snapshot.schemaVersion()
+        );
+    }
+
+    private static ReservationStatsResponseMeta liveMeta(String period) {
+        return ReservationStatsResponseMeta.live(
+                period,
+                FORMULA_VERSION,
+                ReservationStatsSnapshot.CURRENT_SCHEMA_VERSION
+        );
+    }
+
+    private static DataSourceUnavailableException dataSourceUnavailable(String period) {
+        return new DataSourceUnavailableException(
+                "실 데이터 소스(MSSQL)가 연결되지 않았습니다.",
+                ReservationStatsResponseMeta.unavailable(
+                        period,
+                        FORMULA_VERSION,
+                        ReservationStatsSnapshot.CURRENT_SCHEMA_VERSION
+                )
+        );
+    }
+}

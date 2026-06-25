@@ -4,18 +4,14 @@ import com.bviit.analytics.controller.stats.StatsRequestValidator;
 import com.bviit.analytics.dto.ApiResponse;
 import com.bviit.analytics.dto.reservation.CataractStatsDailyRow;
 import com.bviit.analytics.dto.reservation.CataractStatsSnapshot;
+import com.bviit.analytics.dto.reservation.ReservationStatsDiagnosticsHealthResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsDiffResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsParityResponse;
-import com.bviit.analytics.dto.reservation.ReservationStatsResponseMeta;
-import com.bviit.analytics.exception.DataSourceUnavailableException;
-import com.bviit.analytics.exception.SnapshotLockedException;
-import com.bviit.analytics.service.reservation.CataractStatsCellEditService;
-import com.bviit.analytics.service.reservation.CataractStatsDiagnosticDiffService;
+import com.bviit.analytics.dto.reservation.ReservationStatsResult;
 import com.bviit.analytics.service.reservation.CataractStatsSnapshotStore;
-import com.bviit.analytics.service.reservation.CataractStatsSystemService;
+import com.bviit.analytics.service.reservation.CataractStatsSystemQueryService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -27,7 +23,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * 예약통계_백내장 API (백내장=RESERVE_FLAG='H').
@@ -45,16 +40,11 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/stats/reservation-stats-cataract")
 @RequiredArgsConstructor
-@Slf4j
 public class CataractStatsSystemController {
 
     private static final int MAX_RANGE_DAYS = 92;
-    private static final String FORMULA_VERSION = "reservation-stats-cataract-v1";
 
-    private final CataractStatsSnapshotStore snapshotStore;
-    private final CataractStatsCellEditService cellEditService;
-    private final Optional<CataractStatsSystemService> service;
-    private final Optional<CataractStatsDiagnosticDiffService> diagnosticDiffService;
+    private final CataractStatsSystemQueryService queryService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<CataractStatsDailyRow>>> getDailyCounts(
@@ -63,43 +53,9 @@ public class CataractStatsSystemController {
             Authentication authentication
     ) {
         StatsRequestValidator.validateDateRange(from, to, MAX_RANGE_DAYS);
-        String period = from.toString().substring(0, 7);
-
-        // 조회=호출 통합: 당월·미잠금이고 오늘 아직 안 채웠으면 D-1까지 1회 증분 채움(있으면 보존).
-        if (service.isPresent() && needsAutoFill(period)) {
-            try {
-                service.get().fillSnapshot(period, authentication != null ? authentication.getName() : "auto");
-            } catch (RuntimeException e) {
-                log.warn("조회 중 자동 채움 실패(기존 데이터로 계속): period={}, err={}", period, e.getMessage());
-            }
-        }
-
-        Optional<CataractStatsSnapshot> snapshot = snapshotStore.find(period);
-        if (snapshot.isPresent()) {
-            String fromStr = from.toString();
-            String toStr = to.toString();
-            List<CataractStatsDailyRow> days = snapshot.get().days().stream()
-                    .filter(d -> d.date().compareTo(fromStr) >= 0 && d.date().compareTo(toStr) <= 0)
-                    .toList();
-            return ResponseEntity.ok(ApiResponse.ok(days, snapshotMeta(period, snapshot.get())));
-        }
-        CataractStatsSystemService liveService = requireLiveService(period, "확정 스냅샷·라이브 소스(MSSQL)가 없습니다.");
-        return ResponseEntity.ok(ApiResponse.ok(
-                liveService.getDailyCounts(from.toString(), to.toString()),
-                liveMeta(period)
-        ));
-    }
-
-    /** 조회 시 자동 채움 필요 여부 — 당월·미잠금이고 오늘 아직 안 채운 경우만(하루 1회). */
-    private boolean needsAutoFill(String period) {
-        LocalDate today = LocalDate.now();
-        if (!period.equals(today.toString().substring(0, 7))) return false; // 당월만
-        if (snapshotStore.isLocked(period)) return false;                   // PDF 고정월 제외
-        Optional<CataractStatsSnapshot> snap = snapshotStore.find(period);
-        if (snap.isEmpty()) return true;                                    // 스냅샷 없으면 채움
-        String confirmedAt = snap.get().confirmedAt();
-        String confirmedDate = confirmedAt != null && confirmedAt.length() >= 10 ? confirmedAt.substring(0, 10) : "";
-        return confirmedDate.compareTo(today.toString()) < 0;               // 오늘 안 채웠으면 채움
+        ReservationStatsResult<List<CataractStatsDailyRow>> result =
+                queryService.getDailyCounts(from, to, username(authentication));
+        return ResponseEntity.ok(ApiResponse.ok(result.data(), result.meta()));
     }
 
     @PostMapping("/snapshot")
@@ -108,10 +64,9 @@ public class CataractStatsSystemController {
             Authentication authentication
     ) {
         StatsRequestValidator.validatePeriod(period);
-        ensureWritable(period, "재확정(덮어쓰기)");
-        String by = authentication != null ? authentication.getName() : "unknown";
-        CataractStatsSnapshot snapshot = requireLiveService(period).saveSnapshot(period, by);
-        return ResponseEntity.ok(ApiResponse.ok(snapshot, snapshotMeta(period, snapshot)));
+        ReservationStatsResult<CataractStatsSnapshot> result =
+                queryService.saveSnapshot(period, username(authentication));
+        return ResponseEntity.ok(ApiResponse.ok(result.data(), result.meta()));
     }
 
     /** 호출(증분 채움) — 선택 월을 D-1까지 조회해 비어있는 날짜만 적재(있으면 보존). PDF 고정월은 차단. */
@@ -121,10 +76,9 @@ public class CataractStatsSystemController {
             Authentication authentication
     ) {
         StatsRequestValidator.validatePeriod(period);
-        ensureWritable(period, "호출(채움)");
-        String by = authentication != null ? authentication.getName() : "unknown";
-        CataractStatsSnapshot snapshot = requireLiveService(period).fillSnapshot(period, by);
-        return ResponseEntity.ok(ApiResponse.ok(snapshot, snapshotMeta(period, snapshot)));
+        ReservationStatsResult<CataractStatsSnapshot> result =
+                queryService.fillSnapshot(period, username(authentication));
+        return ResponseEntity.ok(ApiResponse.ok(result.data(), result.meta()));
     }
 
     /**
@@ -140,20 +94,25 @@ public class CataractStatsSystemController {
             Authentication authentication
     ) {
         StatsRequestValidator.validatePeriod(period);
-        String by = authentication != null ? authentication.getName() : "unknown";
-        CataractStatsDailyRow updated = cellEditService.editCell(period, date.toString(), field, value, by);
+        CataractStatsDailyRow updated = queryService.editCell(
+                period,
+                date.toString(),
+                field,
+                value,
+                username(authentication)
+        );
         return ResponseEntity.ok(ApiResponse.ok(updated));
     }
 
     @GetMapping("/snapshots")
     public ResponseEntity<ApiResponse<List<CataractStatsSnapshotStore.SnapshotInfo>>> listSnapshots() {
-        return ResponseEntity.ok(ApiResponse.ok(snapshotStore.listSnapshots()));
+        return ResponseEntity.ok(ApiResponse.ok(queryService.listSnapshots()));
     }
 
     @GetMapping("/diagnostics/diff")
     public ResponseEntity<ApiResponse<ReservationStatsDiffResponse>> diff(@RequestParam String period) {
         StatsRequestValidator.validatePeriod(period);
-        return ResponseEntity.ok(ApiResponse.ok(requireDiagnosticService(period).diff(period)));
+        return ResponseEntity.ok(ApiResponse.ok(queryService.diff(period)));
     }
 
     @GetMapping("/diagnostics/drill-down")
@@ -163,7 +122,7 @@ public class CataractStatsSystemController {
             @RequestParam String field
     ) {
         StatsRequestValidator.validatePeriod(period);
-        return ResponseEntity.ok(ApiResponse.ok(requireDiagnosticService(period).drillDown(period, date.toString(), field)));
+        return ResponseEntity.ok(ApiResponse.ok(queryService.drillDown(period, date.toString(), field)));
     }
 
     @GetMapping("/diagnostics/parity")
@@ -172,57 +131,16 @@ public class CataractStatsSystemController {
             @RequestParam String field
     ) {
         StatsRequestValidator.validatePeriod(period);
-        return ResponseEntity.ok(ApiResponse.ok(requireDiagnosticService(period).parity(period, field)));
+        return ResponseEntity.ok(ApiResponse.ok(queryService.parity(period, field)));
     }
 
-    private void ensureWritable(String period, String action) {
-        if (snapshotStore.isLocked(period)) {
-            throw new SnapshotLockedException("PDF 고정 스냅샷이라 " + action + "할 수 없습니다: " + period);
-        }
+    @GetMapping("/diagnostics/health")
+    public ResponseEntity<ApiResponse<ReservationStatsDiagnosticsHealthResponse>> health(@RequestParam String period) {
+        StatsRequestValidator.validatePeriod(period);
+        return ResponseEntity.ok(ApiResponse.ok(queryService.health(period)));
     }
 
-    private CataractStatsSystemService requireLiveService(String period) {
-        return requireLiveService(period, "실 데이터 소스(MSSQL)가 연결되지 않았습니다.");
-    }
-
-    private CataractStatsSystemService requireLiveService(String period, String message) {
-        return service.orElseThrow(() -> dataSourceUnavailable(period, message));
-    }
-
-    private CataractStatsDiagnosticDiffService requireDiagnosticService(String period) {
-        return diagnosticDiffService.orElseThrow(() -> dataSourceUnavailable(
-                period,
-                "실 데이터 소스(MSSQL)가 연결되지 않았습니다."
-        ));
-    }
-
-    private static ReservationStatsResponseMeta snapshotMeta(String period, CataractStatsSnapshot snapshot) {
-        return ReservationStatsResponseMeta.snapshot(
-                period,
-                FORMULA_VERSION,
-                snapshot.locked(),
-                snapshot.confirmedAt(),
-                snapshot.confirmedBy(),
-                snapshot.schemaVersion()
-        );
-    }
-
-    private static ReservationStatsResponseMeta liveMeta(String period) {
-        return ReservationStatsResponseMeta.live(
-                period,
-                FORMULA_VERSION,
-                CataractStatsSnapshot.CURRENT_SCHEMA_VERSION
-        );
-    }
-
-    private static DataSourceUnavailableException dataSourceUnavailable(String period, String message) {
-        return new DataSourceUnavailableException(
-                message,
-                ReservationStatsResponseMeta.unavailable(
-                        period,
-                        FORMULA_VERSION,
-                        CataractStatsSnapshot.CURRENT_SCHEMA_VERSION
-                )
-        );
+    private static String username(Authentication authentication) {
+        return authentication != null ? authentication.getName() : "unknown";
     }
 }

@@ -1,5 +1,7 @@
 package com.bviit.analytics.repository.exam;
 
+import com.bviit.analytics.util.SqlLoader;
+
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -25,10 +27,18 @@ public class ProcedureExamStatsRepository {
 
     private final NamedParameterJdbcTemplate jdbc;
 
+    private static final String FIND_TOTAL_EXAM_COUNT_MONTHLY_SQL = "sql/exam/find-total-exam-count-monthly.sql";
+    private static final String FIND_ONE_DAY_EXAM_COUNT_MONTHLY_SQL = "sql/exam/find-one-day-exam-count-monthly.sql";
+
+    private final String findTotalExamCountMonthlySql;
+    private final String findOneDayExamCountMonthlySql;
+
     public ProcedureExamStatsRepository(
             @Qualifier("statsJdbcTemplate") NamedParameterJdbcTemplate jdbc
     ) {
         this.jdbc = jdbc;
+        this.findTotalExamCountMonthlySql = SqlLoader.load(FIND_TOTAL_EXAM_COUNT_MONTHLY_SQL);
+        this.findOneDayExamCountMonthlySql = SqlLoader.load(FIND_ONE_DAY_EXAM_COUNT_MONTHLY_SQL);
     }
 
     /**
@@ -36,28 +46,7 @@ public class ProcedureExamStatsRepository {
      * 두 테이블을 월별로 각각 센 뒤 UNION ALL로 합산한다.
      */
     public List<Map<String, Object>> findTotalExamCountMonthly(String from, String to) {
-        String sql = """
-            SELECT t.yr, t.mo, SUM(t.cnt) AS cnt
-            FROM (
-                SELECT CAST(SUBSTRING(e.EXAM_DATE, 1, 4) AS INT) AS yr,
-                       CAST(SUBSTRING(e.EXAM_DATE, 6, 2) AS INT) AS mo,
-                       COUNT(*) AS cnt
-                FROM EXAM e WITH(NOLOCK)
-                WHERE e.EXAM_DATE >= :from AND e.EXAM_DATE <= :to
-                GROUP BY CAST(SUBSTRING(e.EXAM_DATE, 1, 4) AS INT),
-                         CAST(SUBSTRING(e.EXAM_DATE, 6, 2) AS INT)
-                UNION ALL
-                SELECT CAST(SUBSTRING(ce.EXAM_DATE, 1, 4) AS INT) AS yr,
-                       CAST(SUBSTRING(ce.EXAM_DATE, 6, 2) AS INT) AS mo,
-                       COUNT(*) AS cnt
-                FROM Cataract_Exam ce WITH(NOLOCK)
-                WHERE ce.EXAM_DATE >= :from AND ce.EXAM_DATE <= :to
-                GROUP BY CAST(SUBSTRING(ce.EXAM_DATE, 1, 4) AS INT),
-                         CAST(SUBSTRING(ce.EXAM_DATE, 6, 2) AS INT)
-            ) t
-            GROUP BY t.yr, t.mo
-            ORDER BY t.yr, t.mo
-            """;
+        String sql = findTotalExamCountMonthlySql;
         return jdbc.queryForList(sql, params(from, to));
     }
 
@@ -72,36 +61,7 @@ public class ProcedureExamStatsRepository {
      *   - 테스트 고객/검사메모/예약번호 제외
      */
     public List<Map<String, Object>> findOneDayExamCountMonthly(String from, String to) {
-        String sql = """
-            SELECT CAST(SUBSTRING(e.EXAM_DATE, 1, 4) AS INT) AS yr,
-                   CAST(SUBSTRING(e.EXAM_DATE, 6, 2) AS INT) AS mo,
-                   COUNT(*) AS cnt
-            FROM EXAM e WITH(NOLOCK)
-            JOIN CUSTOM cu WITH(NOLOCK) ON cu.CUST_NUM = e.CUST_NUM
-            WHERE e.EXAM_DATE >= :from AND e.EXAM_DATE <= :to
-              AND ISNULL(e.STOP_YN, '') <> 'Y'
-              AND ISNULL(e.CANCEL_CD, '') = ''
-              AND NOT (
-                ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
-                OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
-                OR ISNULL(e.EXAM_MEMO, '') LIKE N'%테스트%'
-                OR LOWER(ISNULL(e.EXAM_MEMO, '')) LIKE '%test%'
-              )
-              AND EXISTS (
-                SELECT 1
-                FROM RESERVATION r WITH(NOLOCK)
-                WHERE r.CUST_NUM = e.CUST_NUM
-                  AND r.RESERVE_DATE = e.EXAM_DATE
-                  AND r.RESERVE_FLAG = 'M'
-                  AND r.RESERVE_STATE IN ('I','H')
-                  AND r.RESERVE_JINRYO = '5'
-                  AND LOWER(ISNULL(r.RESERVE_NUM, '')) NOT LIKE '%test%'
-                  AND LOWER(ISNULL(r.RESERVE_NUM, '')) NOT LIKE '%kiosktest%'
-              )
-            GROUP BY CAST(SUBSTRING(e.EXAM_DATE, 1, 4) AS INT),
-                     CAST(SUBSTRING(e.EXAM_DATE, 6, 2) AS INT)
-            ORDER BY yr, mo
-            """;
+        String sql = findOneDayExamCountMonthlySql;
         return jdbc.queryForList(sql, params(from, to));
     }
 

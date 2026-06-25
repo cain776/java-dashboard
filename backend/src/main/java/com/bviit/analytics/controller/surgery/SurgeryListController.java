@@ -1,8 +1,8 @@
 package com.bviit.analytics.controller.surgery;
 
-import com.bviit.analytics.dto.ApiResponse;
 import com.bviit.analytics.controller.stats.StatsRequestValidator;
-import com.bviit.analytics.exception.DataSourceUnavailableException;
+import com.bviit.analytics.controller.stats.StatsPanelSupport;
+import com.bviit.analytics.dto.ApiResponse;
 import com.bviit.analytics.service.surgery.SurgeryListService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -37,12 +37,9 @@ public class SurgeryListController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
         StatsRequestValidator.validateDateRange(from, to, MAX_RANGE_DAYS);
-        return surgeryListService
-                .map(service -> ResponseEntity.ok(ApiResponse.ok(service.getSurgeryList(from.toString(), to.toString()))))
-                .orElseThrow(SurgeryListController::realDataUnavailable);
-    }
-
-    private static DataSourceUnavailableException realDataUnavailable() {
-        return new DataSourceUnavailableException("실 데이터 소스(MSSQL)가 연결되지 않았습니다.");
+        return StatsPanelSupport.require(
+                surgeryListService,
+                service -> service.getSurgeryList(from.toString(), to.toString())
+        );
     }
 }

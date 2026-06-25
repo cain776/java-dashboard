@@ -1,5 +1,7 @@
 package com.bviit.analytics.repository.consultation;
 
+import com.bviit.analytics.util.SqlLoader;
+
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -30,10 +32,18 @@ public class ConsultationRateRepository {
 
     private final NamedParameterJdbcTemplate jdbc;
 
+    private static final String FIND_MONTHLY_VISION_RATES_SQL = "sql/consultation/find-monthly-vision-rates.sql";
+    private static final String FIND_MONTHLY_CATARACT_RATES_SQL = "sql/consultation/find-monthly-cataract-rates.sql";
+
+    private final String findMonthlyVisionRatesSql;
+    private final String findMonthlyCataractRatesSql;
+
     public ConsultationRateRepository(
             @Qualifier("statsJdbcTemplate") NamedParameterJdbcTemplate jdbc
     ) {
         this.jdbc = jdbc;
+        this.findMonthlyVisionRatesSql = SqlLoader.load(FIND_MONTHLY_VISION_RATES_SQL);
+        this.findMonthlyCataractRatesSql = SqlLoader.load(FIND_MONTHLY_CATARACT_RATES_SQL);
     }
 
     /**
@@ -44,48 +54,7 @@ public class ConsultationRateRepository {
      *   - 일반 예약률(분모=검사): bookedGeneral / examGeneral (#19)
      */
     public List<Map<String, Object>> findMonthlyVisionRates(String fromDate, String toDate) {
-        String sql = """
-            SELECT t.yr, t.mo,
-                COUNT(*) AS examCount,
-                SUM(t.counsel) AS counselCount,
-                SUM(t.booked) AS surgeryBookedCount,
-                SUM(t.actual) AS actualSurgeryCount,
-                SUM(CASE WHEN t.od = 0 THEN 1 ELSE 0 END) AS examGeneral,
-                SUM(CASE WHEN t.od = 0 AND t.booked = 1 THEN 1 ELSE 0 END) AS bookedGeneral,
-                SUM(CASE WHEN t.od = 1 AND t.counsel = 1 THEN 1 ELSE 0 END) AS counselOneday,
-                SUM(CASE WHEN t.od = 1 AND t.counsel = 1 AND t.booked = 1 THEN 1 ELSE 0 END) AS counselBookedOneday,
-                SUM(CASE WHEN t.od = 0 AND t.counsel = 1 THEN 1 ELSE 0 END) AS counselGeneral,
-                SUM(CASE WHEN t.od = 0 AND t.counsel = 1 AND t.booked = 1 THEN 1 ELSE 0 END) AS counselBookedGeneral
-            FROM (
-                SELECT YEAR(E.EXAM_DATE) AS yr, MONTH(E.EXAM_DATE) AS mo,
-                    CASE WHEN ISNULL(E.STOP_YN,'') <> 'Y'
-                          AND (RTRIM(ISNULL(E.OPERATIONR,'')) <> '' OR RTRIM(ISNULL(E.OPERATIONL,'')) <> '')
-                         THEN 1 ELSE 0 END AS counsel,
-                    CASE WHEN rs.MIN_RSV_DATE IS NOT NULL THEN 1 ELSE 0 END AS booked,
-                    CASE WHEN mo.MIN_OP_DATE IS NOT NULL THEN 1 ELSE 0 END AS actual,
-                    CASE WHEN EXISTS (
-                            SELECT 1 FROM RESERVATION r WITH(NOLOCK)
-                             WHERE r.CUST_NUM = E.CUST_NUM AND r.RESERVE_DATE = E.EXAM_DATE
-                               AND r.RESERVE_FLAG = 'M' AND r.RESERVE_STATE IN ('I','H') AND r.RESERVE_JINRYO = '5'
-                         ) THEN 1 ELSE 0 END AS od
-                FROM EXAM E WITH(NOLOCK)
-                LEFT JOIN (
-                    SELECT CUST_NUM, MIN(RESERVE_DATE) AS MIN_RSV_DATE
-                      FROM RESERVATION WITH(NOLOCK)
-                     WHERE RESERVE_FLAG = 'O' AND RESERVE_STATE <> 'C'
-                     GROUP BY CUST_NUM
-                ) rs ON rs.CUST_NUM = E.CUST_NUM
-                LEFT JOIN (
-                    SELECT CUST_NUM, MIN(OPERATION_DATE) AS MIN_OP_DATE
-                      FROM OPERATIONDATA WITH(NOLOCK)
-                     GROUP BY CUST_NUM
-                ) mo ON mo.CUST_NUM = E.CUST_NUM
-                WHERE E.EXAM_DATE >= :from AND E.EXAM_DATE <= :to
-                    AND ISNULL(E.CANCEL_CD,'') = ''
-            ) t
-            GROUP BY t.yr, t.mo
-            ORDER BY t.yr, t.mo
-            """;
+        String sql = findMonthlyVisionRatesSql;
         return jdbc.queryForList(sql, new MapSqlParameterSource()
                 .addValue("from", fromDate)
                 .addValue("to", toDate));
@@ -95,32 +64,7 @@ public class ConsultationRateRepository {
      * 월별 백내장 수술전환율 (CUSTOM + RESERVATION 기반).
      */
     public List<Map<String, Object>> findMonthlyCataractRates(String fromDate, String toDate) {
-        String sql = """
-            SELECT
-                YEAR(D.RESERVE_DATE) AS yr,
-                MONTH(D.RESERVE_DATE) AS mo,
-                COUNT(DISTINCT D.CUST_NUM) AS examCount,
-                COUNT(DISTINCT CASE WHEN op.MIN_OP_RSV IS NOT NULL THEN D.CUST_NUM END) AS surgeryBookedCount,
-                COUNT(DISTINCT CASE WHEN B.MY_optometrist IS NOT NULL
-                                     AND B.MY_optometrist <> ''
-                                     AND B.MY_COUNSELOR = 'BS0808' THEN D.CUST_NUM END) AS stoppedCount
-            FROM RESERVATION D WITH(NOLOCK)
-            INNER JOIN CUSTOM B WITH(NOLOCK) ON B.CUST_NUM = D.CUST_NUM
-            LEFT JOIN (
-                SELECT CUST_NUM, MIN(RESERVE_DATE) AS MIN_OP_RSV
-                  FROM RESERVATION WITH(NOLOCK)
-                 WHERE RESERVE_FLAG = 'O' AND RESERVE_JINRYO = '4' AND RESERVE_STATE <> 'C'
-                 GROUP BY CUST_NUM
-            ) op ON op.CUST_NUM = D.CUST_NUM
-            WHERE D.RESERVE_DATE >= :from AND D.RESERVE_DATE <= :to
-                AND D.RESERVE_FLAG = 'H'
-                AND D.RESERVE_JINRYO <> '3'
-                AND D.RESERVE_STATE <> 'C'
-                AND NOT (D.RESERVE_FLAG = 'H' AND D.RESERVE_JINRYO = '1' AND D.RESERVE_SEQ = '3')
-                AND D.CUST_NUM <> '9999999999999'
-            GROUP BY YEAR(D.RESERVE_DATE), MONTH(D.RESERVE_DATE)
-            ORDER BY YEAR(D.RESERVE_DATE), MONTH(D.RESERVE_DATE)
-            """;
+        String sql = findMonthlyCataractRatesSql;
         return jdbc.queryForList(sql, new MapSqlParameterSource()
                 .addValue("from", fromDate)
                 .addValue("to", toDate));

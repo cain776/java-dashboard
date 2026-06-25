@@ -1,5 +1,8 @@
 package com.bviit.analytics.repository.exam;
 
+import com.bviit.analytics.util.SqlLoader;
+import com.bviit.analytics.util.SqlFragments;
+
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -28,10 +31,27 @@ public class ExaminationStatsRepository {
 
     private final NamedParameterJdbcTemplate jdbc;
 
+    private static final String FIND_VISION_CORRECTION_MONTHLY_SQL = "sql/exam/find-vision-correction-monthly.sql";
+    private static final String FIND_DREAMLENS_MONTHLY_SQL = "sql/exam/find-dreamlens-monthly.sql";
+    private static final String FIND_CATARACT_MONTHLY_SQL = "sql/exam/find-cataract-monthly.sql";
+    private static final String FIND_CATARACT_RESERVATION_RATE_MONTHLY_SQL = "sql/exam/find-cataract-reservation-rate-monthly.sql";
+    private static final String FIND_VISION_RESERVATION_RATE_MONTHLY_SQL = "sql/exam/find-vision-reservation-rate-monthly.sql";
+
+    private final String findVisionCorrectionMonthlySql;
+    private final String findDreamlensMonthlySql;
+    private final String findCataractMonthlySql;
+    private final String findCataractReservationRateMonthlySql;
+    private final String findVisionReservationRateMonthlySql;
+
     public ExaminationStatsRepository(
             @Qualifier("statsJdbcTemplate") NamedParameterJdbcTemplate jdbc
     ) {
         this.jdbc = jdbc;
+        this.findVisionCorrectionMonthlySql = SqlLoader.load(FIND_VISION_CORRECTION_MONTHLY_SQL);
+        this.findDreamlensMonthlySql = SqlLoader.load(FIND_DREAMLENS_MONTHLY_SQL);
+        this.findCataractMonthlySql = SqlLoader.load(FIND_CATARACT_MONTHLY_SQL);
+        this.findCataractReservationRateMonthlySql = SqlLoader.load(FIND_CATARACT_RESERVATION_RATE_MONTHLY_SQL);
+        this.findVisionReservationRateMonthlySql = SqlLoader.load(FIND_VISION_RESERVATION_RATE_MONTHLY_SQL);
     }
 
     /**
@@ -42,38 +62,7 @@ public class ExaminationStatsRepository {
      * 엄격 "실시"분만 필요하면 RIGHT01/LEFT01 존재 조건 추가.
      */
     public List<Map<String, Object>> findVisionCorrectionMonthly(String from, String to) {
-        String sql = """
-            SELECT CAST(SUBSTRING(e.EXAM_DATE, 1, 4) AS INT) AS yr,
-                   CAST(SUBSTRING(e.EXAM_DATE, 6, 2) AS INT) AS mo,
-                   COUNT(*) AS cnt
-            FROM EXAM e WITH(NOLOCK)
-            JOIN CUSTOM cu WITH(NOLOCK) ON e.CUST_NUM = cu.CUST_NUM
-            WHERE e.EXAM_DATE >= :from AND e.EXAM_DATE <= :to
-              AND NOT (
-                ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
-                OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
-              )
-              AND NOT (
-                    EXISTS (SELECT 1 FROM RESERVATION rd WITH(NOLOCK)
-                            WHERE rd.CUST_NUM = e.CUST_NUM AND rd.RESERVE_DATE = e.EXAM_DATE
-                              AND rd.RESERVE_STATE IN ('I','H') AND rd.RESERVE_FLAG = 'D'
-                    )
-                AND NOT EXISTS (SELECT 1 FROM RESERVATION rm WITH(NOLOCK)
-                            WHERE rm.CUST_NUM = e.CUST_NUM AND rm.RESERVE_DATE = e.EXAM_DATE
-                              AND rm.RESERVE_STATE IN ('I','H') AND rm.RESERVE_FLAG = 'M')
-              )
-              AND NOT (
-                EXISTS (
-                  SELECT 1
-                  FROM Cataract_Exam ce WITH(NOLOCK)
-                  WHERE ce.CUST_NUM = e.CUST_NUM
-                    AND ce.EXAM_DATE = e.EXAM_DATE
-                )
-                AND __EXAM_MEASUREMENTS_BLANK__
-              )
-            GROUP BY CAST(SUBSTRING(e.EXAM_DATE, 1, 4) AS INT), CAST(SUBSTRING(e.EXAM_DATE, 6, 2) AS INT)
-            ORDER BY yr, mo
-            """.replace("__EXAM_MEASUREMENTS_BLANK__", examMeasurementsBlankPredicate("e"));
+        String sql = withExamMeasurementsBlank(findVisionCorrectionMonthlySql);
         return jdbc.queryForList(sql, params(from, to));
     }
 
@@ -82,36 +71,7 @@ public class ExaminationStatsRepository {
      * 같은 검사일에 렌즈센터(D) 예약이 있고 시력교정(M) 예약이 없는 EXAM 행만 집계한다.
      */
     public List<Map<String, Object>> findDreamlensMonthly(String from, String to) {
-        String sql = """
-            SELECT CAST(SUBSTRING(e.EXAM_DATE, 1, 4) AS INT) AS yr,
-                   CAST(SUBSTRING(e.EXAM_DATE, 6, 2) AS INT) AS mo,
-                   COUNT(*) AS cnt
-            FROM EXAM e WITH(NOLOCK)
-            JOIN CUSTOM cu WITH(NOLOCK) ON e.CUST_NUM = cu.CUST_NUM
-            WHERE e.EXAM_DATE >= :from AND e.EXAM_DATE <= :to
-              AND NOT (
-                ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
-                OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
-              )
-              AND EXISTS (SELECT 1 FROM RESERVATION rd WITH(NOLOCK)
-                          WHERE rd.CUST_NUM = e.CUST_NUM AND rd.RESERVE_DATE = e.EXAM_DATE
-                            AND rd.RESERVE_STATE IN ('I','H') AND rd.RESERVE_FLAG = 'D'
-                          )
-              AND NOT EXISTS (SELECT 1 FROM RESERVATION rm WITH(NOLOCK)
-                              WHERE rm.CUST_NUM = e.CUST_NUM AND rm.RESERVE_DATE = e.EXAM_DATE
-                                AND rm.RESERVE_STATE IN ('I','H') AND rm.RESERVE_FLAG = 'M')
-              AND NOT (
-                EXISTS (
-                  SELECT 1
-                  FROM Cataract_Exam ce WITH(NOLOCK)
-                  WHERE ce.CUST_NUM = e.CUST_NUM
-                    AND ce.EXAM_DATE = e.EXAM_DATE
-                )
-                AND __EXAM_MEASUREMENTS_BLANK__
-              )
-            GROUP BY CAST(SUBSTRING(e.EXAM_DATE, 1, 4) AS INT), CAST(SUBSTRING(e.EXAM_DATE, 6, 2) AS INT)
-            ORDER BY yr, mo
-            """.replace("__EXAM_MEASUREMENTS_BLANK__", examMeasurementsBlankPredicate("e"));
+        String sql = withExamMeasurementsBlank(findDreamlensMonthlySql);
         return jdbc.queryForList(sql, params(from, to));
     }
 
@@ -123,24 +83,7 @@ public class ExaminationStatsRepository {
      * 레거시 표시값과 ±10 안팎 잔차(라이브·다소스·시점차). 과거 눈(OPERATIONR/L) 정의에서 2026-06 전환.
      */
     public List<Map<String, Object>> findCataractMonthly(String from, String to) {
-        String sql = """
-            SELECT yr, mo, COUNT(*) AS cnt
-            FROM (
-              SELECT CAST(SUBSTRING(a.RESERVE_DATE, 1, 4) AS INT) AS yr,
-                     CAST(SUBSTRING(a.RESERVE_DATE, 6, 2) AS INT) AS mo,
-                     a.CUST_NUM, a.RESERVE_DATE
-              FROM RESERVATION a WITH(NOLOCK)
-              WHERE a.RESERVE_DATE >= :from AND a.RESERVE_DATE <= :to
-                AND a.RESERVE_STATE IN ('I','H')
-                AND a.RESERVE_FLAG = 'H'
-                AND a.RESERVE_JINRYO = '1'
-              GROUP BY CAST(SUBSTRING(a.RESERVE_DATE, 1, 4) AS INT),
-                       CAST(SUBSTRING(a.RESERVE_DATE, 6, 2) AS INT),
-                       a.CUST_NUM, a.RESERVE_DATE
-            ) t
-            GROUP BY yr, mo
-            ORDER BY yr, mo
-            """;
+        String sql = findCataractMonthlySql;
         return jdbc.queryForList(sql, params(from, to));
     }
 
@@ -153,47 +96,7 @@ public class ExaminationStatsRepository {
      * 2024·2025 하드코딩값(CATARACT_RATE_LEGACY)도 눈분모 기준이라 3개년 비교가 정합한다.
      */
     public List<Map<String, Object>> findCataractReservationRateMonthly(String from, String to) {
-        String sql = """
-            SELECT base.yr,
-                   base.mo,
-                   SUM(base.rightEye) + SUM(base.leftEye) AS examCount,
-                   SUM(CASE WHEN (base.rightEye = 1 OR base.leftEye = 1)
-                              AND base.hasSurgeryBooking = 1
-                            THEN 1 ELSE 0 END) AS surgeryBookedCount
-            FROM (
-                SELECT CAST(SUBSTRING(ce.EXAM_DATE, 1, 4) AS INT) AS yr,
-                       CAST(SUBSTRING(ce.EXAM_DATE, 6, 2) AS INT) AS mo,
-                       CASE WHEN NULLIF(LTRIM(RTRIM(ISNULL(ce.OPERATIONR, ''))), '') IS NOT NULL THEN 1 ELSE 0 END AS rightEye,
-                       CASE WHEN NULLIF(LTRIM(RTRIM(ISNULL(ce.OPERATIONL, ''))), '') IS NOT NULL THEN 1 ELSE 0 END AS leftEye,
-                       CASE WHEN op.hasSurgeryBooking IS NULL THEN 0 ELSE 1 END AS hasSurgeryBooking
-                FROM Cataract_Exam ce WITH(NOLOCK)
-                JOIN CUSTOM cu WITH(NOLOCK) ON ce.CUST_NUM = cu.CUST_NUM
-                OUTER APPLY (
-                    SELECT TOP 1 1 AS hasSurgeryBooking
-                    FROM RESERVATION op WITH(NOLOCK)
-                    WHERE op.CUST_NUM = ce.CUST_NUM
-                      AND op.RESERVE_FLAG = 'O'
-                      AND op.RESERVE_STATE <> 'C'
-                ) op
-                WHERE ce.EXAM_DATE >= :from AND ce.EXAM_DATE <= :to
-                  AND (ce.Stop_YN IS NULL OR ce.Stop_YN <> 'Y')
-                  AND (ce.Cancel_CD IS NULL OR LTRIM(RTRIM(ce.Cancel_CD)) = '')
-                  AND NOT (
-                    ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
-                    OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
-                  )
-                  AND EXISTS (
-                    SELECT 1
-                    FROM RESERVATION r WITH(NOLOCK)
-                    WHERE r.CUST_NUM = ce.CUST_NUM
-                      AND r.RESERVE_DATE = ce.EXAM_DATE
-                      AND r.RESERVE_STATE IN ('I','H')
-                      AND r.RESERVE_FLAG = 'H'
-                  )
-            ) base
-            GROUP BY base.yr, base.mo
-            ORDER BY yr, mo
-            """;
+        String sql = findCataractReservationRateMonthlySql;
         return jdbc.queryForList(sql, params(from, to));
     }
 
@@ -203,51 +106,7 @@ public class ExaminationStatsRepository {
      * 분모는 findVisionCorrectionMonthly와 동일한 기준을 사용한다.
      */
     public List<Map<String, Object>> findVisionReservationRateMonthly(String from, String to) {
-        String sql = """
-            SELECT base.yr,
-                   base.mo,
-                   COUNT(*) AS examCount,
-                   SUM(CASE WHEN base.hasSurgeryBooking = 1 THEN 1 ELSE 0 END) AS surgeryBookedCount
-            FROM (
-                SELECT CAST(SUBSTRING(e.EXAM_DATE, 1, 4) AS INT) AS yr,
-                       CAST(SUBSTRING(e.EXAM_DATE, 6, 2) AS INT) AS mo,
-                       CASE WHEN op.hasSurgeryBooking IS NULL THEN 0 ELSE 1 END AS hasSurgeryBooking
-                FROM EXAM e WITH(NOLOCK)
-                JOIN CUSTOM cu WITH(NOLOCK) ON e.CUST_NUM = cu.CUST_NUM
-                OUTER APPLY (
-                    SELECT TOP 1 1 AS hasSurgeryBooking
-                    FROM RESERVATION op WITH(NOLOCK)
-                    WHERE op.CUST_NUM = e.CUST_NUM
-                      AND op.RESERVE_FLAG = 'O'
-                      AND op.RESERVE_STATE <> 'C'
-                ) op
-                WHERE e.EXAM_DATE >= :from AND e.EXAM_DATE <= :to
-                  AND NOT (
-                    ISNULL(cu.CUST_NAME, '') LIKE N'%테스트%'
-                    OR LOWER(ISNULL(cu.CUST_NAME, '')) LIKE '%test%'
-                  )
-                  AND NOT (
-                        EXISTS (SELECT 1 FROM RESERVATION rd WITH(NOLOCK)
-                                WHERE rd.CUST_NUM = e.CUST_NUM AND rd.RESERVE_DATE = e.EXAM_DATE
-                                  AND rd.RESERVE_STATE IN ('I','H') AND rd.RESERVE_FLAG = 'D'
-                        )
-                    AND NOT EXISTS (SELECT 1 FROM RESERVATION rm WITH(NOLOCK)
-                                WHERE rm.CUST_NUM = e.CUST_NUM AND rm.RESERVE_DATE = e.EXAM_DATE
-                                  AND rm.RESERVE_STATE IN ('I','H') AND rm.RESERVE_FLAG = 'M')
-                  )
-                  AND NOT (
-                    EXISTS (
-                      SELECT 1
-                      FROM Cataract_Exam ce WITH(NOLOCK)
-                      WHERE ce.CUST_NUM = e.CUST_NUM
-                        AND ce.EXAM_DATE = e.EXAM_DATE
-                    )
-                    AND __EXAM_MEASUREMENTS_BLANK__
-                  )
-            ) base
-            GROUP BY base.yr, base.mo
-            ORDER BY yr, mo
-            """.replace("__EXAM_MEASUREMENTS_BLANK__", examMeasurementsBlankPredicate("e"));
+        String sql = withExamMeasurementsBlank(findVisionReservationRateMonthlySql);
         return jdbc.queryForList(sql, params(from, to));
     }
 
@@ -257,19 +116,10 @@ public class ExaminationStatsRepository {
                 .addValue("to", to);
     }
 
-    private String examMeasurementsBlankPredicate(String alias) {
-        StringBuilder sb = new StringBuilder();
-        for (int i = 1; i <= 30; i++) {
-            if (!sb.isEmpty()) {
-                sb.append("\n                AND ");
-            }
-            String index = String.format("%02d", i);
-            sb.append("NULLIF(LTRIM(RTRIM(ISNULL(")
-                    .append(alias).append(".RIGHT").append(index)
-                    .append(", ''))), '') IS NULL\n                AND NULLIF(LTRIM(RTRIM(ISNULL(")
-                    .append(alias).append(".LEFT").append(index)
-                    .append(", ''))), '') IS NULL");
-        }
-        return sb.toString();
+    private String withExamMeasurementsBlank(String sql) {
+        return sql.replace(
+                "__EXAM_MEASUREMENTS_BLANK__",
+                SqlFragments.examMeasurementsBlankPredicate("e")
+        );
     }
 }

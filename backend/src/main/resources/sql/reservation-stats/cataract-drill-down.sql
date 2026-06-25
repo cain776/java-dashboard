@@ -11,7 +11,11 @@ CH_CALL AS (
       WHEN a.CtiGbnCod='S' AND a.CtiCtgCod='9' AND a.CtiDtlCod1='21'
         AND ((a.CtiDtlCod2='21' AND (a.CtiDtlCod3<>'28' OR a.CtiDtlCod3 IS NULL)) OR a.CtiDtlCod2='32') THEN '백내장_신규문의'
       ELSE '' END AS GB,
-    '' AS GB2, CONVERT(VARCHAR(10), a.CtiRgtDtm, 23) AS [예약날짜], CONVERT(VARCHAR(100), a.CtiCallID) AS PK
+    '' AS GB2, CONVERT(VARCHAR(10), a.CtiRgtDtm, 23) AS [예약날짜], CONVERT(VARCHAR(100), a.CtiCallID) AS PK,
+    '' AS custNum,
+    '' AS reserveNum,
+    '' AS reserveState,
+    '' AS exclusionReasonCandidate
   FROM CtiRptLst a WITH(NOLOCK) LEFT JOIN CtiClg b WITH(NOLOCK) ON a.CtiCallID = b.ClgNum
   WHERE a.CtiRgtDtm >= :date AND a.CtiRgtDtm < DATEADD(DAY,1,CONVERT(datetime,:date))
     AND ((a.CtiCtgCod='H' AND a.CtiDtlCod1 IN ('10','7')) OR (a.CtiCtgCod='9' AND a.CtiDtlCod1='21'))
@@ -22,7 +26,11 @@ CH_KAKAO AS (
          WHEN C02.Name='노안' THEN '카톡_노안'
          WHEN C02.Name='예약취소' THEN '카톡_취소'
          ELSE '카톡_문의' END AS GB,
-    '' AS GB2, CONVERT(VARCHAR(10), H.InsertedDateTime, 23) AS [예약날짜], CONVERT(VARCHAR(23), H.InsertedDateTime, 21) AS PK
+    '' AS GB2, CONVERT(VARCHAR(10), H.InsertedDateTime, 23) AS [예약날짜], CONVERT(VARCHAR(23), H.InsertedDateTime, 21) AS PK,
+    '' AS custNum,
+    '' AS reserveNum,
+    '' AS reserveState,
+    '' AS exclusionReasonCandidate
   FROM HappyTalk_Counsel_List H WITH(NOLOCK)
   LEFT JOIN HappyTalk_Mapping M WITH(NOLOCK) ON H.HappyTalk_Num = M.HappyTalk_Num
   INNER JOIN HappyTalk_Category01 C01 WITH(NOLOCK) ON C01.Seq = H.Category01
@@ -33,7 +41,17 @@ CH_KAKAO AS (
 CH_RES AS (
   SELECT DISTINCT
     CASE WHEN RH.RESERVE_PATH IN ('ONLINE','APP','NAVER') THEN '백내장_온라인예약' ELSE '백내장_예약' END AS GB,
-    '' AS GB2, CONVERT(VARCHAR(10), RH.HISTORY_TIME, 23) AS [예약날짜], CONVERT(VARCHAR(100), RH.HISTORY_NUM) AS PK
+    '' AS GB2, CONVERT(VARCHAR(10), RH.HISTORY_TIME, 23) AS [예약날짜], CONVERT(VARCHAR(100), RH.HISTORY_NUM) AS PK,
+    ISNULL(CONVERT(VARCHAR(100), R.CUST_NUM),'') AS custNum,
+    ISNULL(CONVERT(VARCHAR(100), R.RESERVE_NUM),'') AS reserveNum,
+    ISNULL(R.RESERVE_STATE,'') AS reserveState,
+    CASE
+      WHEN ISNULL(R.CUST_NAME,'') LIKE '%테스트%' OR ISNULL(R.CUST_NAME,'') LIKE '%TEST%' THEN '테스트'
+      WHEN R.CUST_NUM='8888888888888' THEN '더미고객'
+      WHEN R.RESERVE_JINRYO='16' THEN '노안외래'
+      WHEN R.RESERVE_STATE='C' THEN '취소'
+      ELSE ''
+    END AS exclusionReasonCandidate
   FROM RESERVATION R WITH(NOLOCK) INNER JOIN RESERVE_HISTORY RH WITH(NOLOCK) ON R.RESERVE_NUM = RH.RESERVE_NUM
   WHERE RH.HISTORY_TIME >= :date AND RH.HISTORY_TIME < DATEADD(DAY,1,CONVERT(datetime,:date))
     AND R.RESERVE_FLAG='H' AND R.RESERVE_STATE<>'C' AND R.RESERVE_JINRYO<>'16' AND RH.MEMO='예약저장'
@@ -44,7 +62,17 @@ CH_VISIT AS (
     CASE WHEN R.RESERVE_STATE='Y' AND R.RESERVE_DATE < CAST(GETDATE() AS DATE) THEN '백내장_부도'
          WHEN R.RESERVE_STATE='C' THEN '백내장_취소' END AS GB,
     CASE WHEN R.RESERVE_PATH IN ('ONLINE','APP','NAVER') THEN 'ONLINE' ELSE 'CRM' END AS GB2,
-    CONVERT(VARCHAR(10), R.RESERVE_DATE, 23) AS [예약날짜], CONVERT(VARCHAR(100), R.RESERVE_NUM) AS PK
+    CONVERT(VARCHAR(10), R.RESERVE_DATE, 23) AS [예약날짜], CONVERT(VARCHAR(100), R.RESERVE_NUM) AS PK,
+    ISNULL(CONVERT(VARCHAR(100), R.CUST_NUM),'') AS custNum,
+    ISNULL(CONVERT(VARCHAR(100), R.RESERVE_NUM),'') AS reserveNum,
+    ISNULL(R.RESERVE_STATE,'') AS reserveState,
+    CASE
+      WHEN ISNULL(R.CUST_NAME,'') LIKE '%테스트%' OR ISNULL(R.CUST_NAME,'') LIKE '%TEST%' THEN '테스트'
+      WHEN R.CUST_NUM='8888888888888' THEN '더미고객'
+      WHEN R.RESERVE_JINRYO='13' THEN '수술당일'
+      WHEN R.RESERVE_JINRYO='16' THEN '노안외래'
+      ELSE ''
+    END AS exclusionReasonCandidate
   FROM RESERVATION R WITH(NOLOCK) INNER JOIN RESERVE_HISTORY RH WITH(NOLOCK) ON R.RESERVE_NUM = RH.RESERVE_NUM
   WHERE R.RESERVE_DATE >= :date AND R.RESERVE_DATE < DATEADD(DAY,1,CONVERT(datetime,:date))
     AND R.RESERVE_FLAG='H' AND R.RESERVE_JINRYO NOT IN ('16','13') AND RH.MEMO='예약저장'
@@ -52,7 +80,15 @@ CH_VISIT AS (
 ),
 -- 내원: RESERVATION FLAG='H' 내원(STATE I/H) 중 (진료실 일반검사1·OP전검사2) 또는 같은날 Cataract_Exam 기록 보유. daily-counts와 동일 정의.
 CH_EXAM AS (
-  SELECT DISTINCT '백내장_내원' AS GB, '' AS GB2, CONVERT(VARCHAR(10), R.RESERVE_DATE, 23) AS [예약날짜], CONVERT(VARCHAR(100), R.RESERVE_NUM) AS PK
+  SELECT DISTINCT '백내장_내원' AS GB, '' AS GB2, CONVERT(VARCHAR(10), R.RESERVE_DATE, 23) AS [예약날짜], CONVERT(VARCHAR(100), R.RESERVE_NUM) AS PK,
+    ISNULL(CONVERT(VARCHAR(100), R.CUST_NUM),'') AS custNum,
+    ISNULL(CONVERT(VARCHAR(100), R.RESERVE_NUM),'') AS reserveNum,
+    ISNULL(R.RESERVE_STATE,'') AS reserveState,
+    CASE
+      WHEN ISNULL(R.CUST_NAME,'') LIKE '%테스트%' OR ISNULL(R.CUST_NAME,'') LIKE '%TEST%' THEN '테스트'
+      WHEN R.CUST_NUM='8888888888888' THEN '더미고객'
+      ELSE ''
+    END AS exclusionReasonCandidate
   FROM RESERVATION R WITH(NOLOCK)
   WHERE R.RESERVE_DATE >= :date AND R.RESERVE_DATE < DATEADD(DAY,1,CONVERT(datetime,:date))
     AND R.RESERVE_FLAG='H' AND R.RESERVE_STATE IN ('I','H')
@@ -65,18 +101,22 @@ CH_EXAM AS (
 CH_TM AS (
   SELECT DISTINCT
     CASE WHEN TM_Gubun='1000' THEN 'TM_예약' WHEN TM_Gubun='2000' THEN 'TM_유효' ELSE 'TM_DB' END AS GB,
-    '' AS GB2, CONVERT(VARCHAR(10), assign_date, 23) AS [예약날짜], CONVERT(VARCHAR(100), DBCust_num) AS PK
+    '' AS GB2, CONVERT(VARCHAR(10), assign_date, 23) AS [예약날짜], CONVERT(VARCHAR(100), DBCust_num) AS PK,
+    CONVERT(VARCHAR(100), DBCust_num) AS custNum,
+    '' AS reserveNum,
+    '' AS reserveState,
+    CASE WHEN ISNULL(Gubun,'') LIKE 'B2B%' THEN 'B2B' ELSE '' END AS exclusionReasonCandidate
   FROM DB_CUSTOM WITH(NOLOCK)
   WHERE assign_date >= :date AND assign_date < DATEADD(DAY,1,CONVERT(datetime,:date))
     AND TM_EMP IN ('KC0307','BV1119','BV1207','BV0067') AND ISNULL(Gubun,'') NOT LIKE 'B2B%'
 ),
 CH_ALL AS (
-  SELECT 'CH_CALL' AS [source], GB, GB2, PK, [예약날짜] FROM CH_CALL
-  UNION ALL SELECT 'CH_KAKAO', GB, GB2, PK, [예약날짜] FROM CH_KAKAO
-  UNION ALL SELECT 'CH_RES', GB, GB2, PK, [예약날짜] FROM CH_RES
-  UNION ALL SELECT 'CH_VISIT', GB, GB2, PK, [예약날짜] FROM CH_VISIT
-  UNION ALL SELECT 'CH_EXAM', GB, GB2, PK, [예약날짜] FROM CH_EXAM
-  UNION ALL SELECT 'CH_TM', GB, GB2, PK, [예약날짜] FROM CH_TM
+  SELECT 'CH_CALL' AS [source], GB, GB2, PK, [예약날짜], custNum, reserveNum, reserveState, exclusionReasonCandidate FROM CH_CALL
+  UNION ALL SELECT 'CH_KAKAO', GB, GB2, PK, [예약날짜], custNum, reserveNum, reserveState, exclusionReasonCandidate FROM CH_KAKAO
+  UNION ALL SELECT 'CH_RES', GB, GB2, PK, [예약날짜], custNum, reserveNum, reserveState, exclusionReasonCandidate FROM CH_RES
+  UNION ALL SELECT 'CH_VISIT', GB, GB2, PK, [예약날짜], custNum, reserveNum, reserveState, exclusionReasonCandidate FROM CH_VISIT
+  UNION ALL SELECT 'CH_EXAM', GB, GB2, PK, [예약날짜], custNum, reserveNum, reserveState, exclusionReasonCandidate FROM CH_EXAM
+  UNION ALL SELECT 'CH_TM', GB, GB2, PK, [예약날짜], custNum, reserveNum, reserveState, exclusionReasonCandidate FROM CH_TM
 ),
 DETAIL AS (
   SELECT
@@ -86,6 +126,10 @@ DETAIL AS (
     CH.GB AS gb,
     CH.GB2 AS gb2,
     CH.PK AS [primaryKey],
+    CH.custNum,
+    CH.reserveNum,
+    CH.reserveState,
+    CH.exclusionReasonCandidate,
     FIELD_MAP.contribution
   FROM CH_ALL CH
   -- FIELD_MAP: cataract-daily-counts.sql의 SUM(CASE...)와 같은 필드별 row 기여도 정의.
@@ -112,6 +156,6 @@ DETAIL AS (
   ) FIELD_MAP(field, contribution)
   WHERE FIELD_MAP.field = :field AND FIELD_MAP.contribution <> 0
 )
-SELECT d, field, [source], gb, gb2, [primaryKey], contribution
+SELECT d, field, [source], gb, gb2, [primaryKey], custNum, reserveNum, reserveState, exclusionReasonCandidate, contribution
 FROM DETAIL
 ORDER BY d, [source], [primaryKey], field;

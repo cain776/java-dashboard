@@ -1,8 +1,8 @@
 package com.bviit.analytics.controller.exam;
 
 import com.bviit.analytics.controller.stats.StatsRequestValidator;
+import com.bviit.analytics.controller.stats.StatsPanelSupport;
 import com.bviit.analytics.dto.ApiResponse;
-import com.bviit.analytics.exception.DataSourceUnavailableException;
 import com.bviit.analytics.service.exam.AllExamListService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -37,12 +37,9 @@ public class AllExamListController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to
     ) {
         StatsRequestValidator.validateDateRange(from, to, MAX_RANGE_DAYS);
-        return allExamListService
-                .map(service -> ResponseEntity.ok(ApiResponse.ok(service.getAllExamList(from.toString(), to.toString()))))
-                .orElseThrow(AllExamListController::realDataUnavailable);
-    }
-
-    private static DataSourceUnavailableException realDataUnavailable() {
-        return new DataSourceUnavailableException("실 데이터 소스(MSSQL)가 연결되지 않았습니다.");
+        return StatsPanelSupport.require(
+                allExamListService,
+                service -> service.getAllExamList(from.toString(), to.toString())
+        );
     }
 }

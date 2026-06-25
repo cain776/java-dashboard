@@ -3,18 +3,15 @@ package com.bviit.analytics.controller.reservation;
 import com.bviit.analytics.controller.stats.StatsRequestValidator;
 import com.bviit.analytics.dto.ApiResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsDailyRow;
+import com.bviit.analytics.dto.reservation.ReservationStatsDiagnosticsHealthResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsDiffResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsParityResponse;
-import com.bviit.analytics.dto.reservation.ReservationStatsResponseMeta;
+import com.bviit.analytics.dto.reservation.ReservationStatsResult;
 import com.bviit.analytics.dto.reservation.ReservationStatsSnapshot;
-import com.bviit.analytics.exception.DataSourceUnavailableException;
-import com.bviit.analytics.exception.SnapshotLockedException;
-import com.bviit.analytics.service.reservation.ReservationStatsDiagnosticDiffService;
 import com.bviit.analytics.service.reservation.ReservationStatsSnapshotStore;
-import com.bviit.analytics.service.reservation.ReservationStatsSystemService;
+import com.bviit.analytics.service.reservation.ReservationStatsSystemQueryService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -26,7 +23,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * 예약통계시스템(BCRM RSS 컨택통계) API.
@@ -41,15 +37,11 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/stats/reservation-stats-system")
 @RequiredArgsConstructor
-@Slf4j
 public class ReservationStatsSystemController {
 
     private static final int MAX_RANGE_DAYS = 92;
-    private static final String FORMULA_VERSION = "reservation-stats-system-v1";
 
-    private final ReservationStatsSnapshotStore snapshotStore;
-    private final Optional<ReservationStatsSystemService> service;
-    private final Optional<ReservationStatsDiagnosticDiffService> diagnosticDiffService;
+    private final ReservationStatsSystemQueryService queryService;
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<ReservationStatsDailyRow>>> getDailyCounts(
@@ -58,47 +50,9 @@ public class ReservationStatsSystemController {
             Authentication authentication
     ) {
         StatsRequestValidator.validateDateRange(from, to, MAX_RANGE_DAYS);
-        String period = from.toString().substring(0, 7);
-
-        // 조회=호출 통합: 당월·미잠금이고 오늘 아직 안 채웠으면 D-1까지 1회 증분 채움(있으면 보존).
-        // 무거운 라이브 쿼리(OPENQUERY)는 이 조건에서만 1일 1회 — 이미 최신(오늘 채움)이면 skip.
-        if (service.isPresent() && needsAutoFill(period)) {
-            try {
-                service.get().fillSnapshot(period, authentication != null ? authentication.getName() : "auto");
-            } catch (RuntimeException e) {
-                log.warn("조회 중 자동 채움 실패(기존 데이터로 계속): period={}, err={}", period, e.getMessage());
-            }
-        }
-
-        Optional<ReservationStatsSnapshot> snapshot = snapshotStore.find(period);
-        if (snapshot.isPresent()) {
-            String fromStr = from.toString();
-            String toStr = to.toString();
-            List<ReservationStatsDailyRow> days = snapshot.get().days().stream()
-                    .filter(d -> d.date().compareTo(fromStr) >= 0 && d.date().compareTo(toStr) <= 0)
-                    .toList();
-            return ResponseEntity.ok(ApiResponse.ok(days, snapshotMeta(period, snapshot.get())));
-        }
-        ReservationStatsSystemService liveService = requireLiveService(period);
-        return ResponseEntity.ok(ApiResponse.ok(
-                liveService.getDailyCounts(from.toString(), to.toString()),
-                liveMeta(period)
-        ));
-    }
-
-    /**
-     * 조회 시 자동 채움이 필요한가 — 당월·미잠금이고 오늘 아직 안 채운 경우만(하루 1회).
-     * D-1은 하루 내내 고정이라, 같은 날 재조회는 무거운 라이브 쿼리를 skip한다.
-     */
-    private boolean needsAutoFill(String period) {
-        LocalDate today = LocalDate.now();
-        if (!period.equals(today.toString().substring(0, 7))) return false; // 당월만
-        if (snapshotStore.isLocked(period)) return false;                   // PDF 고정월 제외
-        Optional<ReservationStatsSnapshot> snap = snapshotStore.find(period);
-        if (snap.isEmpty()) return true;                                    // 스냅샷 없으면 채움
-        String confirmedAt = snap.get().confirmedAt();
-        String confirmedDate = confirmedAt != null && confirmedAt.length() >= 10 ? confirmedAt.substring(0, 10) : "";
-        return confirmedDate.compareTo(today.toString()) < 0;               // 오늘 안 채웠으면 채움
+        ReservationStatsResult<List<ReservationStatsDailyRow>> result =
+                queryService.getDailyCounts(from, to, username(authentication));
+        return ResponseEntity.ok(ApiResponse.ok(result.data(), result.meta()));
     }
 
     @PostMapping("/snapshot")
@@ -107,11 +61,9 @@ public class ReservationStatsSystemController {
             Authentication authentication
     ) {
         StatsRequestValidator.validatePeriod(period);
-        // PDF 고정 스냅샷(예: 2026-01~05)은 라이브 재확정으로 덮어쓰지 않는다.
-        ensureWritable(period, "재확정(덮어쓰기)");
-        String by = authentication != null ? authentication.getName() : "unknown";
-        ReservationStatsSnapshot snapshot = requireLiveService(period).saveSnapshot(period, by);
-        return ResponseEntity.ok(ApiResponse.ok(snapshot, snapshotMeta(period, snapshot)));
+        ReservationStatsResult<ReservationStatsSnapshot> result =
+                queryService.saveSnapshot(period, username(authentication));
+        return ResponseEntity.ok(ApiResponse.ok(result.data(), result.meta()));
     }
 
     /**
@@ -124,21 +76,20 @@ public class ReservationStatsSystemController {
             Authentication authentication
     ) {
         StatsRequestValidator.validatePeriod(period);
-        ensureWritable(period, "호출(채움)");
-        String by = authentication != null ? authentication.getName() : "unknown";
-        ReservationStatsSnapshot snapshot = requireLiveService(period).fillSnapshot(period, by);
-        return ResponseEntity.ok(ApiResponse.ok(snapshot, snapshotMeta(period, snapshot)));
+        ReservationStatsResult<ReservationStatsSnapshot> result =
+                queryService.fillSnapshot(period, username(authentication));
+        return ResponseEntity.ok(ApiResponse.ok(result.data(), result.meta()));
     }
 
     @GetMapping("/snapshots")
     public ResponseEntity<ApiResponse<List<ReservationStatsSnapshotStore.SnapshotInfo>>> listSnapshots() {
-        return ResponseEntity.ok(ApiResponse.ok(snapshotStore.listSnapshots()));
+        return ResponseEntity.ok(ApiResponse.ok(queryService.listSnapshots()));
     }
 
     @GetMapping("/diagnostics/diff")
     public ResponseEntity<ApiResponse<ReservationStatsDiffResponse>> diff(@RequestParam String period) {
         StatsRequestValidator.validatePeriod(period);
-        return ResponseEntity.ok(ApiResponse.ok(requireDiagnosticService(period).diff(period)));
+        return ResponseEntity.ok(ApiResponse.ok(queryService.diff(period)));
     }
 
     @GetMapping("/diagnostics/drill-down")
@@ -148,7 +99,7 @@ public class ReservationStatsSystemController {
             @RequestParam String field
     ) {
         StatsRequestValidator.validatePeriod(period);
-        return ResponseEntity.ok(ApiResponse.ok(requireDiagnosticService(period).drillDown(period, date.toString(), field)));
+        return ResponseEntity.ok(ApiResponse.ok(queryService.drillDown(period, date.toString(), field)));
     }
 
     @GetMapping("/diagnostics/parity")
@@ -157,50 +108,16 @@ public class ReservationStatsSystemController {
             @RequestParam String field
     ) {
         StatsRequestValidator.validatePeriod(period);
-        return ResponseEntity.ok(ApiResponse.ok(requireDiagnosticService(period).parity(period, field)));
+        return ResponseEntity.ok(ApiResponse.ok(queryService.parity(period, field)));
     }
 
-    private void ensureWritable(String period, String action) {
-        if (snapshotStore.isLocked(period)) {
-            throw new SnapshotLockedException("PDF 고정 스냅샷이라 " + action + "할 수 없습니다: " + period);
-        }
+    @GetMapping("/diagnostics/health")
+    public ResponseEntity<ApiResponse<ReservationStatsDiagnosticsHealthResponse>> health(@RequestParam String period) {
+        StatsRequestValidator.validatePeriod(period);
+        return ResponseEntity.ok(ApiResponse.ok(queryService.health(period)));
     }
 
-    private ReservationStatsSystemService requireLiveService(String period) {
-        return service.orElseThrow(() -> dataSourceUnavailable(period));
-    }
-
-    private ReservationStatsDiagnosticDiffService requireDiagnosticService(String period) {
-        return diagnosticDiffService.orElseThrow(() -> dataSourceUnavailable(period));
-    }
-
-    private static ReservationStatsResponseMeta snapshotMeta(String period, ReservationStatsSnapshot snapshot) {
-        return ReservationStatsResponseMeta.snapshot(
-                period,
-                FORMULA_VERSION,
-                snapshot.locked(),
-                snapshot.confirmedAt(),
-                snapshot.confirmedBy(),
-                snapshot.schemaVersion()
-        );
-    }
-
-    private static ReservationStatsResponseMeta liveMeta(String period) {
-        return ReservationStatsResponseMeta.live(
-                period,
-                FORMULA_VERSION,
-                ReservationStatsSnapshot.CURRENT_SCHEMA_VERSION
-        );
-    }
-
-    private static DataSourceUnavailableException dataSourceUnavailable(String period) {
-        return new DataSourceUnavailableException(
-                "실 데이터 소스(MSSQL)가 연결되지 않았습니다.",
-                ReservationStatsResponseMeta.unavailable(
-                        period,
-                        FORMULA_VERSION,
-                        ReservationStatsSnapshot.CURRENT_SCHEMA_VERSION
-                )
-        );
+    private static String username(Authentication authentication) {
+        return authentication != null ? authentication.getName() : "unknown";
     }
 }

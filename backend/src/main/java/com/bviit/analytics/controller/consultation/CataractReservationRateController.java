@@ -1,10 +1,10 @@
 package com.bviit.analytics.controller.consultation;
 
 import com.bviit.analytics.controller.stats.StatsRequestValidator;
+import com.bviit.analytics.controller.stats.StatsPanelSupport;
 
 import com.bviit.analytics.dto.ApiResponse;
 import com.bviit.analytics.dto.consultation.CataractReservationRateItem;
-import com.bviit.analytics.exception.DataSourceUnavailableException;
 import com.bviit.analytics.service.consultation.CataractReservationRateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -29,8 +29,9 @@ public class CataractReservationRateController {
             @RequestParam(defaultValue = "cataract") String category
     ) {
         StatsRequestValidator.validateYears(years);
-        return realService
-                .map(service -> ResponseEntity.ok(ApiResponse.ok(service.getMonthlyRates(years, category))))
-                .orElseThrow(() -> new DataSourceUnavailableException("실 데이터 소스(MSSQL)가 연결되지 않았습니다."));
+        return StatsPanelSupport.require(
+                realService,
+                service -> service.getMonthlyRates(years, category)
+        );
     }
 }

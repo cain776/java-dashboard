@@ -30,6 +30,24 @@ public final class StatsPanelSupport {
                 .orElseThrow(StatsPanelSupport::realDataUnavailable);
     }
 
+    public static <S, T> ResponseEntity<ApiResponse<T>> require(
+            Optional<S> realService,
+            Function<S, T> realFetcher
+    ) {
+        return realService
+                .map(service -> ResponseEntity.ok(ApiResponse.ok(realFetcher.apply(service))))
+                .orElseThrow(StatsPanelSupport::realDataUnavailable);
+    }
+
+    public static <S, T> T requireData(
+            Optional<S> realService,
+            Function<S, T> realFetcher
+    ) {
+        return realService
+                .map(realFetcher)
+                .orElseThrow(StatsPanelSupport::realDataUnavailable);
+    }
+
     private static DataSourceUnavailableException realDataUnavailable() {
         return new DataSourceUnavailableException(REAL_DATA_UNAVAILABLE_MESSAGE);
     }

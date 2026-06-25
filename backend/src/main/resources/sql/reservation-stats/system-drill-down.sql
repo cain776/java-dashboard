@@ -2,7 +2,9 @@ SET NOCOUNT ON;
 IF OBJECT_ID('tempdb..#naver') IS NOT NULL DROP TABLE #naver;
 SELECT CONVERT(VARCHAR(10), R.InsertedDateTime, 23) AS regDate,
        CONVERT(VARCHAR(100), R.RESERVE_NUM) AS PK, R.RESERVE_STATE AS state,
-       ISNULL(R.CANCEL_REASON,'') AS cancelReason
+       ISNULL(R.CANCEL_REASON,'') AS cancelReason,
+       ISNULL(CONVERT(VARCHAR(100), R.CUST_NUM),'') AS custNum,
+       ISNULL(CONVERT(VARCHAR(100), R.RESERVE_NUM),'') AS reserveNum
   INTO #naver
   FROM RESERVATION R WITH(NOLOCK)
  WHERE R.RESERVE_PATH='NAVER' AND R.RESERVE_FLAG='M' AND R.RESERVE_JINRYO IN ('','5','6','7')
@@ -35,7 +37,11 @@ CH_03 AS (
          ELSE '' END AS [GB],
     '' AS [GB2],
     CONVERT(VARCHAR(10), a.CtiRgtDtm, 23) AS [예약날짜],
-    CONVERT(VARCHAR(100), a.CtiCallID) AS PK
+    CONVERT(VARCHAR(100), a.CtiCallID) AS PK,
+    '' AS custNum,
+    '' AS reserveNum,
+    '' AS reserveState,
+    '' AS exclusionReasonCandidate
   FROM CtiRptLst a WITH(NOLOCK)
   LEFT JOIN CtiClg b WITH(NOLOCK) ON a.CtiCallID = b.ClgNum
   WHERE a.CtiRgtDtm >= :date AND a.CtiRgtDtm < DATEADD(DAY,1,CONVERT(datetime,:date))
@@ -48,7 +54,11 @@ CH_04 AS (
          ELSE 'TM' END AS [GB],
     '' AS [GB2],
     CONVERT(VARCHAR(10), assign_date, 23) AS [예약날짜],
-    CONVERT(VARCHAR(100), a.DBCust_num) AS PK
+    CONVERT(VARCHAR(100), a.DBCust_num) AS PK,
+    CONVERT(VARCHAR(100), a.DBCust_num) AS custNum,
+    '' AS reserveNum,
+    '' AS reserveState,
+    '' AS exclusionReasonCandidate
   FROM DB_CUSTOM a WITH(NOLOCK)
   WHERE a.assign_date >= :date AND a.assign_date < DATEADD(DAY,1,CONVERT(datetime,:date))
     AND (TM_EMP IS NULL OR TM_EMP NOT IN('KC0307','BV1119','BV1207','BV0067'))
@@ -60,7 +70,11 @@ CH_05 AS (
          ELSE 'TM_재상담' END AS [GB],
     '' AS [GB2],
     CONVERT(VARCHAR(10), InsertedDateTime, 23) AS [예약날짜],
-    CONVERT(VARCHAR(100), a.Pkey) AS PK
+    CONVERT(VARCHAR(100), a.Pkey) AS PK,
+    '' AS custNum,
+    '' AS reserveNum,
+    '' AS reserveState,
+    '' AS exclusionReasonCandidate
   FROM DB_ReCounsel a WITH(NOLOCK)
   WHERE a.InsertedDateTime >= :date AND a.InsertedDateTime < DATEADD(DAY,1,CONVERT(datetime,:date))
     AND (NOT (ReCounsel_Memo LIKE '%테스트%' OR ReCounsel_Memo LIKE '%TEST%') OR ReCounsel_Memo IS NULL)
@@ -72,7 +86,20 @@ CH_06 AS (
          ELSE '' END AS [GB],
     '' AS [GB2],
     CONVERT(VARCHAR(10), HISTORY_TIME, 23) AS [예약날짜],
-    CONVERT(VARCHAR(100), RH.HISTORY_NUM) AS PK
+    CONVERT(VARCHAR(100), RH.HISTORY_NUM) AS PK,
+    ISNULL(CONVERT(VARCHAR(100), R.CUST_NUM),'') AS custNum,
+    ISNULL(CONVERT(VARCHAR(100), R.RESERVE_NUM),'') AS reserveNum,
+    ISNULL(R.RESERVE_STATE,'') AS reserveState,
+    CASE
+      WHEN ISNULL(R.CUST_NAME,'') LIKE '%테스트%' OR ISNULL(R.CUST_NAME,'') LIKE '%TEST%' OR ISNULL(R.COMMENT,'') LIKE '%테스트%' OR ISNULL(R.COMMENT,'') LIKE '%TEST%' THEN '테스트'
+      WHEN ISNULL(R.COMMENT,'') LIKE '%시뮬레이션%' OR ISNULL(C.ETC,'') LIKE '%시뮬레이션%' THEN '시뮬레이션'
+      WHEN ISNULL(R.COMMENT,'') LIKE '%중복DB%' OR ISNULL(R.COMMENT,'') LIKE '%중복예약%' THEN '중복'
+      WHEN ISNULL(R.COMMENT,'') LIKE '%차트있음%' OR ISNULL(C.ETC,'') LIKE '%차트있음%' THEN '차트있음'
+      WHEN ISNULL(R.COMMENT,'') LIKE '%재검%' OR R.RESERVE_SEQ='5' THEN '재검'
+      WHEN ISNULL(R.COMMENT,'') LIKE '%B2B(군인)%' OR R.RESERVE_SEQ='8' THEN 'B2B군인'
+      WHEN ISNULL(C.ETC,'') LIKE '%홍보실 가상계정%' OR ISNULL(C.ETC,'') LIKE '%가상계정%' OR ISNULL(C.ETC,'') LIKE '%가상데이터%' THEN '가상계정'
+      ELSE ''
+    END AS exclusionReasonCandidate
   FROM RESERVATION R WITH(NOLOCK)
   RIGHT JOIN CUSTOM C WITH(NOLOCK) ON C.CUST_NUM = R.CUST_NUM
   INNER JOIN RESERVE_HISTORY RH WITH(NOLOCK) ON R.RESERVE_NUM = RH.RESERVE_NUM
@@ -91,13 +118,21 @@ CH_06 AS (
 CH_07 AS (
   SELECT CASE WHEN state='C' AND cancelReason LIKE '%네이버%' THEN '네이버_사용자취소'
               ELSE '네이버_접수' END AS [GB],
-         '' AS [GB2], regDate AS [예약날짜], PK
+         '' AS [GB2], regDate AS [예약날짜], PK,
+         custNum,
+         reserveNum,
+         ISNULL(state,'') AS reserveState,
+         CASE WHEN ISNULL(cancelReason,'') <> '' THEN cancelReason ELSE '' END AS exclusionReasonCandidate
   FROM #naver
 ),
 CH_REJ AS (
   SELECT '네이버_거절' AS [GB], '' AS [GB2],
          CONVERT(VARCHAR(10), NrsRgtDtm, 23) AS [예약날짜],
-         'NRJ' + CONVERT(VARCHAR(20), IDX) AS PK
+         'NRJ' + CONVERT(VARCHAR(20), IDX) AS PK,
+         '' AS custNum,
+         ISNULL(RsvNum,'') AS reserveNum,
+         ISNULL(RsvStt,'') AS reserveState,
+         '네이버 거절' AS exclusionReasonCandidate
   FROM RESERVATION_NAVER WITH(NOLOCK)
   WHERE NrsRgtDtm >= :date AND NrsRgtDtm < DATEADD(DAY,1,CONVERT(datetime,:date))
     AND RsvStt='C' AND ISNULL(RsvNum,'')=''
@@ -110,7 +145,11 @@ CH_08 AS (
          ELSE '카카오톡_문의' END AS [GB],
     '' AS [GB2],
     CONVERT(VARCHAR(10), InsertedDateTime, 23) AS [예약날짜],
-    CONVERT(VARCHAR(23), InsertedDateTime, 21) AS PK
+    CONVERT(VARCHAR(23), InsertedDateTime, 21) AS PK,
+    '' AS custNum,
+    '' AS reserveNum,
+    '' AS reserveState,
+    '' AS exclusionReasonCandidate
   FROM HappyTalk_Counsel_List H WITH(NOLOCK)
   LEFT JOIN HappyTalk_Mapping M WITH(NOLOCK) ON H.HappyTalk_Num = M.HappyTalk_Num
   INNER JOIN HappyTalk_Category01 C01 WITH(NOLOCK) ON C01.Seq = H.Category01
@@ -125,7 +164,20 @@ CH_09 AS (
          WHEN R.RESERVE_STATE IN ('C') THEN '취소' END AS [GB],
     CASE WHEN R.RESERVE_PATH IN ('ONLINE','APP') THEN '홈페이지' ELSE '' END AS [GB2],
     CONVERT(VARCHAR(10), R.RESERVE_DATE, 23) AS [예약날짜],
-    CONVERT(VARCHAR(100), R.RESERVE_NUM) AS PK
+    CONVERT(VARCHAR(100), R.RESERVE_NUM) AS PK,
+    ISNULL(CONVERT(VARCHAR(100), R.CUST_NUM),'') AS custNum,
+    ISNULL(CONVERT(VARCHAR(100), R.RESERVE_NUM),'') AS reserveNum,
+    ISNULL(R.RESERVE_STATE,'') AS reserveState,
+    CASE
+      WHEN ISNULL(R.CUST_NAME,'') LIKE '%테스트%' OR ISNULL(R.CUST_NAME,'') LIKE '%TEST%' OR ISNULL(R.COMMENT,'') LIKE '%테스트%' OR ISNULL(R.COMMENT,'') LIKE '%TEST%' THEN '테스트'
+      WHEN ISNULL(R.COMMENT,'') LIKE '%시뮬레이션%' OR ISNULL(C.ETC,'') LIKE '%시뮬레이션%' THEN '시뮬레이션'
+      WHEN ISNULL(R.COMMENT,'') LIKE '%중복DB%' OR ISNULL(R.COMMENT,'') LIKE '%중복예약%' THEN '중복'
+      WHEN ISNULL(R.COMMENT,'') LIKE '%차트있음%' OR ISNULL(C.ETC,'') LIKE '%차트있음%' THEN '차트있음'
+      WHEN ISNULL(R.COMMENT,'') LIKE '%재검%' OR R.RESERVE_SEQ='5' THEN '재검'
+      WHEN ISNULL(R.COMMENT,'') LIKE '%B2B(군인)%' OR R.RESERVE_SEQ='8' THEN 'B2B군인'
+      WHEN ISNULL(C.ETC,'') LIKE '%홍보실 가상계정%' OR ISNULL(C.ETC,'') LIKE '%가상계정%' OR ISNULL(C.ETC,'') LIKE '%가상데이터%' THEN '가상계정'
+      ELSE ''
+    END AS exclusionReasonCandidate
   FROM RESERVATION R WITH(NOLOCK)
   RIGHT JOIN CUSTOM C WITH(NOLOCK) ON C.CUST_NUM = R.CUST_NUM
   INNER JOIN RESERVE_HISTORY RH WITH(NOLOCK) ON R.RESERVE_NUM = RH.RESERVE_NUM
@@ -142,14 +194,14 @@ CH_09 AS (
       OR R.CUST_NUM='8888888888888' )
 ),
 CH_ALL AS (
-  SELECT 'CH_03' AS [source], GB, GB2, PK, [예약날짜] FROM CH_03
-  UNION ALL SELECT 'CH_04', GB, GB2, PK, [예약날짜] FROM CH_04
-  UNION ALL SELECT 'CH_05', GB, GB2, PK, [예약날짜] FROM CH_05
-  UNION ALL SELECT 'CH_06', GB, GB2, PK, [예약날짜] FROM CH_06
-  UNION ALL SELECT 'CH_07', GB, GB2, PK, [예약날짜] FROM CH_07
-  UNION ALL SELECT 'CH_REJ', GB, GB2, PK, [예약날짜] FROM CH_REJ
-  UNION ALL SELECT 'CH_08', GB, GB2, PK, [예약날짜] FROM CH_08
-  UNION ALL SELECT 'CH_09', GB, GB2, PK, [예약날짜] FROM CH_09
+  SELECT 'CH_03' AS [source], GB, GB2, PK, [예약날짜], custNum, reserveNum, reserveState, exclusionReasonCandidate FROM CH_03
+  UNION ALL SELECT 'CH_04', GB, GB2, PK, [예약날짜], custNum, reserveNum, reserveState, exclusionReasonCandidate FROM CH_04
+  UNION ALL SELECT 'CH_05', GB, GB2, PK, [예약날짜], custNum, reserveNum, reserveState, exclusionReasonCandidate FROM CH_05
+  UNION ALL SELECT 'CH_06', GB, GB2, PK, [예약날짜], custNum, reserveNum, reserveState, exclusionReasonCandidate FROM CH_06
+  UNION ALL SELECT 'CH_07', GB, GB2, PK, [예약날짜], custNum, reserveNum, reserveState, exclusionReasonCandidate FROM CH_07
+  UNION ALL SELECT 'CH_REJ', GB, GB2, PK, [예약날짜], custNum, reserveNum, reserveState, exclusionReasonCandidate FROM CH_REJ
+  UNION ALL SELECT 'CH_08', GB, GB2, PK, [예약날짜], custNum, reserveNum, reserveState, exclusionReasonCandidate FROM CH_08
+  UNION ALL SELECT 'CH_09', GB, GB2, PK, [예약날짜], custNum, reserveNum, reserveState, exclusionReasonCandidate FROM CH_09
 ),
 DETAIL AS (
   SELECT
@@ -159,6 +211,10 @@ DETAIL AS (
     CH.GB AS gb,
     CH.GB2 AS gb2,
     CH.PK AS [primaryKey],
+    CH.custNum,
+    CH.reserveNum,
+    CH.reserveState,
+    CH.exclusionReasonCandidate,
     FIELD_MAP.contribution
   FROM CH_ALL CH
   -- FIELD_MAP: system-daily-counts.sql의 SUM(CASE...)와 같은 필드별 row 기여도 정의.
@@ -197,6 +253,10 @@ DETAIL AS (
     FIELD_MAP.gb,
     '' AS gb2,
     'EICN_MySQL:' + C.예약날짜 + ':' + FIELD_MAP.field AS [primaryKey],
+    '' AS custNum,
+    '' AS reserveNum,
+    '' AS reserveState,
+    '' AS exclusionReasonCandidate,
     FIELD_MAP.contribution
   FROM CH_01 C
   -- FIELD_MAP: EICN_MySQL 집계값은 개별 row가 없으므로 일자/필드 단위 pseudo row로 노출한다.
@@ -206,6 +266,6 @@ DETAIL AS (
   ) FIELD_MAP(field, gb, contribution)
   WHERE FIELD_MAP.field = :field AND FIELD_MAP.contribution <> 0
 )
-SELECT d, field, [source], gb, gb2, [primaryKey], contribution
+SELECT d, field, [source], gb, gb2, [primaryKey], custNum, reserveNum, reserveState, exclusionReasonCandidate, contribution
 FROM DETAIL
 ORDER BY d, [source], [primaryKey], field;

@@ -85,6 +85,10 @@ public class CataractStatsSystemRepository {
                         rs.getString("gb"),
                         rs.getString("gb2"),
                         rs.getString("primaryKey"),
+                        rs.getString("custNum"),
+                        rs.getString("reserveNum"),
+                        rs.getString("reserveState"),
+                        rs.getString("exclusionReasonCandidate"),
                         rs.getInt("contribution")));
     }
 }

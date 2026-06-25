@@ -44,6 +44,7 @@ class ReservationStatsSqlResourceTest {
         assertThat(resolvedSql)
                 .contains("'2026-06-22'", ":date", ":field")
                 .contains("OPENQUERY(EICN_MySQL", "CROSS APPLY", "naverReservation")
+                .contains("custNum", "reserveNum", "reserveState", "exclusionReasonCandidate")
                 .doesNotContain("__OQ_DATE__");
         assertThat(countOccurrences(resolvedSql, ":date")).isEqualTo(countOccurrences(baseSql, ":date"));
         assertThat(countOccurrences(resolvedSql, ":field")).isEqualTo(countOccurrences(baseSql, ":field"));
@@ -104,6 +105,7 @@ class ReservationStatsSqlResourceTest {
         assertThat(sql)
                 .contains(":date", ":field")
                 .contains("CROSS APPLY", "totalCataract", "CH_EXAM", "CH_TM")
+                .contains("custNum", "reserveNum", "reserveState", "exclusionReasonCandidate")
                 .doesNotContain("OPENQUERY", "__OQ_");
     }
 

@@ -1,6 +1,7 @@
 package com.bviit.analytics.repository.reservation;
 
-import lombok.RequiredArgsConstructor;
+import com.bviit.analytics.util.SqlLoader;
+
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
 import org.springframework.jdbc.core.namedparam.NamedParameterJdbcTemplate;
@@ -15,12 +16,19 @@ import java.util.Map;
 @Repository
 public class MockReservationRepository {
 
+    private static final String MONTHLY_BY_YEARS_SQL = "sql/mock/reservation/monthly-by-years.sql";
+    private static final String KPI_BY_YEARS_SQL = "sql/mock/reservation/kpi-by-years.sql";
+
     private final NamedParameterJdbcTemplate jdbc;
+    private final String monthlyByYearsSql;
+    private final String kpiByYearsSql;
 
     public MockReservationRepository(
             @Qualifier("mockJdbcTemplate") NamedParameterJdbcTemplate jdbc
     ) {
         this.jdbc = jdbc;
+        this.monthlyByYearsSql = SqlLoader.load(MONTHLY_BY_YEARS_SQL);
+        this.kpiByYearsSql = SqlLoader.load(KPI_BY_YEARS_SQL);
     }
 
     public List<Map<String, Object>> findMonthlyByYears(List<Integer> years) {
@@ -28,13 +36,7 @@ public class MockReservationRepository {
         int maxYear = years.stream().mapToInt(Integer::intValue).max().orElse(2026);
 
         return jdbc.queryForList(
-                """
-                SELECT year, month, surgery, outpatient, dreamlens,
-                       (surgery + outpatient + dreamlens) AS total
-                FROM reservation_monthly
-                WHERE year >= :minYear AND year <= :maxYear
-                ORDER BY year, month
-                """,
+                monthlyByYearsSql,
                 new MapSqlParameterSource()
                         .addValue("minYear", minYear)
                         .addValue("maxYear", maxYear)
@@ -46,17 +48,7 @@ public class MockReservationRepository {
         int maxYear = years.stream().mapToInt(Integer::intValue).max().orElse(2026);
 
         return jdbc.queryForList(
-                """
-                SELECT year,
-                       SUM(surgery) AS surgery,
-                       SUM(outpatient) AS outpatient,
-                       SUM(dreamlens) AS dreamlens,
-                       SUM(surgery + outpatient + dreamlens) AS total
-                FROM reservation_monthly
-                WHERE year >= :minYear AND year <= :maxYear
-                GROUP BY year
-                ORDER BY year
-                """,
+                kpiByYearsSql,
                 new MapSqlParameterSource()
                         .addValue("minYear", minYear)
                         .addValue("maxYear", maxYear)

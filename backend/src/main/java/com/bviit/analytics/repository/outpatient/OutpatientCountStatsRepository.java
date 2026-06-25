@@ -1,5 +1,7 @@
 package com.bviit.analytics.repository.outpatient;
 
+import com.bviit.analytics.util.SqlLoader;
+
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Profile;
 import org.springframework.jdbc.core.namedparam.MapSqlParameterSource;
@@ -23,26 +25,20 @@ public class OutpatientCountStatsRepository {
 
     private final NamedParameterJdbcTemplate jdbc;
 
+    private static final String FIND_OUTPATIENT_COUNT_MONTHLY_SQL = "sql/outpatient/find-outpatient-count-monthly.sql";
+
+    private final String findOutpatientCountMonthlySql;
+
     public OutpatientCountStatsRepository(
             @Qualifier("statsJdbcTemplate") NamedParameterJdbcTemplate jdbc
     ) {
         this.jdbc = jdbc;
+        this.findOutpatientCountMonthlySql = SqlLoader.load(FIND_OUTPATIENT_COUNT_MONTHLY_SQL);
     }
 
     /** 월별 외래수 = RESERVATION F + 내원/퇴원(I/H) 행 수. */
     public List<Map<String, Object>> findOutpatientCountMonthly(String from, String to) {
-        String sql = """
-            SELECT CAST(SUBSTRING(r.RESERVE_DATE, 1, 4) AS INT) AS yr,
-                   CAST(SUBSTRING(r.RESERVE_DATE, 6, 2) AS INT) AS mo,
-                   COUNT(*) AS cnt
-            FROM RESERVATION r WITH(NOLOCK)
-            WHERE r.RESERVE_DATE >= :from AND r.RESERVE_DATE <= :to
-              AND r.RESERVE_FLAG = 'F'
-              AND r.RESERVE_STATE IN ('I','H')
-            GROUP BY CAST(SUBSTRING(r.RESERVE_DATE, 1, 4) AS INT),
-                     CAST(SUBSTRING(r.RESERVE_DATE, 6, 2) AS INT)
-            ORDER BY yr, mo
-            """;
+        String sql = findOutpatientCountMonthlySql;
         return jdbc.queryForList(sql, params(from, to));
     }
 
