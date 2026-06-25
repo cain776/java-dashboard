@@ -31,6 +31,8 @@ public class ReservationStatsSnapshotStore {
                 ReservationStatsSnapshot::locked,
                 ReservationStatsSnapshot::days,
                 ReservationStatsDailyRow::date,
+                ReservationStatsSnapshot::schemaVersion,
+                ReservationStatsSnapshot.CURRENT_SCHEMA_VERSION,
                 "스냅샷"
         );
     }

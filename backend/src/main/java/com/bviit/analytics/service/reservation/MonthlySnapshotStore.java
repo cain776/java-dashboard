@@ -20,6 +20,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.function.Predicate;
+import java.util.function.ToIntFunction;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
@@ -38,6 +39,8 @@ final class MonthlySnapshotStore<TSnapshot, TDaily> {
     private final Predicate<TSnapshot> lockedExtractor;
     private final Function<TSnapshot, List<TDaily>> daysExtractor;
     private final Function<TDaily, String> dateExtractor;
+    private final ToIntFunction<TSnapshot> schemaVersionExtractor;
+    private final int currentSchemaVersion;
     private final String snapshotLabel;
 
     MonthlySnapshotStore(
@@ -48,6 +51,8 @@ final class MonthlySnapshotStore<TSnapshot, TDaily> {
             Predicate<TSnapshot> lockedExtractor,
             Function<TSnapshot, List<TDaily>> daysExtractor,
             Function<TDaily, String> dateExtractor,
+            ToIntFunction<TSnapshot> schemaVersionExtractor,
+            int currentSchemaVersion,
             String snapshotLabel
     ) {
         this.mapper = Objects.requireNonNull(mapper, "mapper");
@@ -57,6 +62,11 @@ final class MonthlySnapshotStore<TSnapshot, TDaily> {
         this.lockedExtractor = Objects.requireNonNull(lockedExtractor, "lockedExtractor");
         this.daysExtractor = Objects.requireNonNull(daysExtractor, "daysExtractor");
         this.dateExtractor = Objects.requireNonNull(dateExtractor, "dateExtractor");
+        this.schemaVersionExtractor = Objects.requireNonNull(schemaVersionExtractor, "schemaVersionExtractor");
+        if (currentSchemaVersion < 1) {
+            throw new IllegalArgumentException("currentSchemaVersion must be >= 1: " + currentSchemaVersion);
+        }
+        this.currentSchemaVersion = currentSchemaVersion;
         this.snapshotLabel = Objects.requireNonNull(snapshotLabel, "snapshotLabel");
     }
 
@@ -66,11 +76,21 @@ final class MonthlySnapshotStore<TSnapshot, TDaily> {
     Optional<TSnapshot> find(String period) {
         Path f = file(period);
         if (!Files.exists(f)) return Optional.empty();
+        TSnapshot snapshot;
         try {
-            return Optional.of(mapper.readValue(f.toFile(), snapshotType));
+            snapshot = mapper.readValue(f.toFile(), snapshotType);
         } catch (IOException e) {
             throw new UncheckedIOException(snapshotLabel + " 읽기 실패: " + period, e);
         }
+        // 미래 버전 거부: 현재 코드보다 새 스키마로 저장된 파일은 안전하게 못 읽으므로 fail-closed.
+        // (schemaVersion 누락/0은 DTO 생성자가 현재 버전으로 채우므로 여기선 항상 1 이상.)
+        int schemaVersion = schemaVersionExtractor.applyAsInt(snapshot);
+        if (schemaVersion > currentSchemaVersion) {
+            throw new SnapshotInvariantViolationException(
+                    snapshotLabel + " schemaVersion " + schemaVersion
+                            + " 이 지원 버전(" + currentSchemaVersion + ")보다 높습니다 — 코드 업데이트 필요: " + period);
+        }
+        return Optional.of(snapshot);
     }
 
     /** 해당 월이 PDF 등 고정 스냅샷이라 재확정 금지인지. 없으면 false. */
@@ -146,6 +166,13 @@ final class MonthlySnapshotStore<TSnapshot, TDaily> {
         String period = periodExtractor.apply(snapshot);
         validatePeriod(period);
         YearMonth yearMonth = YearMonth.parse(period);
+
+        int schemaVersion = schemaVersionExtractor.applyAsInt(snapshot);
+        if (schemaVersion < 1 || schemaVersion > currentSchemaVersion) {
+            throw new SnapshotInvariantViolationException(
+                    snapshotLabel + " schemaVersion 이 지원 범위(1.." + currentSchemaVersion
+                            + ")를 벗어났습니다: " + schemaVersion + " (" + period + ")");
+        }
 
         List<TDaily> days = daysExtractor.apply(snapshot);
         if (days == null) {
