@@ -17,6 +17,25 @@ public record ReservationStatsSnapshot(
         String confirmedAt,   // ISO-8601 (저장 시각)
         String confirmedBy,   // 확정한 사용자 로그인 ID
         boolean locked,       // true면 재확정(라이브 덮어쓰기) 금지
-        List<ReservationStatsDailyRow> days
+        List<ReservationStatsDailyRow> days,
+        int schemaVersion     // 스냅샷 JSON 구조 버전
 ) {
+    public static final int CURRENT_SCHEMA_VERSION = 1;
+
+    public ReservationStatsSnapshot {
+        if (schemaVersion == 0) {
+            schemaVersion = CURRENT_SCHEMA_VERSION;
+        }
+        days = List.copyOf(days);
+    }
+
+    public ReservationStatsSnapshot(
+            String period,
+            String confirmedAt,
+            String confirmedBy,
+            boolean locked,
+            List<ReservationStatsDailyRow> days
+    ) {
+        this(period, confirmedAt, confirmedBy, locked, days, CURRENT_SCHEMA_VERSION);
+    }
 }

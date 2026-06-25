@@ -7,7 +7,11 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.format.DateTimeParseException;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +79,7 @@ final class MonthlySnapshotStore<TSnapshot, TDaily> {
 
     /** 원자적 저장(temp 작성 후 rename) — 동시/중단 시 부분 파일 방지. */
     void save(TSnapshot snapshot) {
+        validateSnapshot(snapshot);
         String period = periodExtractor.apply(snapshot);
         Path target = file(period);
         try {
@@ -128,9 +133,52 @@ final class MonthlySnapshotStore<TSnapshot, TDaily> {
     }
 
     private Path file(String period) {
+        validatePeriod(period);
+        return dir.resolve(period + JSON_EXTENSION);
+    }
+
+    private void validateSnapshot(TSnapshot snapshot) {
+        Objects.requireNonNull(snapshot, "snapshot");
+
+        String period = periodExtractor.apply(snapshot);
+        validatePeriod(period);
+        YearMonth yearMonth = YearMonth.parse(period);
+
+        List<TDaily> days = Objects.requireNonNull(daysExtractor.apply(snapshot), snapshotLabel + " days");
+        if (days.isEmpty()) {
+            throw new IllegalArgumentException(snapshotLabel + " days must not be empty: " + period);
+        }
+        if (days.size() > yearMonth.lengthOfMonth()) {
+            throw new IllegalArgumentException(snapshotLabel + " days exceeds month length: " + period);
+        }
+
+        HashSet<String> dates = new HashSet<>();
+        for (TDaily day : days) {
+            Objects.requireNonNull(day, snapshotLabel + " day");
+            String dateText = Objects.requireNonNull(dateExtractor.apply(day), snapshotLabel + " day date");
+            LocalDate date = parseDate(dateText);
+            if (!YearMonth.from(date).equals(yearMonth)) {
+                throw new IllegalArgumentException(
+                        snapshotLabel + " day date must belong to period: period=" + period + ", date=" + dateText
+                );
+            }
+            if (!dates.add(dateText)) {
+                throw new IllegalArgumentException(snapshotLabel + " duplicate day date: " + dateText);
+            }
+        }
+    }
+
+    private static void validatePeriod(String period) {
         if (period == null || !PERIOD.matcher(period).matches()) {
             throw new IllegalArgumentException("period must be YYYY-MM: " + period);
         }
-        return dir.resolve(period + JSON_EXTENSION);
+    }
+
+    private LocalDate parseDate(String date) {
+        try {
+            return LocalDate.parse(date);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException(snapshotLabel + " day date must be yyyy-MM-dd: " + date, e);
+        }
     }
 }
