@@ -36,6 +36,43 @@ public class GlobalExceptionHandler {
                 .body(ErrorResponse.of(400, "요청 값을 다시 확인해주세요.", errors));
     }
 
+    @ExceptionHandler(InvalidPeriodException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidPeriod(InvalidPeriodException ex) {
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.of(400, ex.getMessage()));
+    }
+
+    @ExceptionHandler(UnknownStatsFieldException.class)
+    public ResponseEntity<ErrorResponse> handleUnknownStatsField(UnknownStatsFieldException ex) {
+        return ResponseEntity.badRequest()
+                .body(ErrorResponse.of(400, ex.getMessage()));
+    }
+
+    @ExceptionHandler(SnapshotLockedException.class)
+    public ResponseEntity<ErrorResponse> handleSnapshotLocked(SnapshotLockedException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of(409, ex.getMessage()));
+    }
+
+    @ExceptionHandler(SnapshotInvariantViolationException.class)
+    public ResponseEntity<ErrorResponse> handleSnapshotInvariantViolation(SnapshotInvariantViolationException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.of(409, ex.getMessage()));
+    }
+
+    @ExceptionHandler(DataSourceUnavailableException.class)
+    public ResponseEntity<ErrorResponse> handleDataSourceUnavailable(DataSourceUnavailableException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(ErrorResponse.of(503, ex.getMessage(), ex.getMeta()));
+    }
+
+    @ExceptionHandler(SqlResourceLoadException.class)
+    public ResponseEntity<ErrorResponse> handleSqlResourceLoad(SqlResourceLoadException ex) {
+        log.error("SQL 리소스 로드 실패", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(ErrorResponse.of(500, "SQL 리소스를 불러오지 못했습니다."));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ErrorResponse> handleIllegalArgument(IllegalArgumentException ex) {
         return ResponseEntity.badRequest()

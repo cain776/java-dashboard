@@ -1,5 +1,6 @@
 package com.bviit.analytics.util;
 
+import com.bviit.analytics.exception.SqlResourceLoadException;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.util.StreamUtils;
 
@@ -17,7 +18,7 @@ public final class SqlLoader {
         try (InputStream inputStream = resource.getInputStream()) {
             return StreamUtils.copyToString(inputStream, StandardCharsets.UTF_8);
         } catch (IOException e) {
-            throw new IllegalStateException("SQL resource not found: " + classpathLocation, e);
+            throw new SqlResourceLoadException("SQL resource not found: " + classpathLocation, e);
         }
     }
 }

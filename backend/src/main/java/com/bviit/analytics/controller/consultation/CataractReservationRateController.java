@@ -4,6 +4,7 @@ import com.bviit.analytics.controller.stats.StatsRequestValidator;
 
 import com.bviit.analytics.dto.ApiResponse;
 import com.bviit.analytics.dto.consultation.CataractReservationRateItem;
+import com.bviit.analytics.exception.DataSourceUnavailableException;
 import com.bviit.analytics.service.consultation.CataractReservationRateService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -30,7 +31,6 @@ public class CataractReservationRateController {
         StatsRequestValidator.validateYears(years);
         return realService
                 .map(service -> ResponseEntity.ok(ApiResponse.ok(service.getMonthlyRates(years, category))))
-                .orElseGet(() -> ResponseEntity.status(503)
-                        .body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
+                .orElseThrow(() -> new DataSourceUnavailableException("실 데이터 소스(MSSQL)가 연결되지 않았습니다."));
     }
 }

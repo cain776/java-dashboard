@@ -1,5 +1,6 @@
 package com.bviit.analytics.util;
 
+import com.bviit.analytics.exception.SqlResourceLoadException;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -24,7 +25,7 @@ class SqlLoaderTest {
     @Test
     void 없는_sql_리소스는_경로를_포함한_예외를_낸다() {
         assertThatThrownBy(() -> SqlLoader.load("sql/none.sql"))
-                .isInstanceOf(IllegalStateException.class)
+                .isInstanceOf(SqlResourceLoadException.class)
                 .hasMessageContaining("sql/none.sql");
     }
 

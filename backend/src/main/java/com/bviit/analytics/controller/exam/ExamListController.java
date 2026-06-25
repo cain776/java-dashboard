@@ -2,6 +2,7 @@ package com.bviit.analytics.controller.exam;
 
 import com.bviit.analytics.dto.ApiResponse;
 import com.bviit.analytics.controller.stats.StatsRequestValidator;
+import com.bviit.analytics.exception.DataSourceUnavailableException;
 import com.bviit.analytics.service.exam.ExamListService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -38,10 +39,10 @@ public class ExamListController {
         StatsRequestValidator.validateDateRange(from, to, MAX_RANGE_DAYS);
         return examListService
                 .map(service -> ResponseEntity.ok(ApiResponse.ok(service.getExamList(from.toString(), to.toString()))))
-                .orElseGet(ExamListController::realDataUnavailable);
+                .orElseThrow(ExamListController::realDataUnavailable);
     }
 
-    private static ResponseEntity<ApiResponse<List<Map<String, Object>>>> realDataUnavailable() {
-        return ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다."));
+    private static DataSourceUnavailableException realDataUnavailable() {
+        return new DataSourceUnavailableException("실 데이터 소스(MSSQL)가 연결되지 않았습니다.");
     }
 }

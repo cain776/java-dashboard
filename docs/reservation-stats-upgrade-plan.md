@@ -137,8 +137,9 @@
 - **row-level drill-down 1차 구현**(이번 작업): diff가 난 일자/필드를 대상으로 원천 row 후보를 조회하는 API를 추가했다. 응답은 `source`, `GB`, `GB2`, `PK`, `contribution`을 포함하며, 프론트 진단 CSV에는 상세조회 URL을 함께 기재한다.
 - **스냅샷 schemaVersion·저장 불변식 검증**(2026-06-25): 시력교정/백내장 스냅샷에 `schemaVersion`을 추가하고, 저장 직전 빈 days·period 밖 날짜·중복 날짜·날짜 형식을 검증한다.
 - **API 메타 응답 1차 적용**(2026-06-25): `data` 배열 shape는 유지하고 `ApiResponse.meta`에 `source`, `period`, `schemaVersion`, `formulaVersion`, `locked`, `confirmedAt`, `confirmedBy`를 추가했다. 프론트는 툴바에 `PDF 고정`/`스냅샷`/`라이브` 배지를 표시한다.
+- **공통 예외/에러 응답 정리**(2026-06-25): MSSQL 미연결, PDF 고정 스냅샷 차단, period/field 검증, SQL 리소스 로드 실패, 스냅샷 불변식 위반을 의미 있는 예외로 분리하고 `GlobalExceptionHandler`에서 400/409/500/503 응답을 일원화했다. `ErrorResponse.meta`는 미연결 응답의 출처 메타데이터를 보존한다.
 
-아직 남은 것은 구현 과제가 아니라 운영 검증/고도화다. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~lock map 회수~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~row builder/CSV/summary 공통화~~·~~도메인별 formulas 계층화~~·~~헤더 메타 전체 데이터화~~·~~백엔드 스냅샷 store 공통화~~·~~SQL 파일 분리~~·~~진단/diff~~·~~row-level drill-down 1차~~·~~colSpan 1차~~·~~시드 dead code 정리~~·~~스냅샷 schemaVersion/불변식 검증~~·~~API 메타 응답 1차~~는 완료.)
+아직 남은 것은 구현 과제가 아니라 운영 검증/고도화다. (~~시드 폴백 제거~~·~~월 단위 lock~~·~~lock map 회수~~·~~골든마스터 테스트~~·~~shared core 1차~~·~~row builder/CSV/summary 공통화~~·~~도메인별 formulas 계층화~~·~~헤더 메타 전체 데이터화~~·~~백엔드 스냅샷 store 공통화~~·~~SQL 파일 분리~~·~~진단/diff~~·~~row-level drill-down 1차~~·~~colSpan 1차~~·~~시드 dead code 정리~~·~~스냅샷 schemaVersion/불변식 검증~~·~~API 메타 응답 1차~~·~~공통 예외/에러 응답 정리~~는 완료.)
 
 ## 4. 코드 품질 원칙
 
@@ -626,7 +627,7 @@ daily SQL과 drill-down SQL 분리 유지 결정:
 권장:
 
 - mssql profile 미활성 시 snapshot 조회 가능 여부
-- live service 미사용 시 503 응답 정책(미연결 표시)
+- live service 미사용 시 공통 예외 핸들러의 503 응답 정책(미연결 표시, meta 보존)
 
 ### CI 드리프트 가드
 
@@ -697,6 +698,7 @@ gradlew.bat test
 | 6월 데이터 드리프트 | unlocked/live 데이터는 골든마스터에서 제외 |
 | 동시 fill로 저장 유실 | period lock 선적용 |
 | 데이터 출처 표시 불일치 | `ApiResponse.meta` source/locked/formulaVersion을 기준으로 표시하고, `data` 배열 shape는 유지 |
+| 미연결/잠금/검증 실패 응답 불일치 | 의미 있는 예외 타입과 `GlobalExceptionHandler`로 400/409/500/503 응답을 일원화 |
 | SQL 분리 중 파라미터 누락 | SQL loader 테스트와 기존 결과 diff |
 | 진단 기능이 집계와 다른 기준 사용 | drill-down SQL 기준을 문서화하고 registry/SQL 테스트 + parity API로 대조 |
 
@@ -715,6 +717,7 @@ gradlew.bat test
 - SQL은 파일로 분리되어 있다.
 - snapshot vs live diff와 row-level drill-down으로 일자/필드 차이의 원천 row 후보를 추적할 수 있다.
 - daily SQL과 drill-down SQL의 기준 차이는 parity API/CSV로 운영 검증할 수 있다.
+- MSSQL 미연결, PDF 고정, 검증 실패, SQL 리소스 실패는 공통 예외 핸들러를 통해 일관된 `ErrorResponse`로 응답한다.
 - 오류 발생 시 커밋 단위로 복귀 가능하다.
 
 ## 13. 최종 원칙

@@ -1,6 +1,7 @@
 package com.bviit.analytics.controller.stats;
 
 import com.bviit.analytics.dto.ApiResponse;
+import com.bviit.analytics.exception.DataSourceUnavailableException;
 import org.springframework.http.ResponseEntity;
 
 import java.util.Optional;
@@ -26,10 +27,10 @@ public final class StatsPanelSupport {
 
         return realService
                 .map(service -> ResponseEntity.ok(ApiResponse.ok(realFetcher.apply(service))))
-                .orElseGet(StatsPanelSupport::realDataUnavailable);
+                .orElseThrow(StatsPanelSupport::realDataUnavailable);
     }
 
-    private static <T> ResponseEntity<ApiResponse<T>> realDataUnavailable() {
-        return ResponseEntity.status(503).body(ApiResponse.error(REAL_DATA_UNAVAILABLE_MESSAGE));
+    private static DataSourceUnavailableException realDataUnavailable() {
+        return new DataSourceUnavailableException(REAL_DATA_UNAVAILABLE_MESSAGE);
     }
 }

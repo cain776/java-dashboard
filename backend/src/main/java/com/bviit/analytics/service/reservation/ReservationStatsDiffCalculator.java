@@ -2,6 +2,8 @@ package com.bviit.analytics.service.reservation;
 
 import com.bviit.analytics.dto.reservation.ReservationStatsDiffItem;
 import com.bviit.analytics.dto.reservation.ReservationStatsDiffResponse;
+import com.bviit.analytics.exception.InvalidPeriodException;
+import com.bviit.analytics.exception.UnknownStatsFieldException;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -47,7 +49,7 @@ final class ReservationStatsDiffCalculator {
         return fields.stream()
                 .filter(field -> field.name().equals(name))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unknown reservation stats field: " + name));
+                .orElseThrow(() -> new UnknownStatsFieldException("Unknown reservation stats field: " + name));
     }
 
     static Integer delta(Integer snapshotValue, Integer liveValue) {
@@ -57,7 +59,7 @@ final class ReservationStatsDiffCalculator {
     static LocalDate requireDateInPeriod(YearMonth period, String date) {
         LocalDate parsed = LocalDate.parse(date);
         if (!YearMonth.from(parsed).equals(period)) {
-            throw new IllegalArgumentException("date must belong to period: " + period);
+            throw new InvalidPeriodException("date must belong to period: " + period);
         }
         return parsed;
     }

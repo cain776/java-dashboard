@@ -1,5 +1,6 @@
 package com.bviit.analytics.service.reservation;
 
+import com.bviit.analytics.exception.SnapshotInvariantViolationException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
@@ -138,39 +139,49 @@ final class MonthlySnapshotStore<TSnapshot, TDaily> {
     }
 
     private void validateSnapshot(TSnapshot snapshot) {
-        Objects.requireNonNull(snapshot, "snapshot");
+        if (snapshot == null) {
+            throw new SnapshotInvariantViolationException(snapshotLabel + " snapshot must not be null");
+        }
 
         String period = periodExtractor.apply(snapshot);
         validatePeriod(period);
         YearMonth yearMonth = YearMonth.parse(period);
 
-        List<TDaily> days = Objects.requireNonNull(daysExtractor.apply(snapshot), snapshotLabel + " days");
+        List<TDaily> days = daysExtractor.apply(snapshot);
+        if (days == null) {
+            throw new SnapshotInvariantViolationException(snapshotLabel + " days must not be null: " + period);
+        }
         if (days.isEmpty()) {
-            throw new IllegalArgumentException(snapshotLabel + " days must not be empty: " + period);
+            throw new SnapshotInvariantViolationException(snapshotLabel + " days must not be empty: " + period);
         }
         if (days.size() > yearMonth.lengthOfMonth()) {
-            throw new IllegalArgumentException(snapshotLabel + " days exceeds month length: " + period);
+            throw new SnapshotInvariantViolationException(snapshotLabel + " days exceeds month length: " + period);
         }
 
         HashSet<String> dates = new HashSet<>();
         for (TDaily day : days) {
-            Objects.requireNonNull(day, snapshotLabel + " day");
-            String dateText = Objects.requireNonNull(dateExtractor.apply(day), snapshotLabel + " day date");
+            if (day == null) {
+                throw new SnapshotInvariantViolationException(snapshotLabel + " day must not be null: " + period);
+            }
+            String dateText = dateExtractor.apply(day);
+            if (dateText == null) {
+                throw new SnapshotInvariantViolationException(snapshotLabel + " day date must not be null: " + period);
+            }
             LocalDate date = parseDate(dateText);
             if (!YearMonth.from(date).equals(yearMonth)) {
-                throw new IllegalArgumentException(
+                throw new SnapshotInvariantViolationException(
                         snapshotLabel + " day date must belong to period: period=" + period + ", date=" + dateText
                 );
             }
             if (!dates.add(dateText)) {
-                throw new IllegalArgumentException(snapshotLabel + " duplicate day date: " + dateText);
+                throw new SnapshotInvariantViolationException(snapshotLabel + " duplicate day date: " + dateText);
             }
         }
     }
 
     private static void validatePeriod(String period) {
         if (period == null || !PERIOD.matcher(period).matches()) {
-            throw new IllegalArgumentException("period must be YYYY-MM: " + period);
+            throw new SnapshotInvariantViolationException("period must be YYYY-MM: " + period);
         }
     }
 
@@ -178,7 +189,7 @@ final class MonthlySnapshotStore<TSnapshot, TDaily> {
         try {
             return LocalDate.parse(date);
         } catch (DateTimeParseException e) {
-            throw new IllegalArgumentException(snapshotLabel + " day date must be yyyy-MM-dd: " + date, e);
+            throw new SnapshotInvariantViolationException(snapshotLabel + " day date must be yyyy-MM-dd: " + date, e);
         }
     }
 }

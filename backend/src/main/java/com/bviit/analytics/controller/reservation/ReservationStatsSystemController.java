@@ -8,6 +8,8 @@ import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsParityResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsResponseMeta;
 import com.bviit.analytics.dto.reservation.ReservationStatsSnapshot;
+import com.bviit.analytics.exception.DataSourceUnavailableException;
+import com.bviit.analytics.exception.SnapshotLockedException;
 import com.bviit.analytics.service.reservation.ReservationStatsDiagnosticDiffService;
 import com.bviit.analytics.service.reservation.ReservationStatsSnapshotStore;
 import com.bviit.analytics.service.reservation.ReservationStatsSystemService;
@@ -77,12 +79,11 @@ public class ReservationStatsSystemController {
                     .toList();
             return ResponseEntity.ok(ApiResponse.ok(days, snapshotMeta(period, snapshot.get())));
         }
-        return service
-                .map(svc -> ResponseEntity.ok(ApiResponse.ok(
-                        svc.getDailyCounts(from.toString(), to.toString()),
-                        liveMeta(period)
-                )))
-                .orElseGet(() -> realDataUnavailable(period));
+        ReservationStatsSystemService liveService = requireLiveService(period);
+        return ResponseEntity.ok(ApiResponse.ok(
+                liveService.getDailyCounts(from.toString(), to.toString()),
+                liveMeta(period)
+        ));
     }
 
     /**
@@ -107,16 +108,10 @@ public class ReservationStatsSystemController {
     ) {
         StatsRequestValidator.validatePeriod(period);
         // PDF 고정 스냅샷(예: 2026-01~05)은 라이브 재확정으로 덮어쓰지 않는다.
-        if (snapshotStore.isLocked(period)) {
-            return ResponseEntity.status(409).body(ApiResponse.error("PDF 고정 스냅샷이라 재확정(덮어쓰기)할 수 없습니다: " + period));
-        }
+        ensureWritable(period, "재확정(덮어쓰기)");
         String by = authentication != null ? authentication.getName() : "unknown";
-        return service
-                .map(svc -> {
-                    ReservationStatsSnapshot snapshot = svc.saveSnapshot(period, by);
-                    return ResponseEntity.ok(ApiResponse.ok(snapshot, snapshotMeta(period, snapshot)));
-                })
-                .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
+        ReservationStatsSnapshot snapshot = requireLiveService(period).saveSnapshot(period, by);
+        return ResponseEntity.ok(ApiResponse.ok(snapshot, snapshotMeta(period, snapshot)));
     }
 
     /**
@@ -129,16 +124,10 @@ public class ReservationStatsSystemController {
             Authentication authentication
     ) {
         StatsRequestValidator.validatePeriod(period);
-        if (snapshotStore.isLocked(period)) {
-            return ResponseEntity.status(409).body(ApiResponse.error("PDF 고정 스냅샷이라 호출(채움)할 수 없습니다: " + period));
-        }
+        ensureWritable(period, "호출(채움)");
         String by = authentication != null ? authentication.getName() : "unknown";
-        return service
-                .map(svc -> {
-                    ReservationStatsSnapshot snapshot = svc.fillSnapshot(period, by);
-                    return ResponseEntity.ok(ApiResponse.ok(snapshot, snapshotMeta(period, snapshot)));
-                })
-                .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
+        ReservationStatsSnapshot snapshot = requireLiveService(period).fillSnapshot(period, by);
+        return ResponseEntity.ok(ApiResponse.ok(snapshot, snapshotMeta(period, snapshot)));
     }
 
     @GetMapping("/snapshots")
@@ -149,9 +138,7 @@ public class ReservationStatsSystemController {
     @GetMapping("/diagnostics/diff")
     public ResponseEntity<ApiResponse<ReservationStatsDiffResponse>> diff(@RequestParam String period) {
         StatsRequestValidator.validatePeriod(period);
-        return diagnosticDiffService
-                .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.diff(period))))
-                .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
+        return ResponseEntity.ok(ApiResponse.ok(requireDiagnosticService(period).diff(period)));
     }
 
     @GetMapping("/diagnostics/drill-down")
@@ -161,9 +148,7 @@ public class ReservationStatsSystemController {
             @RequestParam String field
     ) {
         StatsRequestValidator.validatePeriod(period);
-        return diagnosticDiffService
-                .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.drillDown(period, date.toString(), field))))
-                .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
+        return ResponseEntity.ok(ApiResponse.ok(requireDiagnosticService(period).drillDown(period, date.toString(), field)));
     }
 
     @GetMapping("/diagnostics/parity")
@@ -172,9 +157,21 @@ public class ReservationStatsSystemController {
             @RequestParam String field
     ) {
         StatsRequestValidator.validatePeriod(period);
-        return diagnosticDiffService
-                .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.parity(period, field))))
-                .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
+        return ResponseEntity.ok(ApiResponse.ok(requireDiagnosticService(period).parity(period, field)));
+    }
+
+    private void ensureWritable(String period, String action) {
+        if (snapshotStore.isLocked(period)) {
+            throw new SnapshotLockedException("PDF 고정 스냅샷이라 " + action + "할 수 없습니다: " + period);
+        }
+    }
+
+    private ReservationStatsSystemService requireLiveService(String period) {
+        return service.orElseThrow(() -> dataSourceUnavailable(period));
+    }
+
+    private ReservationStatsDiagnosticDiffService requireDiagnosticService(String period) {
+        return diagnosticDiffService.orElseThrow(() -> dataSourceUnavailable(period));
     }
 
     private static ReservationStatsResponseMeta snapshotMeta(String period, ReservationStatsSnapshot snapshot) {
@@ -196,14 +193,14 @@ public class ReservationStatsSystemController {
         );
     }
 
-    private static ResponseEntity<ApiResponse<List<ReservationStatsDailyRow>>> realDataUnavailable(String period) {
-        return ResponseEntity.status(503).body(ApiResponse.error(
+    private static DataSourceUnavailableException dataSourceUnavailable(String period) {
+        return new DataSourceUnavailableException(
                 "실 데이터 소스(MSSQL)가 연결되지 않았습니다.",
                 ReservationStatsResponseMeta.unavailable(
                         period,
                         FORMULA_VERSION,
                         ReservationStatsSnapshot.CURRENT_SCHEMA_VERSION
                 )
-        ));
+        );
     }
 }

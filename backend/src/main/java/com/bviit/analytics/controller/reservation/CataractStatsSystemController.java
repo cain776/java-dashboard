@@ -8,6 +8,8 @@ import com.bviit.analytics.dto.reservation.ReservationStatsDiffResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsDrillDownResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsParityResponse;
 import com.bviit.analytics.dto.reservation.ReservationStatsResponseMeta;
+import com.bviit.analytics.exception.DataSourceUnavailableException;
+import com.bviit.analytics.exception.SnapshotLockedException;
 import com.bviit.analytics.service.reservation.CataractStatsDiagnosticDiffService;
 import com.bviit.analytics.service.reservation.CataractStatsSnapshotStore;
 import com.bviit.analytics.service.reservation.CataractStatsSystemService;
@@ -78,12 +80,11 @@ public class CataractStatsSystemController {
                     .toList();
             return ResponseEntity.ok(ApiResponse.ok(days, snapshotMeta(period, snapshot.get())));
         }
-        return service
-                .map(svc -> ResponseEntity.ok(ApiResponse.ok(
-                        svc.getDailyCounts(from.toString(), to.toString()),
-                        liveMeta(period)
-                )))
-                .orElseGet(() -> realDataUnavailable(period));
+        CataractStatsSystemService liveService = requireLiveService(period, "확정 스냅샷·라이브 소스(MSSQL)가 없습니다.");
+        return ResponseEntity.ok(ApiResponse.ok(
+                liveService.getDailyCounts(from.toString(), to.toString()),
+                liveMeta(period)
+        ));
     }
 
     /** 조회 시 자동 채움 필요 여부 — 당월·미잠금이고 오늘 아직 안 채운 경우만(하루 1회). */
@@ -104,16 +105,10 @@ public class CataractStatsSystemController {
             Authentication authentication
     ) {
         StatsRequestValidator.validatePeriod(period);
-        if (snapshotStore.isLocked(period)) {
-            return ResponseEntity.status(409).body(ApiResponse.error("PDF 고정 스냅샷이라 재확정(덮어쓰기)할 수 없습니다: " + period));
-        }
+        ensureWritable(period, "재확정(덮어쓰기)");
         String by = authentication != null ? authentication.getName() : "unknown";
-        return service
-                .map(svc -> {
-                    CataractStatsSnapshot snapshot = svc.saveSnapshot(period, by);
-                    return ResponseEntity.ok(ApiResponse.ok(snapshot, snapshotMeta(period, snapshot)));
-                })
-                .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
+        CataractStatsSnapshot snapshot = requireLiveService(period).saveSnapshot(period, by);
+        return ResponseEntity.ok(ApiResponse.ok(snapshot, snapshotMeta(period, snapshot)));
     }
 
     /** 호출(증분 채움) — 선택 월을 D-1까지 조회해 비어있는 날짜만 적재(있으면 보존). PDF 고정월은 차단. */
@@ -123,16 +118,10 @@ public class CataractStatsSystemController {
             Authentication authentication
     ) {
         StatsRequestValidator.validatePeriod(period);
-        if (snapshotStore.isLocked(period)) {
-            return ResponseEntity.status(409).body(ApiResponse.error("PDF 고정 스냅샷이라 호출(채움)할 수 없습니다: " + period));
-        }
+        ensureWritable(period, "호출(채움)");
         String by = authentication != null ? authentication.getName() : "unknown";
-        return service
-                .map(svc -> {
-                    CataractStatsSnapshot snapshot = svc.fillSnapshot(period, by);
-                    return ResponseEntity.ok(ApiResponse.ok(snapshot, snapshotMeta(period, snapshot)));
-                })
-                .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
+        CataractStatsSnapshot snapshot = requireLiveService(period).fillSnapshot(period, by);
+        return ResponseEntity.ok(ApiResponse.ok(snapshot, snapshotMeta(period, snapshot)));
     }
 
     @GetMapping("/snapshots")
@@ -143,9 +132,7 @@ public class CataractStatsSystemController {
     @GetMapping("/diagnostics/diff")
     public ResponseEntity<ApiResponse<ReservationStatsDiffResponse>> diff(@RequestParam String period) {
         StatsRequestValidator.validatePeriod(period);
-        return diagnosticDiffService
-                .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.diff(period))))
-                .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
+        return ResponseEntity.ok(ApiResponse.ok(requireDiagnosticService(period).diff(period)));
     }
 
     @GetMapping("/diagnostics/drill-down")
@@ -155,9 +142,7 @@ public class CataractStatsSystemController {
             @RequestParam String field
     ) {
         StatsRequestValidator.validatePeriod(period);
-        return diagnosticDiffService
-                .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.drillDown(period, date.toString(), field))))
-                .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
+        return ResponseEntity.ok(ApiResponse.ok(requireDiagnosticService(period).drillDown(period, date.toString(), field)));
     }
 
     @GetMapping("/diagnostics/parity")
@@ -166,9 +151,28 @@ public class CataractStatsSystemController {
             @RequestParam String field
     ) {
         StatsRequestValidator.validatePeriod(period);
-        return diagnosticDiffService
-                .map(svc -> ResponseEntity.ok(ApiResponse.ok(svc.parity(period, field))))
-                .orElseGet(() -> ResponseEntity.status(503).body(ApiResponse.error("실 데이터 소스(MSSQL)가 연결되지 않았습니다.")));
+        return ResponseEntity.ok(ApiResponse.ok(requireDiagnosticService(period).parity(period, field)));
+    }
+
+    private void ensureWritable(String period, String action) {
+        if (snapshotStore.isLocked(period)) {
+            throw new SnapshotLockedException("PDF 고정 스냅샷이라 " + action + "할 수 없습니다: " + period);
+        }
+    }
+
+    private CataractStatsSystemService requireLiveService(String period) {
+        return requireLiveService(period, "실 데이터 소스(MSSQL)가 연결되지 않았습니다.");
+    }
+
+    private CataractStatsSystemService requireLiveService(String period, String message) {
+        return service.orElseThrow(() -> dataSourceUnavailable(period, message));
+    }
+
+    private CataractStatsDiagnosticDiffService requireDiagnosticService(String period) {
+        return diagnosticDiffService.orElseThrow(() -> dataSourceUnavailable(
+                period,
+                "실 데이터 소스(MSSQL)가 연결되지 않았습니다."
+        ));
     }
 
     private static ReservationStatsResponseMeta snapshotMeta(String period, CataractStatsSnapshot snapshot) {
@@ -190,14 +194,14 @@ public class CataractStatsSystemController {
         );
     }
 
-    private static ResponseEntity<ApiResponse<List<CataractStatsDailyRow>>> realDataUnavailable(String period) {
-        return ResponseEntity.status(503).body(ApiResponse.error(
-                "확정 스냅샷·라이브 소스(MSSQL)가 없습니다.",
+    private static DataSourceUnavailableException dataSourceUnavailable(String period, String message) {
+        return new DataSourceUnavailableException(
+                message,
                 ReservationStatsResponseMeta.unavailable(
                         period,
                         FORMULA_VERSION,
                         CataractStatsSnapshot.CURRENT_SCHEMA_VERSION
                 )
-        ));
+        );
     }
 }

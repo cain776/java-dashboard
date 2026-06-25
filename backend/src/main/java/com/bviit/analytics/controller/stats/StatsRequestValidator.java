@@ -1,5 +1,7 @@
 package com.bviit.analytics.controller.stats;
 
+import com.bviit.analytics.exception.InvalidPeriodException;
+
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeParseException;
@@ -20,12 +22,12 @@ public final class StatsRequestValidator {
      */
     public static String validatePeriod(String period) {
         if (period == null || period.isBlank()) {
-            throw new IllegalArgumentException("기준 월(period)이 필요합니다.");
+            throw new InvalidPeriodException("기준 월(period)이 필요합니다.");
         }
         try {
             YearMonth.parse(period);
         } catch (DateTimeParseException e) {
-            throw new IllegalArgumentException("기준 월 형식이 올바르지 않습니다(YYYY-MM): " + period);
+            throw new InvalidPeriodException("기준 월 형식이 올바르지 않습니다(YYYY-MM): " + period, e);
         }
         return period;
     }
