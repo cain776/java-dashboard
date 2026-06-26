@@ -14,6 +14,13 @@ java {
 	}
 }
 
+// 소스에 한글(에러 메시지·주석 등)이 있어 컴파일 인코딩을 UTF-8로 고정한다.
+// 미지정 시 gradle 데몬 JVM의 플랫폼 기본 charset(한글 Windows=MS949)으로 컴파일돼
+// 한글 문자열 리터럴이 빌드 시점에 깨질 수 있다(머신·CI마다 비결정적).
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = 'UTF-8'
+}
+
 repositories {
 	mavenCentral()
 }

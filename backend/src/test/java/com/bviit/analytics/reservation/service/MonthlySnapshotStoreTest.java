@@ -132,6 +132,35 @@ class MonthlySnapshotStoreTest {
                 .hasMessageContaining("yyyy-MM-dd");
     }
 
+    // raw 한글 리터럴(소스 인코딩 영향 받음)과, ASCII 유니코드 이스케이프 표기(영향 안 받음).
+    private static final String KOREAN_CONFIRMED_BY = "PDF(골든와이즈 RSS 2026)";
+    private static final String KOREAN_ESCAPED = "PDF(\uACE8\uB4E0\uC640\uC774\uC988 RSS 2026)";
+
+    @Test
+    void 소스_컴파일_인코딩이_UTF8이다() {
+        // 컴파일 인코딩이 UTF-8이 아니면(예: 한글 Windows 기본 MS949) raw 한글 리터럴이
+        // 컴파일 시점에 깨져 ASCII 이스케이프 표기와 달라진다 — 회귀를 여기서 잡는다.
+        assertThat(KOREAN_CONFIRMED_BY).isEqualTo(KOREAN_ESCAPED);
+    }
+
+    @Test
+    void 한글_confirmedBy를_UTF8로_왕복한다() throws IOException {
+        MonthlySnapshotStore<TestSnapshot, TestDaily> store = newStore();
+        TestSnapshot snapshot = new TestSnapshot(
+                "2026-05", "2026-06-24T10:00:00", KOREAN_ESCAPED, true,
+                List.of(new TestDaily("2026-05-01", 10)), TEST_CURRENT_SCHEMA_VERSION);
+
+        store.save(snapshot);
+
+        // 디스크 파일에 실제 한글 UTF-8 바이트가 저장되고, 재조회 시 깨짐 없이 보존되는가.
+        String onDisk = Files.readString(dir.resolve("2026-05.json"), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(onDisk).contains(KOREAN_ESCAPED);
+        assertThat(store.find("2026-05"))
+                .get()
+                .extracting(TestSnapshot::confirmedBy)
+                .isEqualTo(KOREAN_ESCAPED);
+    }
+
     @Test
     void schemaVersion이_없는_기존_JSON은_현재_버전으로_읽는다() throws IOException {
         ObjectMapper mapper = new ObjectMapper();
