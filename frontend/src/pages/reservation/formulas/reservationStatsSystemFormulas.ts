@@ -54,27 +54,19 @@ export interface ChannelRow {
   cancelKakao: number // 카톡
 }
 
-/** 예약율류 공통 분모(콜 유입 기준). */
-const denom = (counts: SystemStatsCounts): number =>
-  counts.inboundCall +
-  counts.tmTotalDb +
-  counts.tmRecounsel +
-  counts.homeReservation +
-  Math.max(0, counts.naverReservation) +
-  counts.kakaoReservation
-
 export const computeSystemChannelRow = (counts: SystemStatsCounts, label: string): ChannelRow => {
-  const denominator = denom(counts)
   // 네이버 유효/예약은 일별(접수0인 날 거절만 있는 휴무일)에 음수가 될 수 있어 표시 시 0으로 클램프.
   // 주/월 합계는 원시(음수 포함) 합이 정확하므로, 양수인 합계 행에는 영향이 없다.
   const naverValid = Math.max(0, counts.naverValid)
   const naverReservation = Math.max(0, counts.naverReservation)
+  // 총예약 = 각 채널 예약수 합(인입콜 제외) — CH04+CH07+CH10+CH12+CH16+CH18
+  const totalReservation =
+    counts.callReservation + counts.tmReservation + counts.tmRecounselReservation +
+    counts.homeReservation + naverReservation + counts.kakaoReservation
+  // 채널별 예약율 = 해당 채널 예약수 ÷ 총예약 (엑셀 RSS 기준, 각 채널의 예약 비중).
   return {
     label,
-    // 총예약 = 각 채널 예약수 합(인입콜 제외) — CH04+CH07+CH10+CH12+CH16+CH18
-    totalReservation:
-      counts.callReservation + counts.tmReservation + counts.tmRecounselReservation +
-      counts.homeReservation + naverReservation + counts.kakaoReservation,
+    totalReservation,
     inboundCall: counts.inboundCall,
     answeredCall: counts.answeredCall,
     answerRate: pctInt(counts.answeredCall, counts.inboundCall),
@@ -82,29 +74,29 @@ export const computeSystemChannelRow = (counts: SystemStatsCounts, label: string
     newInquiryRate: pctInt(counts.newInquiry, counts.answeredCall),
     callReservation: counts.callReservation,
     reservationVsNewInquiry: pctInt(counts.callReservation, counts.newInquiry),
-    callReservationRate: pctInt(counts.callReservation, denominator),
+    callReservationRate: pctInt(counts.callReservation, totalReservation),
     tmTotalDb: counts.tmTotalDb,
     tmValidDb: counts.tmValidDb,
     tmReservation: counts.tmReservation,
     tmValidDbRate: pctInt(counts.tmReservation, counts.tmValidDb),
-    tmReservationRate: pctInt(counts.tmReservation, denominator),
+    tmReservationRate: pctInt(counts.tmReservation, totalReservation),
     tmRecounsel: counts.tmRecounsel,
     tmRecounselRatio: pctInt(counts.tmRecounsel, counts.tmTotalDb),
     tmRecounselValid: counts.tmRecounselValid,
     tmRecounselReservation: counts.tmRecounselReservation,
-    tmRecounselRate: pctInt(counts.tmRecounselReservation, denominator),
+    tmRecounselRate: pctInt(counts.tmRecounselReservation, totalReservation),
     homeReceived: counts.homeReceived,
     homeReservation: counts.homeReservation,
-    homeReservationRate: pctInt(counts.homeReservation, denominator),
+    homeReservationRate: pctInt(counts.homeReservation, totalReservation),
     naverReceived: counts.naverReceived,
     naverRejected: counts.naverRejected,
     naverValid,
     naverReservation,
     naverValidRate: pctInt(naverReservation, naverValid),
-    naverReservationRate: pctInt(naverReservation, denominator),
+    naverReservationRate: pctInt(naverReservation, totalReservation),
     kakaoInquiry: counts.kakaoInquiry,
     kakaoReservation: counts.kakaoReservation,
-    kakaoReservationRate: pctInt(counts.kakaoReservation, denominator),
+    kakaoReservationRate: pctInt(counts.kakaoReservation, totalReservation),
     cancelCallNaver: counts.cancelCallNaver,
     cancelHome: counts.cancelHome,
     cancelKakao: counts.cancelKakao,
