@@ -10,7 +10,7 @@ import {
 } from './reservationStatsSystemFormulas'
 
 describe('reservation stats channel formulas', () => {
-  it('keeps the system naver clamp and denominator behavior unchanged', () => {
+  it('computes system channel 예약율 as reservations ÷ totalReservation (with naver clamp)', () => {
     const counts: SystemStatsCounts = {
       inboundCall: 10,
       answeredCall: 8,
@@ -41,7 +41,7 @@ describe('reservation stats channel formulas', () => {
     expect(computeSystemChannelRow(counts, '1일')).toMatchObject({
       label: '1일',
       totalReservation: 18,
-      callReservationRate: 20,
+      callReservationRate: 44,
       naverValid: 0,
       naverReservation: 0,
       naverValidRate: 0,
