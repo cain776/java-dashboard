@@ -1,6 +1,6 @@
 {
   "period" : "2026-06",
-  "confirmedAt" : "2026-06-25T09:14:19.168788500",
+  "confirmedAt" : "2026-06-26T10:19:06.092887100",
   "confirmedBy" : "PDF(노안백내장 RSS 2026)",
   "locked" : false,
   "days" : [ {
@@ -566,5 +566,28 @@
       "editedBy" : "수기보정(노안백내장 RSS)",
       "editedAt" : "2026-06-25T00:00:00"
     } ]
+  }, {
+    "date" : "2026-06-25",
+    "totalCataract" : 5,
+    "totalPresbyopia" : 0,
+    "inboundCall" : 24,
+    "answeredCall" : 24,
+    "newExamInquiry" : 5,
+    "newReInquiry" : 0,
+    "newPatient" : 5,
+    "tmTotalDb" : 3,
+    "tmValidDb" : 0,
+    "tmReservation" : 0,
+    "kakaoTotalInquiry" : 0,
+    "kakaoCataractReservation" : 0,
+    "kakaoPresbyopiaReservation" : 0,
+    "onlineReservation" : 0,
+    "onlineNoShow" : 0,
+    "cancelOnline" : 0,
+    "cancelCrm" : 0,
+    "cancelKakao" : 0,
+    "visit" : 0,
+    "noShowReservation" : 0,
+    "cancel" : 0
   } ]
 }
