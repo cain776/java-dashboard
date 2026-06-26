@@ -10,7 +10,7 @@
 | [dashboard-spec.md](dashboard-spec.md) | Markdown | **대시보드 기획서** — 개요·데이터 소스(MSSQL READ ONLY)·메뉴/화면·인증·통계 API·구현 현황. (노션과 동기화본) |
 | [report-chart-status.md](report-chart-status.md) | Markdown | **월간/주간 레포트 28개 도표 현황 + 레거시 검증** (✅완료/🟡비교/🟥미완성, 1~4월 실측 차이) |
 
-> 폐기/이동: `menu-route-api-draft.md`(초안)는 dashboard-spec로 일원화되어 [`../archive/`](../archive/)로 이동됨. `report-chart-legacy-diff.md`는 report-chart-status.md에 병합됨. 서비스기획팀 KPI 기획서(대시보드와 별도 주제)는 [`../팀-kpi/`](../팀-kpi/)로 분리됨.
+> 폐기/이동: `menu-route-api-draft.md`(초안)는 dashboard-spec로 일원화되어 [`../archive/`](../archive/)로 이동됨. `report-chart-legacy-diff.md`는 report-chart-status.md에 병합됨.
 
 ## prd.html 구성 (탭)
 

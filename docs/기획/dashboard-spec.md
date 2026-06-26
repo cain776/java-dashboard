@@ -21,7 +21,6 @@
 - **폼**: react-hook-form + Zod
 - **인증**: Spring Security + JWT (HMAC-SHA256)
 - **DB**: H2(인증) / MSSQL(통계, READ ONLY)
-- **모킹**: MSW (개발 환경 API 목업)
 
 ---
 
@@ -229,16 +228,12 @@ MSSQL DataSource (mssql)  → JdbcTemplate      → RESERVATION, ExamCount 등 (
 
 ```
 backend/src/main/java/com/bviit/analytics/
-├── config/
-│   └── MssqlDataSourceConfig.java      ← MSSQL DataSource (profile: mssql)
-├── controller/stats/
-│   └── ReservationStatsController.java
-├── service/stats/
-│   └── ReservationStatsService.java    ← @Transactional(readOnly = true)
-├── repository/stats/
-│   └── ReservationStatsRepository.java ← NamedParameterJdbcTemplate
-└── dto/stats/
-    └── ReservationStatsResponse.java   ← 프론트 Zod 스키마와 일치
+├── common/config/MssqlDataSourceConfig.java   ← MSSQL DataSource (profile: mssql)
+└── reservation/                               ← 도메인 패키지
+    ├── controller/ReservationStatsController.java
+    ├── service/ReservationStatsService.java    ← @Transactional(readOnly = true)
+    ├── repository/ReservationStatsRepository.java ← SqlLoader(resources/sql/) + NamedParameterJdbcTemplate
+    └── dto/ReservationStatsResponse.java        ← 프론트 Zod 스키마와 일치
 ```
 
 <details>
@@ -271,16 +266,16 @@ spring.datasource.mssql.hikari.read-only=true
 
 ### 8.1 신규 통계 API 추가 순서
 
-1. Entity/DTO 정의 (`entity/`, `dto/request/`, `dto/response/`)
-2. Repository 작성 (`repository/stats/`, NamedParameterJdbcTemplate)
-3. Service 비즈니스 로직 (`service/stats/`, `@Transactional(readOnly = true)`)
-4. Controller 엔드포인트 (`controller/stats/`)
-5. 프론트 API 함수 + 페이지 연결 (목업은 MSW 핸들러로)
+1. DTO 정의 (`<domain>/dto`)
+2. Repository 작성 (`<domain>/repository`, SQL은 `resources/sql/<domain>/`, NamedParameterJdbcTemplate)
+3. Service 비즈니스 로직 (`<domain>/service`, `@Transactional(readOnly = true)`)
+4. Controller 엔드포인트 (`<domain>/controller`)
+5. 프론트 API 함수 + 페이지 연결
 
 ### 8.2 프론트 규칙
 
 - 한 라우트 페이지는 하나의 주요 API 패밀리만 소유
-- 목업 데이터는 API 준비 완료 시 MSW 핸들러로 이전
+- 신규 API는 준비되면 페이지를 실데이터로 연결 (DashboardPage 등 하드코딩 목업은 연동 시 교체)
 - 차트 라벨은 한국어, 데이터 키는 영어 유지
 - API 클라이언트(`api/client.ts`)가 JWT Bearer 토큰 자동 주입
 

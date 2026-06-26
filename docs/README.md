@@ -20,7 +20,6 @@ B&VIIT Analytics 대시보드 문서 모음. 카테고리별 진입점입니다.
 | [db/백내장검사리스트-컬럼정의.md](db/백내장검사리스트-컬럼정의.md) | 백내장 검사자 리스트 컬럼↔DB 매핑 |
 | [db/검사리스트-ERD-DDL.md](db/검사리스트-ERD-DDL.md) | 검사·백내장 리스트 참조 테이블 ERD/DDL |
 | [db/검사자리스트-월별건수.md](db/검사자리스트-월별건수.md) | 검사자 리스트 월별 행수 (레거시 대조) |
-| [db/예약통계-SQL-분리-체크리스트.md](db/예약통계-SQL-분리-체크리스트.md) | 예약통계 시력교정/백내장 SQL 리소스 분리 전 체크리스트 |
 | [db/tables/](db/tables/) | **35개 운영 테이블 카탈로그** (컬럼·PK/FK·JOIN·함정) |
 
 ## 개발 / 배포
@@ -31,18 +30,9 @@ B&VIIT Analytics 대시보드 문서 모음. 카테고리별 진입점입니다.
 | [sqlite-mock-data-guide.md](sqlite-mock-data-guide.md) | 통계 더미 데이터 SQLite 세팅 |
 | [responsive-panel-architecture.md](responsive-panel-architecture.md) | 반응형 패널·패널별 독립 API 패턴 (2026-04 핸드오버) |
 | [feature-timeline.md](feature-timeline.md) | 기능 구현 타임라인 (2026-04 계획, 현황은 report-chart-status 참조) |
-| [reservation-stats-upgrade-plan.md](reservation-stats-upgrade-plan.md) | 예약통계 시력교정/백내장 업그레이드 계획 (공식 보호·공통화·스냅샷·진단) |
 | [deployment-strategy.md](deployment-strategy.md) | ① 배포 전략·CI |
 | [deployment-local.md](deployment-local.md) | ② 로컬 개발 실행 |
 | [deployment-release.md](deployment-release.md) | ③ 운영 배포 |
-
-## 팀 KPI ([팀-kpi/](팀-kpi/))
-
-대시보드 범위 밖, 서비스기획팀 자체 KPI 체계 문서.
-
-| 문서 | 내용 |
-|------|------|
-| [팀-kpi/service-planning-team-kpi.md](팀-kpi/service-planning-team-kpi.md) | 서비스기획팀 KPI 기획서 |
 
 ## 보관 ([archive/](archive/))
 

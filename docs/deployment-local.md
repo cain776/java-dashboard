@@ -66,13 +66,7 @@ STATS_DB_PASSWORD=비밀번호
 
 ### frontend/.env
 
-```
-VITE_USE_MSW=false
-```
-
-| 변수 | 설명 |
-| --- | --- |
-| VITE_USE_MSW | `false` = 실제 백엔드 API 사용, `true` = Mock 데이터 사용 (개발용) |
+별도 설정 없이 동작한다 (Vite 프록시 `/api` → 백엔드). 브라우저 목업(MSW)은 제거되어 프론트는 항상 실제 백엔드 API를 사용한다. 백엔드 포트만 바꾸려면 `VITE_BACKEND_URL`을 조정한다(서버시작.bat가 자동 설정).
 
 ---
 
@@ -142,14 +136,6 @@ set STATS_DB_USERNAME=계정명
 set STATS_DB_PASSWORD=비밀번호
 gradlew.bat bootRun --args="--spring.profiles.active=mssql"
 ```
-
-### Mock 데이터로 테스트 (DB 없이)
-
-`frontend/.env`를 수정:
-```
-VITE_USE_MSW=true
-```
-프론트 재시작 시 MSW worker가 React 렌더 전에 시작되고, `/api` 호출을 브라우저에서 가로채 Mock 데이터로 응답합니다.
 
 ---
 
