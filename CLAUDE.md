@@ -1,5 +1,7 @@
 # B&VIIT Analytics Dashboard — 코딩 표준 및 규칙
 
+> ⚠️ 이 문서와 [`AGENTS.md`](AGENTS.md)는 **동일한 프로젝트 표준**을 공유한다. 구조·컨벤션을 바꾸면 **둘 다** 갱신할 것(한쪽만 고치면 에이전트 지침이 어긋난다).
+
 ## 프로젝트 개요
 
 - **목적**: 안과(B&VIIT) KPI 대시보드 및 데이터 시각화 플랫폼
@@ -19,27 +21,22 @@
 project-root/
 ├── backend/
 │   ├── src/main/java/com/bviit/analytics/
-│   │   │                                # 레이어(controller/service/repository/dto) → 도메인 하위패키지 구조
-│   │   ├── config/                      # SecurityConfig·JwtUtil·DataInitializer·*DataSourceConfig
-│   │   ├── controller/
-│   │   │   ├── AuthController.java       # POST /api/auth/login
-│   │   │   ├── reservation/            # 예약·예약종합·유입(intake) 통계 컨트롤러
-│   │   │   ├── exam/                   # 검사리스트·시술별·검사건수 컨트롤러
-│   │   │   ├── surgery/               # 수술·수술비중 컨트롤러
-│   │   │   ├── consultation/          # 전환율·예약률·중단사유 컨트롤러
-│   │   │   ├── outpatient/            # 외래수 컨트롤러
-│   │   │   ├── overall/               # 주간 종합지표 컨트롤러
-│   │   │   ├── etc/                   # B2B 매출 등 기타 컨트롤러
-│   │   │   └── stats/                 # 공용 유틸(StatsPanelSupport·StatsRequestValidator)
-│   │   ├── service/                     # controller와 동일한 도메인 분할
-│   │   ├── repository/                  # 도메인별 + UserRepository (Mock*Repository는 도메인 귀속)
-│   │   ├── dto/                         # ApiResponse·ErrorResponse·Login* + 도메인별 응답 DTO
-│   │   ├── entity/                      # User
-│   │   ├── exception/                   # @RestControllerAdvice + 커스텀 예외
-│   │   └── util/                        # MonthlyBuckets·NumberUtils 등 공용
+│   │   │                                # 도메인 중심 패키지: <domain>/{controller,service,repository,dto}
+│   │   ├── AnalyticsApplication.java
+│   │   ├── auth/                        # 로그인/JWT/사용자 — config(SecurityConfig·JwtUtil·DataInitializer)·controller·service·repository·dto·entity(User)
+│   │   ├── common/                      # 공통 — config·dto(ApiResponse·ErrorResponse)·exception(@RestControllerAdvice)·stats(StatsPanelSupport·StatsRequestValidator·StatsResponseMeta)·util(MonthlyBuckets 등)·web
+│   │   ├── reservation/                 # 예약·예약통계(시력교정/백내장)·스냅샷·진단
+│   │   ├── exam/                        # 검사 통계·검사자 리스트
+│   │   ├── surgery/                     # 수술 통계·수술자 리스트
+│   │   ├── consultation/                # 전환율·예약률·중단사유
+│   │   ├── outpatient/                  # 외래수
+│   │   ├── overall/                     # 주간 종합지표
+│   │   └── etc/                         # B2B 매출 등 기타
 │   ├── src/main/resources/
-│   │   ├── application.properties           # H2 인메모리 (개발 기본)
-│   │   └── application-postgres.properties  # PostgreSQL (운영)
+│   │   ├── application.properties              # H2 인메모리 (개발 기본)
+│   │   ├── application-postgres.properties     # PostgreSQL (운영)
+│   │   ├── application-mssql.properties        # MSSQL 통계 운영 연동
+│   │   └── sql/                                # 도메인별 .sql 리소스 (SqlLoader 로딩)
 │   └── build.gradle
 │
 ├── frontend/
@@ -101,15 +98,15 @@ project-root/
 └── CLAUDE.md
 ```
 
-### 도메인별 코드 구성 (레이어 → 도메인)
+### 도메인별 코드 구성 (백엔드=도메인 중심 / 프론트=레이어 우선)
 
-백엔드·프론트 모두 **레이어 우선 + 도메인 하위 분할** 구조를 따른다. 도메인 = `statsPages.ts`의 메뉴 그룹(`sectionId`): `reservation`(예약) / `exam`(검사) / `surgery`(수술) / `consultation`(전환&성공률) / `report` / `overall`(전체지표) / `outpatient`(외래) / `marketing` / `cancel-noshow` / `unit-price` / `etc`.
+도메인 = `statsPages.ts`의 메뉴 그룹(`sectionId`): `reservation`(예약) / `exam`(검사) / `surgery`(수술) / `consultation`(전환&성공률) / `report` / `overall`(전체지표) / `outpatient`(외래) / `marketing` / `cancel-noshow` / `unit-price` / `etc`.
 
-- **백엔드**: `controller/`·`service/`·`repository/`·`dto/` 각 레이어 안에 도메인 하위패키지(`controller/reservation/` …). `stats/`에는 도메인에 속하지 않는 **공용 유틸만** 남긴다(`StatsPanelSupport`, `StatsRequestValidator`). `Mock*Repository`는 해당 도메인 `repository/<domain>/`에 둔다.
+- **백엔드(도메인 중심)**: `<domain>/{controller,service,repository,dto}` (예: `reservation/controller`, `reservation/service`). 인증은 `auth/`, 공통 응답·예외·유틸·통계 helper(`StatsPanelSupport`·`StatsRequestValidator`·`StatsResponseMeta`)는 `common/`(특히 `common/stats/`)에 둔다. `Mock*Repository`는 해당 도메인 `repository/`에 둔다.
 - **프론트**: `api/<domain>/index.ts`(도메인 API 객체 + 타입) · `hooks/<domain>/` · `pages/<domain>/`. 리스트 전용 API는 `api/<domain>/xxxList.ts`에 둔다. 여러 도메인이 공유하는 것만 root(`api/_shared.ts`, `api/client.ts`, `api/auth.ts`, `hooks/useIsMobile.ts`, `hooks/useWeeklyApproval.ts`, `pages/{Login,Dashboard,StatsPlaceholder}Page.tsx`, `pages/pageRegistry.ts`)에 둔다. 페이지 전용 하위 컴포넌트는 페이지 폴더 안에(`pages/consultation/consultation-rate/`, `pages/surgery/surgery-ratio/`).
 - **신규 추가**: 새 통계 기능은 해당 도메인 폴더/패키지에 파일을 추가한다(새 레이어 루트에 흩뿌리지 말 것). 도메인이 없으면 메뉴 그룹 기준으로 새 폴더를 만든다.
 
-> ✅ **이관 완료**: 프론트(api·hooks·pages·pageRegistry)와 백엔드(controller·service·repository·dto) 모두 도메인 패키지로 이관 완료. 백엔드 `*/stats/`에는 공용 유틸(`StatsPanelSupport`·`StatsRequestValidator`)만 남는다. 검증 기준: frontend lint/build/test green, backend test green.
+> ✅ **이관 완료**: 백엔드는 **도메인 중심 패키지**(`<domain>/{controller,service,repository,dto}` + `auth`·`common`)로, 프론트(api·hooks·pages·pageRegistry)는 레이어 우선 + 도메인 하위 분할로 정리 완료. 공용 통계 유틸은 `common/stats/`. 검증 기준: frontend lint/build/test green, backend test green.
 
 ## 현재 구현 상태
 
@@ -222,12 +219,12 @@ GET    /api/{listPageId}?from=2026-01-01&to=2026-01-31  # 리스트 계열
 
 ### 신규 통계 API 추가 순서
 
-> 도메인 = `<domain>` (reservation/exam/surgery/consultation/…). 모든 파일을 해당 도메인 하위패키지에 둔다.
+> 도메인 = `<domain>` (reservation/exam/surgery/consultation/…). 모든 파일을 해당 도메인 패키지(`<domain>/{dto,repository,service,controller}`)에 둔다.
 
-1. DTO 정의 (`dto/<domain>/`)
-2. Repository 작성 (`repository/<domain>/`)
-3. Service 비즈니스 로직 (`service/<domain>/`)
-4. Controller 엔드포인트 (`controller/<domain>/`)
+1. DTO 정의 (`<domain>/dto`)
+2. Repository 작성 (`<domain>/repository`, 인라인 대신 `resources/sql/<domain>/`의 .sql 리소스 사용)
+3. Service 비즈니스 로직 (`<domain>/service`)
+4. Controller 엔드포인트 (`<domain>/controller`)
 5. 프론트 API 함수(`api/<domain>/index.ts`, 필요 시 `api/<domain>/xxxList.ts`) + 훅(`hooks/<domain>/`) + 페이지(`pages/<domain>/`) 연결
 
 ## 프론트엔드 컨벤션

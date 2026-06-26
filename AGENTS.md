@@ -1,5 +1,7 @@
 # B&VIIT Analytics Dashboard — 코딩 표준 및 규칙
 
+> ⚠️ 이 문서와 [`CLAUDE.md`](CLAUDE.md)는 **동일한 프로젝트 표준**을 공유한다. 구조·컨벤션을 바꾸면 **둘 다** 갱신할 것(한쪽만 고치면 에이전트 지침이 어긋난다).
+
 ## 프로젝트 개요
 
 - **목적**: 안과(B&VIIT) KPI 대시보드 및 데이터 시각화 플랫폼
@@ -11,7 +13,6 @@
 - **폼**: react-hook-form + Zod
 - **DB**: H2 (개발, 기본) / PostgreSQL (`application-postgres.properties`) / MSSQL 통계 운영 연동 (`application-mssql.properties`)
 - **인증**: Spring Security + JWT (jjwt, HMAC-SHA256)
-- **모킹**: MSW (`VITE_USE_MSW=true`일 때만 opt-in)
 - **언어**: 한국어 UI
 
 ## 디렉토리 구조
@@ -49,7 +50,7 @@ project-root/
 │
 ├── frontend/
 │   ├── src/
-│   │   ├── main.tsx                     # 진입점 (VITE_USE_MSW=true면 MSW 초기화 → React 렌더)
+│   │   ├── main.tsx                     # 진입점 (React 렌더)
 │   │   ├── App.tsx                      # QueryClientProvider + RouterProvider
 │   │   ├── router.tsx                   # TanStack Router (인증 가드 포함)
 │   │   ├── index.css                    # Tailwind 4 + OKLCH 테마 변수
@@ -72,9 +73,6 @@ project-root/
 │   │   │   └── StatsPlaceholderPage.tsx # 미구현/보류 통계 페이지 템플릿
 │   │   ├── stores/
 │   │   │   └── authStore.ts             # Zustand 인증 (token + user, localStorage 연동)
-│   │   ├── mocks/
-│   │   │   ├── browser.ts              # MSW 워커
-│   │   │   └── handlers.ts             # POST /api/auth/login 목 핸들러
 │   │   ├── lib/
 │   │   │   └── utils.ts                # cn() (clsx + tailwind-merge)
 │   │   └── test/
@@ -99,7 +97,6 @@ project-root/
 - 예약통계_시력교정 / 예약통계_백내장 (스냅샷 우선 + MSSQL 라이브 집계)
 - 예약자 리스트 및 주요 예약/검사/상담/수술 통계 API 일부
 - 인증 라우트 가드 (미인증 시 /login 리다이렉트)
-- MSW opt-in 개발 목킹 (`VITE_USE_MSW=true`)
 
 ### 미구현 (플레이스홀더)
 
@@ -293,4 +290,3 @@ cd frontend && npm run test              # Vitest
 - **새 UI 컴포넌트**: `npx shadcn@latest add <name>` (설정: `components.json`)
 - **API 연동**: `api/client.ts` HTTP 클라이언트 사용, TanStack Query `useQuery`로 캐싱
 - **DashboardPage 데이터는 하드코딩 목업**이며, `ReservationPage`는 API 연동 상태다.
-- **MSW 핸들러**: 새 API 개발 전 `mocks/handlers.ts`에 목 추가하면 프론트 선행 개발 가능

@@ -1,5 +1,7 @@
 # 예약통계 SQL 분리 체크리스트
 
+> 🗄️ **보관(archive)**: SQL 리소스 분리 완료(2026-06, reservation 도메인 전 repository `.sql` 외부화). 사전 점검표 역할이 끝나 설계 근거 참고용으로 보관.
+
 > 목적: `ReservationStatsSystemRepository`와 `CataractStatsSystemRepository`의 긴 Java 문자열 SQL을 `.sql` 리소스로 분리할 때 계산 결과를 바꾸지 않기 위한 사전 점검표.
 >
 > 갱신: 2026-06-24 — 사전 구현안/리스크 리뷰 반영(loader 시그니처·`resolveSystemSql` 추출·리스크 H/M/L·피해야 할 것·작업 순서 cataract 우선). **이 작업은 위치 이동/로딩 구조 변경만 허용하며 SQL 의미·계산 공식은 불변이다.**
