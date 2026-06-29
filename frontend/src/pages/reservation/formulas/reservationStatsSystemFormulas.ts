@@ -55,8 +55,8 @@ export interface ChannelRow {
 }
 
 export const computeSystemChannelRow = (counts: SystemStatsCounts, label: string): ChannelRow => {
-  // 네이버 유효/예약은 일별(접수0인 날 거절만 있는 휴무일)에 음수가 될 수 있어 표시 시 0으로 클램프.
-  // 주/월 합계는 원시(음수 포함) 합이 정확하므로, 양수인 합계 행에는 영향이 없다.
+  // 네이버 유효/예약은 정의상 카운트(유효=접수−거절=RESERVATION네이버, 예약=비취소분)라 음수가 날 수 없지만,
+  // 데이터 이상치 대비로 0 클램프만 유지(방어적, 정상 데이터엔 무영향).
   const naverValid = Math.max(0, counts.naverValid)
   const naverReservation = Math.max(0, counts.naverReservation)
   // 총예약 = 각 채널 예약수 합(인입콜 제외) — CH04+CH07+CH10+CH12+CH16+CH18
