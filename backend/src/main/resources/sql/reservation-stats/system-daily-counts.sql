@@ -202,10 +202,13 @@ FROM (
     SUM(CASE WHEN CH.GB='TM_재상담예약' THEN 1 ELSE 0 END) AS CH10,
     SUM(CASE WHEN CH.GB='홈페이지_예약' OR CH.GB='홈페이지' THEN 1 ELSE 0 END) AS CH11,
     SUM(CASE WHEN CH.GB='홈페이지_예약' THEN 1 ELSE 0 END) AS CH12,
-    SUM(CASE WHEN CH.GB IN ('네이버_접수','네이버_사용자취소') THEN 1 ELSE 0 END) AS CH13,
+    -- 네이버(레거시 RSS 정합): 접수=원천(RESERVATION네이버 + 파트너거절), 유효=접수−거절(=RESERVATION네이버),
+    -- 예약=유효−네이버사용자취소(=비취소 RESERVATION네이버). 파트너거절은 RESERVATION에 안 들어오므로
+    -- 접수에 더해 한 번만 차감한다(이전엔 접수에서 빠져 있는데도 또 빼서 유효·예약이 거절수만큼 과소집계됐음).
+    SUM(CASE WHEN CH.GB IN ('네이버_접수','네이버_사용자취소','네이버_거절') THEN 1 ELSE 0 END) AS CH13,
     SUM(CASE WHEN CH.GB='네이버_거절' THEN 1 ELSE 0 END) AS CH14,
-    SUM(CASE WHEN CH.GB IN ('네이버_접수','네이버_사용자취소') THEN 1 WHEN CH.GB='네이버_거절' THEN -1 ELSE 0 END) AS CH15,
-    SUM(CASE WHEN CH.GB='네이버_접수' THEN 1 WHEN CH.GB='네이버_거절' THEN -1 ELSE 0 END) AS CH16,
+    SUM(CASE WHEN CH.GB IN ('네이버_접수','네이버_사용자취소') THEN 1 ELSE 0 END) AS CH15,
+    SUM(CASE WHEN CH.GB='네이버_접수' THEN 1 ELSE 0 END) AS CH16,
     SUM(CASE WHEN CH.GB='카카오톡_문의' OR CH.GB='카카오톡_예약' OR CH.GB='카카오톡_취소' THEN 1 ELSE 0 END) AS CH17,
     SUM(CASE WHEN CH.GB='카카오톡_예약' THEN 1 ELSE 0 END) AS CH18,
     SUM(CASE WHEN CH.GB='취소' AND CH.GB2<>'홈페이지' THEN 1 ELSE 0 END) AS CH19,
