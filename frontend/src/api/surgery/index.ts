@@ -19,6 +19,32 @@ const surgeryMonthlyItemSchema = z.object({
 export type SurgeryMonthlyItem = z.infer<typeof surgeryMonthlyItemSchema>
 const surgeryMonthlyResponseSchema = apiResponseOf(z.array(surgeryMonthlyItemSchema))
 
+/* ── Daily (수술별 비중 일별 모드용) ── */
+
+const surgeryDailyItemSchema = z.object({
+  date: z.string(), // YYYY-MM-DD
+  lasek: z.number(), lasik: z.number(), smile: z.number(), smilePro: z.number(),
+  icl: z.number(), tIcl: z.number(), kpl: z.number(), tKpl: z.number(), viva: z.number(),
+  catMulti: z.number(), catMono: z.number(), catEdof: z.number(),
+  xtra: z.number().optional(), waveVision: z.number().optional(), monoVision: z.number().optional(),
+  contra: z.number().optional(), personal: z.number().optional(),
+  lasekEx: z.number().optional(), lasekRed: z.number().optional(),
+  reoperation: z.number().optional(), reopLaser: z.number().optional(), reopLens: z.number().optional(),
+  visionPatients: z.number().optional(), cataractPatients: z.number().optional(),
+  total: z.number(),
+})
+export type SurgeryDailyItem = z.infer<typeof surgeryDailyItemSchema>
+
+/** 응답 메타 — 출처(스냅샷/라이브) 표시용. NON_NULL이라 대부분 optional. */
+const surgeryDailyMetaSchema = z.object({
+  source: z.enum(['SNAPSHOT', 'LIVE', 'UNAVAILABLE']).optional(),
+  period: z.string().optional(),
+  confirmedAt: z.string().optional(),
+  confirmedBy: z.string().optional(),
+}).optional()
+export type SurgeryDailyMeta = z.infer<typeof surgeryDailyMetaSchema>
+const surgeryDailyResponseSchema = apiResponseOf(z.array(surgeryDailyItemSchema), surgeryDailyMetaSchema)
+
 export const surgeryApi = {
   getSurgeryMonthly: async (years: number[]) =>
     surgeryMonthlyResponseSchema.parse(await api.get<unknown>(withQuery('/stats/surgery/monthly', { years }))).data,
@@ -39,4 +65,10 @@ export const surgeryApi = {
 
   getSurgeryComposition: async (years: number[], mock = true) =>
     surgeryMonthlyResponseSchema.parse(await api.get<unknown>(withQuery('/stats/surgery/panel/composition', { years, mock }))).data,
+
+  /** 수술별 비중 일별 — 스냅샷 우선(적재) + 당월 조회 시 전일까지 증분. data+meta 반환. */
+  getSurgeryDaily: async (from: string, to: string) => {
+    const res = surgeryDailyResponseSchema.parse(await api.get<unknown>(withQuery('/stats/surgery/daily', { from, to })))
+    return { data: res.data, meta: res.meta }
+  },
 }

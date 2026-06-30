@@ -1,93 +1,101 @@
-import { Fragment, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { useSurgeryTrend } from '@/hooks/surgery/useSurgeryTrend'
-import { CURRENT_YEAR, MONTHS } from '@/constants/chart'
-import { formatAxisNumber } from '@/utils/stats'
+import { useSurgeryDaily } from '@/hooks/surgery/useSurgeryDaily'
+import {
+  COLS,
+  GRANULARITIES,
+  buildSurgeryRows,
+  currentMonthValue,
+  monthRange,
+  toneClass,
+  type Granularity,
+  type SurgeryRow,
+} from './surgeryCompositionUtils'
 
-const YEAR_OPTIONS = [CURRENT_YEAR - 2, CURRENT_YEAR - 1, CURRENT_YEAR]
+/* ── 헤더 스타일 ── */
+const TH = 'px-1.5 py-1 font-semibold'
+const THL = `${TH} border-l border-border`
+const TH_B = `${TH} bg-blue-50/70`
+const THL_B = `${THL} bg-blue-50/70`
+const TH_V = `${TH} bg-violet-50/70`
 
-/** 조회 연도: 'all'(전체) 또는 특정 연도 */
-type YearFilter = 'all' | number
-
-interface Cell {
-  lasek: number; lasik: number; smile: number; smilePro: number
-  icl: number; tIcl: number; kpl: number; tKpl: number; viva: number
-  catMulti: number; catMono: number; catEdof: number
-  xtra: number; waveVision: number; monoVision: number; contra: number; personal: number
-  lasekEx: number; lasekRed: number
-  reoperation: number; reopLaser: number; reopLens: number
-  visionPatients: number; cataractPatients: number; total: number
-}
-
-const EMPTY: Cell = {
-  lasek: 0, lasik: 0, smile: 0, smilePro: 0, icl: 0, tIcl: 0, kpl: 0, tKpl: 0, viva: 0,
-  catMulti: 0, catMono: 0, catEdof: 0,
-  xtra: 0, waveVision: 0, monoVision: 0, contra: 0, personal: 0,
-  lasekEx: 0, lasekRed: 0,
-  reoperation: 0, reopLaser: 0, reopLens: 0,
-  visionPatients: 0, cataractPatients: 0, total: 0,
-}
-
-/** 여러 월(또는 연도) Cell 합산 */
-const sumCells = (cells: Cell[]): Cell => {
-  const t = { ...EMPTY }
-  const keys = Object.keys(EMPTY) as (keyof Cell)[]
-  for (const c of cells) for (const k of keys) t[k] += c[k]
-  return t
-}
-
-const piolSum = (d: Cell) => d.icl + d.tIcl + d.kpl + d.tKpl + d.viva
-const pct = (part: number, whole: number) => (whole > 0 ? Math.round((part / whole) * 100) : 0)
-/** 값(비중%) — 그룹 합계 대비 */
-const vp = (v: number, base: number) => (v > 0 ? `${formatAxisNumber(v)} (${pct(v, base)}%)` : '-')
-const vc = (v: number) => (v > 0 ? formatAxisNumber(v) : '-')
-
-type Tone = 'blue' | 'violet' | undefined
-interface ColDef { render: (d: Cell) => string; border?: boolean; strong?: boolean; muted?: boolean; tone?: Tone }
-
-// 본문 26개 컬럼(월 제외) — 헤더 leaf 순서와 1:1 대응. API에 없는 칼럼은 빈 문자열.
-const COLS: ColDef[] = [
-  { render: (d) => vc(d.total), border: true, strong: true },                            // 합계
-  { render: (d) => vc(d.visionPatients), border: true, strong: true, tone: 'blue' },      // 시력교정
-  { render: (d) => vp(d.smile, d.visionPatients) },                                       // 스마일
-  { render: (d) => vp(d.smilePro, d.visionPatients) },                                    // 스마일프로
-  { render: (d) => vp(piolSum(d), d.visionPatients), border: true, strong: true },        // PIOL 합계
-  { render: (d) => vc(d.icl), muted: true },                                              // ICL
-  { render: (d) => vc(d.tIcl), muted: true },                                             // T-ICL
-  { render: (d) => vc(d.kpl), muted: true },                                              // KPL
-  { render: (d) => vc(d.tKpl), muted: true },                                             // T-KPL
-  { render: (d) => vc(d.viva), muted: true },                                             // VIVA
-  { render: (d) => vp(d.lasik, d.visionPatients), border: true },                         // 라식계
-  { render: (d) => vp(d.lasekEx + d.lasekRed, d.visionPatients), border: true, strong: true }, // 라섹계 합계 (EYECLE)
-  { render: (d) => vp(d.lasekEx, d.lasekEx + d.lasekRed) },                               // 라섹계 EX
-  { render: (d) => vp(d.lasekRed, d.lasekEx + d.lasekRed) },                              // 라섹계 Red
-  { render: (d) => vc(d.reoperation), border: true, strong: true },                       // 재수술 합계
-  { render: (d) => vp(d.reopLaser, d.reoperation) },                                      // 재수술 레이저
-  { render: (d) => vp(d.reopLens, d.reoperation) },                                       // 재수술 렌즈
-  { render: (d) => vc(d.xtra), border: true },                                            // 엑스트라
-  { render: (d) => vc(d.personal) },                                                      // 퍼스널
-  { render: (d) => vc(d.contra) },                                                        // 콘트라
-  { render: (d) => vc(d.waveVision) },                                                    // 웨이브비전
-  { render: (d) => vc(d.monoVision) },                                                    // 모노비전
-  { render: (d) => vc(d.cataractPatients), border: true, strong: true, tone: 'violet' },  // 백내장 수술수
-  { render: (d) => vp(d.catMulti, d.cataractPatients) },                                  // 다초점
-  { render: (d) => vp(d.catEdof, d.cataractPatients) },                                   // 프리미엄
-  { render: (d) => vp(d.catMono, d.cataractPatients) },                                   // 단초점
-]
-
-const toneClass = (t: Tone) => (t === 'blue' ? 'text-blue-700' : t === 'violet' ? 'text-violet-700' : '')
-
-function DataRow({ lead, label, d, head }: { lead?: ReactNode; label: ReactNode; d: Cell; head?: boolean }) {
+/** 공통 3단 헤더 — 시력교정(파랑)/백내장(보라) 그룹 밴드 색상. */
+function CompositionHead() {
   return (
-    <tr className={head ? 'border-t-2 border-border bg-muted/30 font-semibold' : 'border-b border-border'}>
-      {lead}
-      <td className="px-1.5 py-1.5 font-semibold">{label}</td>
+    <thead>
+      <tr className="border-y border-border">
+        <th rowSpan={3} className={`${TH} bg-muted/40`}>구분</th>
+        <th rowSpan={3} className={`${THL} bg-slate-100`}>합계</th>
+        <th colSpan={21} className={`${THL} border-b bg-blue-100 text-blue-800`}>시력교정수술</th>
+        <th colSpan={4} className={`${THL} border-b bg-violet-100 text-violet-800`}>백내장</th>
+      </tr>
+      <tr className="border-b border-border">
+        <th rowSpan={2} className={`${THL_B} text-blue-800`}>시력교정</th>
+        <th rowSpan={2} className={TH_B}>스마일</th>
+        <th rowSpan={2} className={TH_B}>스마일프로</th>
+        <th colSpan={6} className={`${THL_B} border-b`}>PIOL</th>
+        <th rowSpan={2} className={THL_B}>라식계</th>
+        <th colSpan={3} className={`${THL_B} border-b`}>라섹계</th>
+        <th colSpan={3} className={`${THL_B} border-b`}>재수술</th>
+        <th rowSpan={2} className={THL_B}>엑스트라</th>
+        <th rowSpan={2} className={TH_B}>퍼스널</th>
+        <th rowSpan={2} className={TH_B}>콘트라</th>
+        <th rowSpan={2} className={TH_B}>웨이브비전</th>
+        <th rowSpan={2} className={TH_B}>모노비전</th>
+        <th rowSpan={2} className={`${THL} bg-violet-100 text-violet-800`}>수술수</th>
+        <th rowSpan={2} className={TH_V}>다초점</th>
+        <th rowSpan={2} className={TH_V}>프리미엄</th>
+        <th rowSpan={2} className={TH_V}>단초점</th>
+      </tr>
+      <tr className="border-b border-border text-muted-foreground">
+        <th className={THL_B}>합계</th>
+        <th className={TH_B}>ICL</th>
+        <th className={TH_B}>T-ICL</th>
+        <th className={TH_B}>KPL</th>
+        <th className={TH_B}>T-KPL</th>
+        <th className={TH_B}>VIVA</th>
+        <th className={THL_B}>합계</th>
+        <th className={TH_B}>EX</th>
+        <th className={TH_B}>Red</th>
+        <th className={THL_B}>합계</th>
+        <th className={TH_B}>레이저</th>
+        <th className={TH_B}>렌즈</th>
+      </tr>
+    </thead>
+  )
+}
+
+const ROW_BG: Record<SurgeryRow['tier'], string> = {
+  month: 'bg-blue-50 font-semibold',
+  week: 'bg-amber-100/60 font-medium',
+  day: 'bg-white hover:bg-blue-50/50',
+}
+
+/** 좌측 구분 라벨 셀 배경 — 계층/요일별. */
+function leftCellClass(row: SurgeryRow): string {
+  if (row.tier === 'month') return 'bg-blue-100 text-blue-800'
+  if (row.tier === 'week') return 'bg-amber-100 text-amber-800'
+  if (row.weekday === '일') return 'bg-rose-50 text-rose-600'
+  if (row.weekday === '토') return 'bg-sky-50 text-sky-600'
+  return 'bg-amber-50/50 text-slate-700'
+}
+
+function DataRow({ row }: { row: SurgeryRow }) {
+  const muted = row.tier === 'day' && row.muted
+  const rowBg = muted ? 'bg-slate-50 text-slate-400' : ROW_BG[row.tier]
+  const topBorder = row.tier === 'day' && row.weekStart ? 'border-t-2 border-t-slate-300' : ''
+
+  return (
+    <tr className={`${rowBg} ${topBorder} border-b border-border transition-colors`}>
+      <td className={`px-1.5 py-1.5 font-semibold ${leftCellClass(row)}`}>
+        {row.label}{row.weekday ? ` (${row.weekday})` : ''}
+      </td>
       {COLS.map((c, i) => (
         <td
           key={i}
-          className={`px-1.5 py-1.5 tabular-nums ${c.border ? 'border-l border-border' : ''} ${c.strong ? 'font-semibold' : ''} ${c.muted ? 'text-muted-foreground' : ''} ${toneClass(c.tone)}`}
+          className={`px-1.5 py-1.5 tabular-nums ${c.border ? 'border-l border-border' : ''} ${c.strong ? 'font-semibold' : ''} ${c.muted ? 'text-muted-foreground' : ''} ${muted ? '' : `${toneClass(c.tone)} ${c.bg ?? ''}`}`}
         >
-          {c.render(d)}
+          {c.render(row.d)}
         </td>
       ))}
     </tr>
@@ -95,49 +103,64 @@ function DataRow({ lead, label, d, head }: { lead?: ReactNode; label: ReactNode;
 }
 
 export function SurgeryCompositionPage() {
-  const [year, setYear] = useState<YearFilter>('all')
-  // 연도 전환을 즉시 반영하도록 전 연도를 한 번에 조회하고 클라이언트에서 필터링한다.
-  const { dataMap, isLoading, isError } = useSurgeryTrend(YEAR_OPTIONS)
+  const [month, setMonth] = useState<string>(currentMonthValue)
+  const [granularity, setGranularity] = useState<Granularity>('day')
 
-  const showYearCol = year === 'all'
+  const { from, to, lastDay } = useMemo(() => monthRange(month), [month])
+  const { dataMap, meta, latestDate, isLoading, isError } = useSurgeryDaily(from, to, true)
 
-  // 선택 연도별 섹션: 12개월 + 연 합계
-  const sections = useMemo(() => {
-    const years = year === 'all' ? YEAR_OPTIONS : [year]
-    return years.map((y) => {
-      const arr = dataMap[y] ?? []
-      const months = MONTHS.map((month, i) => ({ month, d: arr[i] ?? EMPTY }))
-      return { year: y, months, total: sumCells(months.map((r) => r.d)) }
-    })
-  }, [dataMap, year])
+  const rows = useMemo(
+    () => buildSurgeryRows(granularity, dataMap, month, lastDay),
+    [granularity, dataMap, month, lastDay],
+  )
 
-  const grandTotal = useMemo(() => sumCells(sections.map((s) => s.total)), [sections])
-
-  const yearLabel = year === 'all' ? '전체' : `${year}년`
-  const btnClass = (active: boolean) =>
-    `rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${
-      active
-        ? 'border-blue-500 bg-blue-50 text-blue-700'
-        : 'border-border/70 bg-white text-gray-600 hover:bg-gray-50'
-    }`
-  const th = 'px-1.5 py-1 font-semibold'
-  const thL = `${th} border-l border-border`
+  const granularityLabel = GRANULARITIES.find((g) => g.key === granularity)?.label ?? ''
 
   return (
     <div className="space-y-4">
-      {/* 조회 영역 — 연도 선택(전체/연도별) */}
+      {/* 조회 영역 — 조회 월 + 조회 단위(전체/월별/주별/일별) */}
       <div className="flex flex-wrap items-center gap-3 rounded-md border border-border/70 bg-white px-3 py-2 shadow-sm">
-        <span className="text-sm font-semibold text-foreground">조회 연도</span>
-        <div className="flex flex-wrap gap-1.5">
-          <button type="button" onClick={() => setYear('all')} className={btnClass(year === 'all')}>
-            전체
-          </button>
-          {YEAR_OPTIONS.map((y) => (
-            <button key={y} type="button" onClick={() => setYear(y)} className={btnClass(year === y)}>
-              {y}년
+        <span className="text-sm font-semibold text-foreground">조회 월</span>
+        <input
+          aria-label="조회 월"
+          type="month"
+          value={month}
+          onChange={(e) => { if (e.target.value) setMonth(e.target.value) }}
+          className="h-9 w-[9rem] rounded-md border border-border/80 bg-white px-2.5 text-sm outline-none transition-colors focus:border-blue-400 focus:ring-2 focus:ring-blue-100"
+        />
+
+        <div className="h-6 w-px bg-border" />
+
+        <span className="text-sm font-semibold text-foreground">조회 단위</span>
+        <div className="flex h-9 gap-1 rounded-md bg-gray-100 p-1">
+          {GRANULARITIES.map((g) => (
+            <button
+              key={g.key}
+              type="button"
+              aria-pressed={granularity === g.key}
+              onClick={() => setGranularity(g.key)}
+              className={`rounded px-3 text-sm font-medium transition-colors ${
+                granularity === g.key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {g.label}
             </button>
           ))}
         </div>
+
+        {meta?.source === 'SNAPSHOT' ? (
+          <span
+            className="rounded bg-emerald-50 px-2 py-1 text-[11px] font-semibold text-emerald-700"
+            title="적재된 스냅샷 — 적재된 일자는 동결되어 흔들리지 않습니다(당월은 조회 시 전일까지 자동 적재)."
+          >
+            적재됨{latestDate ? ` · 최종 ${latestDate}` : ''}
+          </span>
+        ) : meta?.source === 'LIVE' ? (
+          <span className="rounded bg-amber-50 px-2 py-1 text-[11px] font-semibold text-amber-700" title="실시간 조회(미적재 월)">
+            라이브
+          </span>
+        ) : null}
+
         <div className="ml-auto flex items-center gap-3 text-sm">
           <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-blue-600" />시력교정수술</span>
           <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-violet-600" />백내장</span>
@@ -146,7 +169,7 @@ export function SurgeryCompositionPage() {
 
       <Card className="border-border/70 shadow-sm">
         <CardHeader>
-          <CardTitle>수술별 비중 (시술별 · {yearLabel})</CardTitle>
+          <CardTitle>수술별 비중 (시술별 · {month} · {granularityLabel})</CardTitle>
         </CardHeader>
         <CardContent>
           {isError ? (
@@ -156,78 +179,11 @@ export function SurgeryCompositionPage() {
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1900px] border-collapse text-center text-[10px]">
-                <thead>
-                  {/* 1단: 대그룹 */}
-                  <tr className="border-y border-border bg-muted/40">
-                    {showYearCol && <th rowSpan={3} className={th}>연도</th>}
-                    <th rowSpan={3} className={th}>월</th>
-                    <th rowSpan={3} className={thL}>합계</th>
-                    <th colSpan={21} className={`${thL} border-b text-blue-700`}>시력교정수술</th>
-                    <th colSpan={4} className={`${thL} border-b text-violet-700`}>백내장</th>
-                  </tr>
-                  {/* 2단: 소그룹 / 단일컬럼 */}
-                  <tr className="border-b border-border bg-muted/40">
-                    <th rowSpan={2} className={thL}>시력교정</th>
-                    <th rowSpan={2} className={th}>스마일</th>
-                    <th rowSpan={2} className={th}>스마일프로</th>
-                    <th colSpan={6} className={`${thL} border-b`}>PIOL</th>
-                    <th rowSpan={2} className={thL}>라식계</th>
-                    <th colSpan={3} className={`${thL} border-b`}>라섹계</th>
-                    <th colSpan={3} className={`${thL} border-b`}>재수술</th>
-                    <th rowSpan={2} className={thL}>엑스트라</th>
-                    <th rowSpan={2} className={th}>퍼스널</th>
-                    <th rowSpan={2} className={th}>콘트라</th>
-                    <th rowSpan={2} className={th}>웨이브비전</th>
-                    <th rowSpan={2} className={th}>모노비전</th>
-                    <th rowSpan={2} className={thL}>수술수</th>
-                    <th rowSpan={2} className={th}>다초점</th>
-                    <th rowSpan={2} className={th}>프리미엄</th>
-                    <th rowSpan={2} className={th}>단초점</th>
-                  </tr>
-                  {/* 3단: 소그룹 leaf */}
-                  <tr className="border-b border-border bg-muted/40 text-muted-foreground">
-                    <th className={thL}>합계</th>
-                    <th className={th}>ICL</th>
-                    <th className={th}>T-ICL</th>
-                    <th className={th}>KPL</th>
-                    <th className={th}>T-KPL</th>
-                    <th className={th}>VIVA</th>
-                    <th className={thL}>합계</th>
-                    <th className={th}>EX</th>
-                    <th className={th}>Red</th>
-                    <th className={thL}>합계</th>
-                    <th className={th}>레이저</th>
-                    <th className={th}>렌즈</th>
-                  </tr>
-                </thead>
+                <CompositionHead />
                 <tbody>
-                  {sections.map((s) => (
-                    <Fragment key={s.year}>
-                      {s.months.map((r, i) => (
-                        <DataRow
-                          key={`${s.year}-${r.month}`}
-                          lead={
-                            showYearCol && i === 0 ? (
-                              <td rowSpan={13} className="px-1.5 py-1.5 align-top font-semibold text-muted-foreground">
-                                {s.year}년
-                              </td>
-                            ) : undefined
-                          }
-                          label={r.month}
-                          d={r.d}
-                        />
-                      ))}
-                      <DataRow label="합계" d={s.total} head />
-                    </Fragment>
+                  {rows.map((row) => (
+                    <DataRow key={`${row.tier}-${row.label}`} row={row} />
                   ))}
-                  {showYearCol && (
-                    <DataRow
-                      lead={<td className="px-1.5 py-1.5 font-semibold">전체</td>}
-                      label="합계"
-                      d={grandTotal}
-                      head
-                    />
-                  )}
                 </tbody>
               </table>
             </div>

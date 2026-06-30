@@ -1,5 +1,6 @@
 package com.bviit.analytics.reservation.service;
 
+import com.bviit.analytics.common.stats.MonthlySnapshotStore;
 import com.bviit.analytics.reservation.dto.ReservationStatsDailyRow;
 import com.bviit.analytics.reservation.dto.ReservationStatsSnapshot;
 import com.fasterxml.jackson.databind.ObjectMapper;
