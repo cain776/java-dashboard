@@ -85,7 +85,8 @@ CH_06 AS (
          WHEN RH.RESERVE_PATH IN ('ONLINE','APP') THEN '홈페이지'
          ELSE '' END AS [GB],
     '' AS [GB2],
-    CONVERT(VARCHAR(10), HISTORY_TIME, 23) AS [예약날짜],
+    -- 예약날짜 = 예약등록일(예약번호 RESERVE_NUM 앞 6자리 YYMMDD). daily-counts CH_06과 동일 기준.
+    '20'+SUBSTRING(R.RESERVE_NUM,1,2)+'-'+SUBSTRING(R.RESERVE_NUM,3,2)+'-'+SUBSTRING(R.RESERVE_NUM,5,2) AS [예약날짜],
     CONVERT(VARCHAR(100), RH.HISTORY_NUM) AS PK,
     ISNULL(CONVERT(VARCHAR(100), R.CUST_NUM),'') AS custNum,
     ISNULL(CONVERT(VARCHAR(100), R.RESERVE_NUM),'') AS reserveNum,
@@ -103,7 +104,10 @@ CH_06 AS (
   FROM RESERVATION R WITH(NOLOCK)
   RIGHT JOIN CUSTOM C WITH(NOLOCK) ON C.CUST_NUM = R.CUST_NUM
   INNER JOIN RESERVE_HISTORY RH WITH(NOLOCK) ON R.RESERVE_NUM = RH.RESERVE_NUM
-  WHERE RH.HISTORY_TIME >= :date AND RH.HISTORY_TIME < DATEADD(DAY,1,CONVERT(datetime,:date))
+  -- HISTORY_TIME 쿠션(±1~2일)으로 인덱스 사용 후, 예약등록일(RESERVE_NUM YYMMDD)이 :date인 행만.
+  WHERE RH.HISTORY_TIME >= DATEADD(DAY,-1,CONVERT(datetime,:date))
+    AND RH.HISTORY_TIME < DATEADD(DAY,2,CONVERT(datetime,:date))
+    AND '20'+SUBSTRING(R.RESERVE_NUM,1,2)+'-'+SUBSTRING(R.RESERVE_NUM,3,2)+'-'+SUBSTRING(R.RESERVE_NUM,5,2) = CONVERT(VARCHAR(10),:date,23)
     AND R.RESERVE_FLAG = 'M'
     AND R.RESERVE_JINRYO IN ('','5','6','7')
     AND RH.MEMO = '예약저장'
@@ -116,7 +120,8 @@ CH_06 AS (
       OR R.CUST_NUM='8888888888888' )
 ),
 CH_07 AS (
-  SELECT CASE WHEN state='C' AND cancelReason LIKE '%네이버%' THEN '네이버_사용자취소'
+  -- 취소(state='C')는 사유 무관 전부 사용자취소(레거시 RsvStt='C' 정합). exclusionReasonCandidate에 원사유 노출 유지.
+  SELECT CASE WHEN state='C' THEN '네이버_사용자취소'
               ELSE '네이버_접수' END AS [GB],
          '' AS [GB2], regDate AS [예약날짜], PK,
          custNum,

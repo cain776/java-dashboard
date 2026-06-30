@@ -1,6 +1,6 @@
 {
   "period": "2026-06",
-  "confirmedAt": "2026-06-29T11:56:23.776058900",
+  "confirmedAt": "2026-06-30T11:17:35.891364300",
   "confirmedBy": "PDF(골든와이즈 RSS 2026)",
   "locked": false,
   "days": [
@@ -759,6 +759,33 @@
       "visit": 0,
       "noShowReservation": 0,
       "cancel": 0
+    },
+    {
+      "date": "2026-06-29",
+      "inboundCall": 142,
+      "answeredCall": 140,
+      "newInquiry": 31,
+      "callReservation": 32,
+      "tmTotalDb": 30,
+      "tmValidDb": 22,
+      "tmReservation": 22,
+      "tmRecounsel": 7,
+      "tmRecounselValid": 1,
+      "tmRecounselReservation": 0,
+      "homeReceived": 9,
+      "homeReservation": 8,
+      "naverReceived": 24,
+      "naverRejected": 1,
+      "naverValid": 23,
+      "naverReservation": 21,
+      "kakaoInquiry": 26,
+      "kakaoReservation": 1,
+      "cancelCallNaver": 17,
+      "cancelHome": 4,
+      "cancelKakao": 7,
+      "visit": 56,
+      "noShowReservation": 6,
+      "cancel": 21
     }
   ],
   "schemaVersion": 1
