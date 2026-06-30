@@ -1,6 +1,6 @@
 {
   "period" : "2026-06",
-  "confirmedAt" : "2026-06-26T10:19:06.092887100",
+  "confirmedAt" : "2026-06-30T11:20:43.925309600",
   "confirmedBy" : "PDF(노안백내장 RSS 2026)",
   "locked" : false,
   "days" : [ {
@@ -439,7 +439,18 @@
     "cancelKakao" : 1,
     "visit" : 6,
     "noShowReservation" : 2,
-    "cancel" : 1
+    "cancel" : 1,
+    "manualEdits" : [ {
+      "field" : "inboundCall",
+      "value" : 23,
+      "editedBy" : "admin",
+      "editedAt" : "2026-06-30T11:21:41.267539200"
+    }, {
+      "field" : "answeredCall",
+      "value" : 23,
+      "editedBy" : "admin",
+      "editedAt" : "2026-06-30T11:21:46.721944300"
+    } ]
   }, {
     "date" : "2026-06-20",
     "totalCataract" : 3,
@@ -589,5 +600,131 @@
     "visit" : 0,
     "noShowReservation" : 0,
     "cancel" : 0
-  } ]
+  }, {
+    "date" : "2026-06-26",
+    "totalCataract" : 2,
+    "totalPresbyopia" : 0,
+    "inboundCall" : 23,
+    "answeredCall" : 23,
+    "newExamInquiry" : 1,
+    "newReInquiry" : 0,
+    "newPatient" : 1,
+    "tmTotalDb" : 4,
+    "tmValidDb" : 2,
+    "tmReservation" : 1,
+    "kakaoTotalInquiry" : 0,
+    "kakaoCataractReservation" : 0,
+    "kakaoPresbyopiaReservation" : 0,
+    "onlineReservation" : 0,
+    "onlineNoShow" : 0,
+    "cancelOnline" : 0,
+    "cancelCrm" : 0,
+    "cancelKakao" : 0,
+    "visit" : 6,
+    "noShowReservation" : 0,
+    "cancel" : 0,
+    "manualEdits" : [ {
+      "field" : "inboundCall",
+      "value" : 23,
+      "editedBy" : "admin",
+      "editedAt" : "2026-06-29T12:15:16.179342500"
+    }, {
+      "field" : "answeredCall",
+      "value" : 23,
+      "editedBy" : "admin",
+      "editedAt" : "2026-06-29T12:15:19.283837500"
+    } ]
+  }, {
+    "date" : "2026-06-27",
+    "totalCataract" : 7,
+    "totalPresbyopia" : 0,
+    "inboundCall" : 10,
+    "answeredCall" : 10,
+    "newExamInquiry" : 6,
+    "newReInquiry" : 0,
+    "newPatient" : 6,
+    "tmTotalDb" : 3,
+    "tmValidDb" : 1,
+    "tmReservation" : 1,
+    "kakaoTotalInquiry" : 0,
+    "kakaoCataractReservation" : 0,
+    "kakaoPresbyopiaReservation" : 0,
+    "onlineReservation" : 0,
+    "onlineNoShow" : 0,
+    "cancelOnline" : 0,
+    "cancelCrm" : 0,
+    "cancelKakao" : 0,
+    "visit" : 0,
+    "noShowReservation" : 0,
+    "cancel" : 0,
+    "manualEdits" : [ {
+      "field" : "inboundCall",
+      "value" : 10,
+      "editedBy" : "admin",
+      "editedAt" : "2026-06-29T12:15:04.869048600"
+    }, {
+      "field" : "answeredCall",
+      "value" : 10,
+      "editedBy" : "admin",
+      "editedAt" : "2026-06-29T12:15:08.686800500"
+    } ]
+  }, {
+    "date" : "2026-06-28",
+    "totalCataract" : 0,
+    "totalPresbyopia" : 0,
+    "inboundCall" : 0,
+    "answeredCall" : 0,
+    "newExamInquiry" : 0,
+    "newReInquiry" : 0,
+    "newPatient" : 0,
+    "tmTotalDb" : 0,
+    "tmValidDb" : 0,
+    "tmReservation" : 0,
+    "kakaoTotalInquiry" : 0,
+    "kakaoCataractReservation" : 0,
+    "kakaoPresbyopiaReservation" : 0,
+    "onlineReservation" : 0,
+    "onlineNoShow" : 0,
+    "cancelOnline" : 0,
+    "cancelCrm" : 0,
+    "cancelKakao" : 0,
+    "visit" : 0,
+    "noShowReservation" : 0,
+    "cancel" : 0
+  }, {
+    "date" : "2026-06-29",
+    "totalCataract" : 2,
+    "totalPresbyopia" : 0,
+    "inboundCall" : 36,
+    "answeredCall" : 36,
+    "newExamInquiry" : 1,
+    "newReInquiry" : 0,
+    "newPatient" : 1,
+    "tmTotalDb" : 5,
+    "tmValidDb" : 1,
+    "tmReservation" : 1,
+    "kakaoTotalInquiry" : 0,
+    "kakaoCataractReservation" : 0,
+    "kakaoPresbyopiaReservation" : 0,
+    "onlineReservation" : 0,
+    "onlineNoShow" : 1,
+    "cancelOnline" : 0,
+    "cancelCrm" : 4,
+    "cancelKakao" : 0,
+    "visit" : 9,
+    "noShowReservation" : 1,
+    "cancel" : 4,
+    "manualEdits" : [ {
+      "field" : "inboundCall",
+      "value" : 36,
+      "editedBy" : "admin",
+      "editedAt" : "2026-06-30T11:21:08.209940100"
+    }, {
+      "field" : "answeredCall",
+      "value" : 36,
+      "editedBy" : "admin",
+      "editedAt" : "2026-06-30T11:21:29.659765"
+    } ]
+  } ],
+  "schemaVersion" : 1
 }
