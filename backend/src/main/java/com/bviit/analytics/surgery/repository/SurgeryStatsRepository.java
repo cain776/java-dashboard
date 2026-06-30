@@ -32,10 +32,16 @@ public class SurgeryStatsRepository {
     private static final String FIND_VISION_MONTHLY_BY_TYPE_SQL = "sql/surgery/find-vision-monthly-by-type.sql";
     private static final String FIND_CATARACT_MONTHLY_BY_TYPE_SQL = "sql/surgery/find-cataract-monthly-by-type.sql";
     private static final String FIND_REOPERATION_MONTHLY_SQL = "sql/surgery/find-reoperation-monthly.sql";
+    private static final String FIND_VISION_DAILY_BY_TYPE_SQL = "sql/surgery/find-vision-daily-by-type.sql";
+    private static final String FIND_CATARACT_DAILY_BY_TYPE_SQL = "sql/surgery/find-cataract-daily-by-type.sql";
+    private static final String FIND_REOPERATION_DAILY_SQL = "sql/surgery/find-reoperation-daily.sql";
 
     private final String findVisionMonthlyByTypeSql;
     private final String findCataractMonthlyByTypeSql;
     private final String findReoperationMonthlySql;
+    private final String findVisionDailyByTypeSql;
+    private final String findCataractDailyByTypeSql;
+    private final String findReoperationDailySql;
 
     public SurgeryStatsRepository(
             @Qualifier("statsJdbcTemplate") NamedParameterJdbcTemplate jdbc
@@ -44,6 +50,9 @@ public class SurgeryStatsRepository {
         this.findVisionMonthlyByTypeSql = SqlLoader.load(FIND_VISION_MONTHLY_BY_TYPE_SQL);
         this.findCataractMonthlyByTypeSql = SqlLoader.load(FIND_CATARACT_MONTHLY_BY_TYPE_SQL);
         this.findReoperationMonthlySql = SqlLoader.load(FIND_REOPERATION_MONTHLY_SQL);
+        this.findVisionDailyByTypeSql = SqlLoader.load(FIND_VISION_DAILY_BY_TYPE_SQL);
+        this.findCataractDailyByTypeSql = SqlLoader.load(FIND_CATARACT_DAILY_BY_TYPE_SQL);
+        this.findReoperationDailySql = SqlLoader.load(FIND_REOPERATION_DAILY_SQL);
     }
 
     /**
@@ -114,5 +123,29 @@ public class SurgeryStatsRepository {
 
         String sql = findReoperationMonthlySql;
         return jdbc.queryForList(sql, params);
+    }
+
+    /**
+     * 시력교정 + 렌즈 수술 일별 환자 수 (월별과 분류 규칙 동일, 일자 단위 GROUP BY).
+     * from/to는 'YYYY-MM-DD' 문자열. dt 컬럼은 'YYYY-MM-DD'.
+     */
+    public List<Map<String, Object>> findVisionDailyByType(String from, String to) {
+        return jdbc.queryForList(findVisionDailyByTypeSql, dateRangeParams(from, to));
+    }
+
+    /** 백내장 수술 일별 눈(안) 수 (월별과 분류 규칙 동일, 일자 단위 GROUP BY). */
+    public List<Map<String, Object>> findCataractDailyByType(String from, String to) {
+        return jdbc.queryForList(findCataractDailyByTypeSql, dateRangeParams(from, to));
+    }
+
+    /** 시력교정 재수술 일별 건수 (월별과 분류 규칙 동일, 일자 단위 GROUP BY). */
+    public List<Map<String, Object>> findReoperationDaily(String from, String to) {
+        return jdbc.queryForList(findReoperationDailySql, dateRangeParams(from, to));
+    }
+
+    private MapSqlParameterSource dateRangeParams(String from, String to) {
+        return new MapSqlParameterSource()
+                .addValue("from", from)
+                .addValue("to", to);
     }
 }

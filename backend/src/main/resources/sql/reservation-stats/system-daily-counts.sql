@@ -72,12 +72,19 @@ CH_06 AS (
          WHEN RH.RESERVE_PATH IN ('ONLINE','APP') THEN '홈페이지'
          ELSE '' END AS [GB],
     '' AS [GB2],
-    CONVERT(VARCHAR(10), HISTORY_TIME, 23) AS [예약날짜],
+    -- 예약날짜 = 예약등록일(예약번호 RESERVE_NUM 앞 6자리 YYMMDD). 레거시/골든와이즈 명단과 정합.
+    -- (구: HISTORY_TIME='예약저장' 시각. 심야 온라인예약이 새벽 배치로 +9h 밀려 다음날로 잡히던 문제.)
+    '20'+SUBSTRING(R.RESERVE_NUM,1,2)+'-'+SUBSTRING(R.RESERVE_NUM,3,2)+'-'+SUBSTRING(R.RESERVE_NUM,5,2) AS [예약날짜],
     CONVERT(VARCHAR(100), RH.HISTORY_NUM) AS PK
   FROM RESERVATION R WITH(NOLOCK)
   RIGHT JOIN CUSTOM C WITH(NOLOCK) ON C.CUST_NUM = R.CUST_NUM
   INNER JOIN RESERVE_HISTORY RH WITH(NOLOCK) ON R.RESERVE_NUM = RH.RESERVE_NUM
-  WHERE RH.HISTORY_TIME >= :from AND RH.HISTORY_TIME < DATEADD(DAY,1,CONVERT(datetime,:to))
+  -- HISTORY_TIME 쿠션(±1~2일)으로 인덱스 사용 후, 예약등록일로 정밀 필터(등록일 ≤ 저장시각 ≤ 등록일+~1일).
+  WHERE RH.HISTORY_TIME >= DATEADD(DAY,-1,CONVERT(datetime,:from))
+    AND RH.HISTORY_TIME < DATEADD(DAY,2,CONVERT(datetime,:to))
+    -- 문자열 비교('YYYY-MM-DD'는 사전순=날짜순). TRY_CONVERT 미지원 서버 대응 + 변환오류 회피.
+    AND '20'+SUBSTRING(R.RESERVE_NUM,1,2)+'-'+SUBSTRING(R.RESERVE_NUM,3,2)+'-'+SUBSTRING(R.RESERVE_NUM,5,2) >= CONVERT(VARCHAR(10),:from,23)
+    AND '20'+SUBSTRING(R.RESERVE_NUM,1,2)+'-'+SUBSTRING(R.RESERVE_NUM,3,2)+'-'+SUBSTRING(R.RESERVE_NUM,5,2) <= CONVERT(VARCHAR(10),:to,23)
     AND R.RESERVE_FLAG = 'M'
     AND R.RESERVE_JINRYO IN ('','5','6','7')
     AND RH.MEMO = '예약저장'
@@ -91,9 +98,11 @@ CH_06 AS (
       OR ISNULL(R.COMMENT,'') LIKE '%테스트%' OR ISNULL(R.COMMENT,'') LIKE '%TEST%' OR ISNULL(R.COMMENT,'') LIKE '%B2B(군인)%'
       OR R.CUST_NUM='8888888888888' )
 ),
--- 네이버 접수: RESERVATION(NAVER 경로) 등록일 카운트(#naver, 1회 스캔). 사용자취소(네이버취소)만 별도 마킹.
+-- 네이버 접수: RESERVATION(NAVER 경로) 등록일 카운트(#naver, 1회 스캔).
+-- 취소(RESERVE_STATE='C')는 사유 무관 전부 사용자취소로 마킹 → 예약수에서 제외(레거시 RsvStt='C' 정합).
+-- (구: cancelReason LIKE '%네이버%' 만 취소로 봐서, 취소사유가 비어있는 네이버 취소건이 예약수에 오집계됐음.)
 CH_07 AS (
-  SELECT CASE WHEN state='C' AND cancelReason LIKE '%네이버%' THEN '네이버_사용자취소'
+  SELECT CASE WHEN state='C' THEN '네이버_사용자취소'
               ELSE '네이버_접수' END AS [GB],
          '' AS [GB2], regDate AS [예약날짜], PK
   FROM #naver
@@ -165,8 +174,12 @@ R AS (
    WHERE assign_date >= :from AND assign_date < DATEADD(DAY,1,CONVERT(datetime,:to))
   UNION SELECT CONVERT(VARCHAR(10), InsertedDateTime, 23), CONVERT(CHAR(100), Pkey) FROM DB_ReCounsel WITH(NOLOCK)
    WHERE InsertedDateTime >= :from AND InsertedDateTime < DATEADD(DAY,1,CONVERT(datetime,:to))
-  UNION SELECT CONVERT(VARCHAR(10), HISTORY_TIME, 23), HISTORY_NUM FROM RESERVE_HISTORY WITH(NOLOCK)
-   WHERE HISTORY_TIME >= :from AND HISTORY_TIME < DATEADD(DAY,1,CONVERT(datetime,:to))
+  -- 홈페이지(CH_06)와 동일하게 예약등록일(RESERVE_NUM YYMMDD) 기준으로 PK·날짜를 맞춰야 조인됨.
+  UNION SELECT '20'+SUBSTRING(RESERVE_NUM,1,2)+'-'+SUBSTRING(RESERVE_NUM,3,2)+'-'+SUBSTRING(RESERVE_NUM,5,2), HISTORY_NUM
+    FROM RESERVE_HISTORY WITH(NOLOCK)
+   WHERE HISTORY_TIME >= DATEADD(DAY,-1,CONVERT(datetime,:from)) AND HISTORY_TIME < DATEADD(DAY,2,CONVERT(datetime,:to))
+     AND '20'+SUBSTRING(RESERVE_NUM,1,2)+'-'+SUBSTRING(RESERVE_NUM,3,2)+'-'+SUBSTRING(RESERVE_NUM,5,2) >= CONVERT(VARCHAR(10),:from,23)
+     AND '20'+SUBSTRING(RESERVE_NUM,1,2)+'-'+SUBSTRING(RESERVE_NUM,3,2)+'-'+SUBSTRING(RESERVE_NUM,5,2) <= CONVERT(VARCHAR(10),:to,23)
   UNION SELECT CONVERT(VARCHAR(10), RESERVE_DATE, 23), RESERVE_NUM FROM RESERVATION WITH(NOLOCK)
    WHERE RESERVE_DATE >= :from AND RESERVE_DATE < DATEADD(DAY,1,CONVERT(datetime,:to))
   UNION SELECT CONVERT(VARCHAR(10), InsertedDateTime, 23), CONVERT(VARCHAR(23), InsertedDateTime, 21) FROM HappyTalk_Counsel_List WITH(NOLOCK)

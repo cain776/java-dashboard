@@ -1,4 +1,4 @@
-package com.bviit.analytics.reservation.service;
+package com.bviit.analytics.common.stats;
 
 import com.bviit.analytics.common.exception.SnapshotInvariantViolationException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,8 +26,11 @@ import java.util.stream.Stream;
 
 /**
  * 월별 JSON 스냅샷 파일 저장소의 공통 구현.
+ *
+ * 예약통계(시력교정/백내장)·수술별 비중 등 여러 도메인이 동일한 "월별 1파일 + 원자적 쓰기 + 일자 머지 +
+ * 스키마 버전 가드" 규약을 공유한다. 도메인 스냅샷/일자 DTO를 제네릭으로 받고, 추출 함수만 주입한다.
  */
-final class MonthlySnapshotStore<TSnapshot, TDaily> {
+public final class MonthlySnapshotStore<TSnapshot, TDaily> {
 
     private static final Pattern PERIOD = Pattern.compile("\\d{4}-\\d{2}");
     private static final String JSON_EXTENSION = ".json";
@@ -43,7 +46,7 @@ final class MonthlySnapshotStore<TSnapshot, TDaily> {
     private final int currentSchemaVersion;
     private final String snapshotLabel;
 
-    MonthlySnapshotStore(
+    public MonthlySnapshotStore(
             ObjectMapper mapper,
             String dir,
             Class<TSnapshot> snapshotType,
@@ -71,9 +74,9 @@ final class MonthlySnapshotStore<TSnapshot, TDaily> {
     }
 
     /** 확정 월 1건의 요약(목록용) — 일자 데이터 없이 period·locked만. */
-    record SnapshotInfo(String period, boolean locked) {}
+    public record SnapshotInfo(String period, boolean locked) {}
 
-    Optional<TSnapshot> find(String period) {
+    public Optional<TSnapshot> find(String period) {
         Path f = file(period);
         if (!Files.exists(f)) return Optional.empty();
         TSnapshot snapshot;
@@ -94,12 +97,12 @@ final class MonthlySnapshotStore<TSnapshot, TDaily> {
     }
 
     /** 해당 월이 PDF 등 고정 스냅샷이라 재확정 금지인지. 없으면 false. */
-    boolean isLocked(String period) {
+    public boolean isLocked(String period) {
         return find(period).map(snapshot -> lockedExtractor.test(snapshot)).orElse(false);
     }
 
     /** 원자적 저장(temp 작성 후 rename) — 동시/중단 시 부분 파일 방지. */
-    void save(TSnapshot snapshot) {
+    public void save(TSnapshot snapshot) {
         validateSnapshot(snapshot);
         String period = periodExtractor.apply(snapshot);
         Path target = file(period);
@@ -118,7 +121,7 @@ final class MonthlySnapshotStore<TSnapshot, TDaily> {
     }
 
     /** 확정된 월 목록(period+locked) — 프론트가 "확정됨"·"PDF 고정" 표시에 사용. */
-    List<SnapshotInfo> listSnapshots() {
+    public List<SnapshotInfo> listSnapshots() {
         if (!Files.exists(dir)) return List.of();
         try (Stream<Path> s = Files.list(dir)) {
             return s.map(p -> p.getFileName().toString())
@@ -136,7 +139,7 @@ final class MonthlySnapshotStore<TSnapshot, TDaily> {
     /**
      * 기존 스냅샷 날짜는 보존하고, 새 조회분에서는 비어있는 날짜만 채운 뒤 날짜순으로 반환한다.
      */
-    List<TDaily> mergeDays(Optional<TSnapshot> existing, List<TDaily> fetched) {
+    public List<TDaily> mergeDays(Optional<TSnapshot> existing, List<TDaily> fetched) {
         Objects.requireNonNull(existing, "existing");
         Objects.requireNonNull(fetched, "fetched");
 

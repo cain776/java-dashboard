@@ -1,6 +1,8 @@
 package com.bviit.analytics.surgery.service;
 
+import com.bviit.analytics.surgery.dto.SurgeryDailyItem;
 import com.bviit.analytics.surgery.dto.SurgeryMonthlyItem;
+import com.bviit.analytics.surgery.dto.SurgerySnapshot;
 import com.bviit.analytics.surgery.repository.SurgeryStatsRepository;
 import com.bviit.analytics.common.util.MonthlyBuckets;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -14,12 +16,15 @@ import org.springframework.transaction.annotation.Transactional;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.Year;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 
 import static com.bviit.analytics.common.util.NumberUtils.toInt;
 
@@ -36,6 +41,7 @@ public class SurgeryStatsService {
 
     private final SurgeryStatsRepository repository;
     private final ObjectMapper objectMapper;
+    private final SurgerySnapshotStore snapshotStore;
 
     @Value("${stats.cache.surgery.enabled:true}")
     private boolean cacheEnabled;
@@ -64,49 +70,20 @@ public class SurgeryStatsService {
 
         // 시력교정 병합
         for (Map<String, Object> row : visionRows) {
-            String key = MonthlyBuckets.key(toInt(row.get("yr")), toInt(row.get("mo")));
-            Bucket b = map.get(key);
-            if (b == null) continue;
-
-            b.lasek = toInt(row.get("lasek"));
-            b.lasik = toInt(row.get("lasik"));
-            b.smile = toInt(row.get("smile"));
-            b.smilePro = toInt(row.get("smilePro"));
-            b.icl = toInt(row.get("icl"));
-            b.tIcl = toInt(row.get("tIcl"));
-            b.kpl = toInt(row.get("kpl"));
-            b.tKpl = toInt(row.get("tKpl"));
-            b.viva = toInt(row.get("viva"));
-            b.xtra = toInt(row.get("xtra"));
-            b.waveVision = toInt(row.get("waveVision"));
-            b.monoVision = toInt(row.get("monoVision"));
-            b.contra = toInt(row.get("contra"));
-            b.personal = toInt(row.get("personal"));
-            b.lasekEx = toInt(row.get("lasekEx"));
-            b.lasekRed = toInt(row.get("lasekRed"));
-            b.visionPatients = toInt(row.get("visionPatients"));
+            Bucket b = map.get(MonthlyBuckets.key(toInt(row.get("yr")), toInt(row.get("mo"))));
+            if (b != null) mergeVision(b, row);
         }
 
         // 재수술 병합 (RE_OPERATION, 레코드 단위 + 레이저/렌즈 분리)
         for (Map<String, Object> row : reopRows) {
-            String key = MonthlyBuckets.key(toInt(row.get("yr")), toInt(row.get("mo")));
-            Bucket b = map.get(key);
-            if (b == null) continue;
-            b.reoperation = toInt(row.get("reoperation"));
-            b.reopLaser = toInt(row.get("reopLaser"));
-            b.reopLens = toInt(row.get("reopLens"));
+            Bucket b = map.get(MonthlyBuckets.key(toInt(row.get("yr")), toInt(row.get("mo"))));
+            if (b != null) mergeReop(b, row);
         }
 
         // 백내장 병합
         for (Map<String, Object> row : cataractRows) {
-            String key = MonthlyBuckets.key(toInt(row.get("yr")), toInt(row.get("mo")));
-            Bucket b = map.get(key);
-            if (b == null) continue;
-
-            b.catMulti = toInt(row.get("catMulti"));
-            b.catMono = toInt(row.get("catMono"));
-            b.catEdof = toInt(row.get("catEdof"));
-            b.cataractPatients = toInt(row.get("cataractPatients"));
+            Bucket b = map.get(MonthlyBuckets.key(toInt(row.get("yr")), toInt(row.get("mo"))));
+            if (b != null) mergeCataract(b, row);
         }
 
         for (Bucket b : map.values()) {
@@ -134,6 +111,135 @@ public class SurgeryStatsService {
 
         writeCache(normalizedYears, result);
         return result;
+    }
+
+    /**
+     * 일별 수술 유형별 환자/눈 수 (수술일 기준).
+     * 월별과 동일한 시력교정/백내장/재수술 병합 규칙을 일자 단위로 적용한다.
+     *
+     * ⚠ 월별의 레거시 시력교정 환자수 보정(LEGACY_VISION_SURGERY)은 월 단위라 일별에는 적용하지 않는다.
+     * 또한 라이브 데이터(시점 변동)이므로 캐시하지 않는다.
+     */
+    @Transactional(readOnly = true)
+    public List<SurgeryDailyItem> getDailyStats(String from, String to) {
+        List<Map<String, Object>> visionRows = repository.findVisionDailyByType(from, to);
+        List<Map<String, Object>> cataractRows = repository.findCataractDailyByType(from, to);
+        List<Map<String, Object>> reopRows = repository.findReoperationDaily(from, to);
+
+        // 데이터가 있는 일자만 버킷 생성(비어 있는 날은 프론트가 채움). 날짜 오름차순 정렬 유지.
+        Map<String, Bucket> map = new TreeMap<>();
+        for (Map<String, Object> row : visionRows) mergeVision(dailyBucket(map, row), row);
+        for (Map<String, Object> row : reopRows) mergeReop(dailyBucket(map, row), row);
+        for (Map<String, Object> row : cataractRows) mergeCataract(dailyBucket(map, row), row);
+
+        List<SurgeryDailyItem> result = new ArrayList<>();
+        for (Map.Entry<String, Bucket> entry : map.entrySet()) {
+            Bucket b = entry.getValue();
+            result.add(SurgeryDailyItem.builder()
+                    .date(entry.getKey())
+                    .lasek(b.lasek).lasik(b.lasik).smile(b.smile).smilePro(b.smilePro)
+                    .icl(b.icl).tIcl(b.tIcl).kpl(b.kpl).tKpl(b.tKpl).viva(b.viva)
+                    .catMulti(b.catMulti).catMono(b.catMono).catEdof(b.catEdof)
+                    .xtra(b.xtra).waveVision(b.waveVision).monoVision(b.monoVision)
+                    .contra(b.contra).personal(b.personal)
+                    .lasekEx(b.lasekEx).lasekRed(b.lasekRed)
+                    .reoperation(b.reoperation).reopLaser(b.reopLaser).reopLens(b.reopLens)
+                    .visionPatients(b.visionPatients)
+                    .cataractPatients(b.cataractPatients)
+                    .total(b.visionPatients + b.cataractPatients + b.reoperation)
+                    .build());
+        }
+        return result;
+    }
+
+    /**
+     * 호출(증분 채움) — 해당 월을 전일(D-1)까지 라이브 조회해 기존 스냅샷에 <b>비어있는 날짜만</b> 추가한다.
+     * 이미 적재된 날짜(이전 호출분)는 그대로 보존(덮어쓰기 금지)하므로 과거 일자가 흔들리지 않는다.
+     * 오늘(미마감) 데이터는 적재하지 않는다 — 진행 중인 달을 매일 이어붙이는 용도.
+     */
+    public SurgerySnapshot fillSnapshot(String period, String by) {
+        LocalDate to = snapshotTo(period, "호출(채움)");
+        List<SurgeryDailyItem> fetched = getDailyStats(period + "-01", to.toString());
+        return snapshotStore.withPeriodLock(period, () -> {
+            Optional<SurgerySnapshot> existing = snapshotStore.find(period);
+            List<SurgeryDailyItem> merged = snapshotStore.mergeDays(existing, fetched);
+            if (merged.isEmpty()) {
+                // 적재할 일자가 아직 없음(예: 월초 + 당일 데이터뿐) — 저장 생략, 호출자만 무시.
+                return existing.orElse(new SurgerySnapshot(period, LocalDateTime.now().toString(), by, false, merged));
+            }
+            boolean locked = existing.map(SurgerySnapshot::locked).orElse(false);
+            String confirmedBy = existing.map(SurgerySnapshot::confirmedBy).orElse(by);
+            SurgerySnapshot snapshot =
+                    new SurgerySnapshot(period, LocalDateTime.now().toString(), confirmedBy, locked, merged);
+            snapshotStore.save(snapshot);
+            return snapshot;
+        });
+    }
+
+    /**
+     * 확정(재집계) — 해당 월 전일(D-1)까지 1회 조회해 월 전체를 덮어쓴다(머지 아님).
+     * 기존 적재값을 최신 라이브로 새로 고정하고 싶을 때만 사용.
+     */
+    public SurgerySnapshot saveSnapshot(String period, String by) {
+        LocalDate to = snapshotTo(period, "확정(덮어쓰기)");
+        List<SurgeryDailyItem> days = getDailyStats(period + "-01", to.toString());
+        return snapshotStore.withPeriodLock(period, () -> {
+            SurgerySnapshot snapshot =
+                    new SurgerySnapshot(period, LocalDateTime.now().toString(), by, false, days);
+            if (!days.isEmpty()) snapshotStore.save(snapshot);
+            return snapshot;
+        });
+    }
+
+    /** 적재 종료일 = min(말일, 전일). 미래월 거부, first 이전이면 first로 클램프. */
+    private LocalDate snapshotTo(String period, String action) {
+        LocalDate first = LocalDate.parse(period + "-01");
+        if (first.isAfter(LocalDate.now())) {
+            throw new IllegalArgumentException("미래 월은 " + action + "할 수 없습니다: " + period);
+        }
+        LocalDate monthEnd = first.withDayOfMonth(first.lengthOfMonth());
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        LocalDate to = monthEnd.isBefore(yesterday) ? monthEnd : yesterday;
+        return to.isBefore(first) ? first : to;
+    }
+
+    /** 일자 키('dt')로 버킷을 찾거나 생성한다(연/월은 일별에서 사용하지 않으므로 0). */
+    private static Bucket dailyBucket(Map<String, Bucket> map, Map<String, Object> row) {
+        String dt = String.valueOf(row.get("dt"));
+        return map.computeIfAbsent(dt, k -> new Bucket(0, 0));
+    }
+
+    private static void mergeVision(Bucket b, Map<String, Object> row) {
+        b.lasek = toInt(row.get("lasek"));
+        b.lasik = toInt(row.get("lasik"));
+        b.smile = toInt(row.get("smile"));
+        b.smilePro = toInt(row.get("smilePro"));
+        b.icl = toInt(row.get("icl"));
+        b.tIcl = toInt(row.get("tIcl"));
+        b.kpl = toInt(row.get("kpl"));
+        b.tKpl = toInt(row.get("tKpl"));
+        b.viva = toInt(row.get("viva"));
+        b.xtra = toInt(row.get("xtra"));
+        b.waveVision = toInt(row.get("waveVision"));
+        b.monoVision = toInt(row.get("monoVision"));
+        b.contra = toInt(row.get("contra"));
+        b.personal = toInt(row.get("personal"));
+        b.lasekEx = toInt(row.get("lasekEx"));
+        b.lasekRed = toInt(row.get("lasekRed"));
+        b.visionPatients = toInt(row.get("visionPatients"));
+    }
+
+    private static void mergeReop(Bucket b, Map<String, Object> row) {
+        b.reoperation = toInt(row.get("reoperation"));
+        b.reopLaser = toInt(row.get("reopLaser"));
+        b.reopLens = toInt(row.get("reopLens"));
+    }
+
+    private static void mergeCataract(Bucket b, Map<String, Object> row) {
+        b.catMulti = toInt(row.get("catMulti"));
+        b.catMono = toInt(row.get("catMono"));
+        b.catEdof = toInt(row.get("catEdof"));
+        b.cataractPatients = toInt(row.get("cataractPatients"));
     }
 
     private Optional<Integer> legacyVisionSurgery(int year, int month) {
