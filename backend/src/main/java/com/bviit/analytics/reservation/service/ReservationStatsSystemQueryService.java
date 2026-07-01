@@ -50,11 +50,21 @@ public class ReservationStatsSystemQueryService {
             return new ReservationStatsResult<>(days, snapshotMeta(period, snapshot.get()));
         }
 
+        // 당월인데 스냅샷이 없음(월초라 마감된 날 D-1이 아직 없음) → 오늘을 라이브로 노출하지 않고 빈 결과.
+        // (내일 오늘이 D-1이 되면 자동 적재되어 표시된다. 지난달은 아래 라이브 폴백 유지.)
+        if (isCurrentMonth(period)) {
+            return new ReservationStatsResult<>(List.of(), liveMeta(period));
+        }
+
         ReservationStatsSystemService service = requireLiveService(period);
         return new ReservationStatsResult<>(
                 service.getDailyCounts(from.toString(), to.toString()),
                 liveMeta(period)
         );
+    }
+
+    private static boolean isCurrentMonth(String period) {
+        return period.equals(LocalDate.now().toString().substring(0, 7));
     }
 
     public ReservationStatsResult<ReservationStatsSnapshot> saveSnapshot(String period, String username) {
