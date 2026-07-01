@@ -45,11 +45,20 @@ public class SurgeryCompositionQueryService {
             return new DailyResult(days, snapshotMeta(period, snapshot.get()));
         }
 
-        // 적재가 아직 없는 달(데이터 0 등 예외적 경우) — 라이브로 직접 조회.
+        // 당월인데 스냅샷이 없음(월초라 마감된 날 D-1이 아직 없음) → 오늘을 라이브로 노출하지 않고 빈 결과.
+        if (isCurrentMonth(period)) {
+            return new DailyResult(List.of(), StatsResponseMeta.live(period, FORMULA_VERSION, SurgerySnapshot.CURRENT_SCHEMA_VERSION));
+        }
+
+        // 적재가 아직 없는 지난달(데이터 0 등 예외적 경우) — 라이브로 직접 조회.
         return new DailyResult(
                 requireLive(period).getDailyStats(from.toString(), to.toString()),
                 StatsResponseMeta.live(period, FORMULA_VERSION, SurgerySnapshot.CURRENT_SCHEMA_VERSION)
         );
+    }
+
+    private static boolean isCurrentMonth(String period) {
+        return period.equals(LocalDate.now().toString().substring(0, 7));
     }
 
     public SurgerySnapshot fill(String period, String username) {

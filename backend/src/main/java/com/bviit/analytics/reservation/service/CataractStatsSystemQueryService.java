@@ -51,11 +51,20 @@ public class CataractStatsSystemQueryService {
             return new ReservationStatsResult<>(days, snapshotMeta(period, snapshot.get()));
         }
 
+        // 당월인데 스냅샷이 없음(월초라 마감된 날 D-1이 아직 없음) → 오늘을 라이브로 노출하지 않고 빈 결과.
+        if (isCurrentMonth(period)) {
+            return new ReservationStatsResult<>(List.of(), liveMeta(period));
+        }
+
         CataractStatsSystemService service = requireLiveService(period, "확정 스냅샷·라이브 소스(MSSQL)가 없습니다.");
         return new ReservationStatsResult<>(
                 service.getDailyCounts(from.toString(), to.toString()),
                 liveMeta(period)
         );
+    }
+
+    private static boolean isCurrentMonth(String period) {
+        return period.equals(LocalDate.now().toString().substring(0, 7));
     }
 
     public ReservationStatsResult<CataractStatsSnapshot> saveSnapshot(String period, String username) {

@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
 
@@ -75,6 +76,26 @@ class ReservationStatsSystemQueryServiceTest {
         assertThat(meta.source()).isEqualTo(StatsResponseMeta.Source.SNAPSHOT);
         assertThat(meta.locked()).isTrue();
         assertThat(meta.schemaVersion()).isEqualTo(ReservationStatsSnapshot.CURRENT_SCHEMA_VERSION);
+        verifyNoInteractions(reservationLiveService);
+    }
+
+    @Test
+    void 시력교정_당월_스냅샷이_없으면_라이브폴백_없이_빈결과를_반환한다() {
+        // 월초(마감된 D-1 없음)엔 오늘을 라이브로 노출하지 않고 빈 표를 준다. (내일 D-1로 적재되어 등장)
+        ReservationStatsSystemQueryService service = new ReservationStatsSystemQueryService(
+                reservationStore,
+                Optional.empty(),
+                Optional.empty()
+        );
+        String currentMonth = YearMonth.now().toString();
+        LocalDate first = LocalDate.parse(currentMonth + "-01");
+        when(reservationStore.find(currentMonth)).thenReturn(Optional.empty());
+
+        ReservationStatsResult<List<ReservationStatsDailyRow>> result =
+                service.getDailyCounts(first, first, "viewer");
+
+        assertThat(result.data()).isEmpty();
+        assertThat(((StatsResponseMeta) result.meta()).source()).isEqualTo(StatsResponseMeta.Source.LIVE);
         verifyNoInteractions(reservationLiveService);
     }
 
