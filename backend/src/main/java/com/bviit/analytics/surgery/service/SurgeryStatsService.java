@@ -4,6 +4,7 @@ import com.bviit.analytics.surgery.dto.SurgeryDailyItem;
 import com.bviit.analytics.surgery.dto.SurgeryMonthlyItem;
 import com.bviit.analytics.surgery.dto.SurgerySnapshot;
 import com.bviit.analytics.surgery.repository.SurgeryStatsRepository;
+import com.bviit.analytics.common.stats.SnapshotWindow;
 import com.bviit.analytics.common.util.MonthlyBuckets;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -158,14 +159,18 @@ public class SurgeryStatsService {
      * 오늘(미마감) 데이터는 적재하지 않는다 — 진행 중인 달을 매일 이어붙이는 용도.
      */
     public SurgerySnapshot fillSnapshot(String period, String by) {
-        LocalDate to = snapshotTo(period, "호출(채움)");
-        List<SurgeryDailyItem> fetched = getDailyStats(period + "-01", to.toString());
+        Optional<LocalDate> end = SnapshotWindow.completedEnd(period, LocalDate.now());
+        if (end.isEmpty()) {
+            // 오늘이 1일이면 마감된 날(전일)이 이 달에 없음 → 채움 생략(오늘 데이터는 내일 반영).
+            return snapshotStore.find(period).orElseGet(() -> emptySnapshot(period, by));
+        }
+
+        List<SurgeryDailyItem> fetched = getDailyStats(period + "-01", end.get().toString());
         return snapshotStore.withPeriodLock(period, () -> {
             Optional<SurgerySnapshot> existing = snapshotStore.find(period);
             List<SurgeryDailyItem> merged = snapshotStore.mergeDays(existing, fetched);
             if (merged.isEmpty()) {
-                // 적재할 일자가 아직 없음(예: 월초 + 당일 데이터뿐) — 저장 생략, 호출자만 무시.
-                return existing.orElse(new SurgerySnapshot(period, LocalDateTime.now().toString(), by, false, merged));
+                return existing.orElseGet(() -> emptySnapshot(period, by));
             }
             boolean locked = existing.map(SurgerySnapshot::locked).orElse(false);
             String confirmedBy = existing.map(SurgerySnapshot::confirmedBy).orElse(by);
@@ -181,8 +186,12 @@ public class SurgeryStatsService {
      * 기존 적재값을 최신 라이브로 새로 고정하고 싶을 때만 사용.
      */
     public SurgerySnapshot saveSnapshot(String period, String by) {
-        LocalDate to = snapshotTo(period, "확정(덮어쓰기)");
-        List<SurgeryDailyItem> days = getDailyStats(period + "-01", to.toString());
+        Optional<LocalDate> end = SnapshotWindow.completedEnd(period, LocalDate.now());
+        if (end.isEmpty()) {
+            return snapshotStore.find(period).orElseGet(() -> emptySnapshot(period, by));
+        }
+
+        List<SurgeryDailyItem> days = getDailyStats(period + "-01", end.get().toString());
         return snapshotStore.withPeriodLock(period, () -> {
             SurgerySnapshot snapshot =
                     new SurgerySnapshot(period, LocalDateTime.now().toString(), by, false, days);
@@ -191,16 +200,9 @@ public class SurgeryStatsService {
         });
     }
 
-    /** 적재 종료일 = min(말일, 전일). 미래월 거부, first 이전이면 first로 클램프. */
-    private LocalDate snapshotTo(String period, String action) {
-        LocalDate first = LocalDate.parse(period + "-01");
-        if (first.isAfter(LocalDate.now())) {
-            throw new IllegalArgumentException("미래 월은 " + action + "할 수 없습니다: " + period);
-        }
-        LocalDate monthEnd = first.withDayOfMonth(first.lengthOfMonth());
-        LocalDate yesterday = LocalDate.now().minusDays(1);
-        LocalDate to = monthEnd.isBefore(yesterday) ? monthEnd : yesterday;
-        return to.isBefore(first) ? first : to;
+    /** 적재할 완료일이 없을 때(월초) 저장 없이 돌려주는 빈 스냅샷. */
+    private static SurgerySnapshot emptySnapshot(String period, String by) {
+        return new SurgerySnapshot(period, LocalDateTime.now().toString(), by, false, List.of());
     }
 
     /** 일자 키('dt')로 버킷을 찾거나 생성한다(연/월은 일별에서 사용하지 않으므로 0). */
