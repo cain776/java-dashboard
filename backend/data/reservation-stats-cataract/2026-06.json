@@ -1,6 +1,6 @@
 {
   "period" : "2026-06",
-  "confirmedAt" : "2026-06-30T11:20:43.925309600",
+  "confirmedAt" : "2026-06-30T23:59:59",
   "confirmedBy" : "PDF(노안백내장 RSS 2026)",
   "locked" : false,
   "days" : [ {
@@ -724,6 +724,40 @@
       "value" : 36,
       "editedBy" : "admin",
       "editedAt" : "2026-06-30T11:21:29.659765"
+    } ]
+  }, {
+    "date" : "2026-06-30",
+    "totalCataract" : 7,
+    "totalPresbyopia" : 0,
+    "inboundCall" : 37,
+    "answeredCall" : 37,
+    "newExamInquiry" : 9,
+    "newReInquiry" : 0,
+    "newPatient" : 7,
+    "tmTotalDb" : 2,
+    "tmValidDb" : 0,
+    "tmReservation" : 0,
+    "kakaoTotalInquiry" : 3,
+    "kakaoCataractReservation" : 0,
+    "kakaoPresbyopiaReservation" : 0,
+    "onlineReservation" : 0,
+    "onlineNoShow" : 2,
+    "cancelOnline" : 0,
+    "cancelCrm" : 4,
+    "cancelKakao" : 0,
+    "visit" : 9,
+    "noShowReservation" : 2,
+    "cancel" : 4,
+    "manualEdits" : [ {
+      "field" : "inboundCall",
+      "value" : 37,
+      "editedBy" : "admin",
+      "editedAt" : "2026-06-30T23:59:59"
+    }, {
+      "field" : "answeredCall",
+      "value" : 37,
+      "editedBy" : "admin",
+      "editedAt" : "2026-06-30T23:59:59"
     } ]
   } ],
   "schemaVersion" : 1
