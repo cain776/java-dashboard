@@ -20,6 +20,30 @@ export const CATARACT_RATE_LEGACY: Record<number, number[]> = {
   2025: [68, 57, 59, 49, 58, 44, 55, 63, 57, 55, 57, 55],
 }
 
+export const mergeMonthlySeries = (
+  base: Array<number | null | undefined> | undefined,
+  fallback: Array<number | null | undefined> | undefined,
+): Array<number | null> =>
+  Array.from({ length: 12 }, (_, i) => {
+    const baseValue = base?.[i]
+    if (typeof baseValue === 'number') return baseValue
+
+    const fallbackValue = fallback?.[i]
+    return typeof fallbackValue === 'number' ? fallbackValue : null
+  })
+
+export const applyCurrentYearBase = (
+  data: Record<number, Array<number | null>>,
+  currentYear: number,
+  base: Array<number | null | undefined> | undefined,
+): Record<number, Array<number | null>> => {
+  if (!base) return data
+  return {
+    ...data,
+    [currentYear]: mergeMonthlySeries(base, data[currentYear]),
+  }
+}
+
 /** overall-exam/weekly 주간 항목을 월별로 합산한 값 (당해연도 라이브 도표용) */
 export interface OverallMonthSums {
   introGeneral: number

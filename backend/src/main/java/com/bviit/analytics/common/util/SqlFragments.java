@@ -1,6 +1,8 @@
 package com.bviit.analytics.common.util;
 
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public final class SqlFragments {
 
@@ -15,6 +17,22 @@ public final class SqlFragments {
         if (alias == null || !SAFE_ALIAS.matcher(alias).matches()) {
             throw new IllegalArgumentException("SQL alias is not safe: " + alias);
         }
-        return EXAM_MEASUREMENTS_BLANK.replace("__ALIAS__", alias);
+        String sql = EXAM_MEASUREMENTS_BLANK.replace("__ALIAS__", alias);
+        String[] lines = sql.replace("\r\n", "\n").split("\n");
+        return IntStream.range(0, lines.length)
+                .mapToObj(i -> normalizePredicateLine(lines[i], i == 0))
+                .filter(line -> !line.isBlank())
+                .collect(Collectors.joining("\n"));
+    }
+
+    private static String normalizePredicateLine(String line, boolean firstLine) {
+        String trimmed = line.strip();
+        if (trimmed.isBlank() || firstLine) {
+            return trimmed;
+        }
+        if (trimmed.regionMatches(true, 0, "AND ", 0, 4)) {
+            return trimmed;
+        }
+        return "AND " + trimmed;
     }
 }

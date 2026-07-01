@@ -116,3 +116,28 @@ export const MONTHLY_LEGACY_CHARTS: Record<string, LegacyChart> = {
     },
   },
 }
+
+/**
+ * 월간보고 PDF(2026-04) 확정값 — API 라이브 차트용 2026 우선값.
+ *
+ * MONTHLY_LEGACY_CHARTS에 이미 2026 PDF 값이 있는 도표는 중복 기입하지 않는다.
+ * 월간 레포트 렌더링 시 이 값이 있는 달은 PDF 값을 그대로 쓰고, null인 달만 운영 DB live 값으로 채운다.
+ */
+export const MONTHLY_REPORT_PDF_2026_CHARTS: Record<string, (number | null)[]> = {
+  reservations: pad([2425, 1892, 1318, 1243]),
+  call: pad([1432, 1132, 836, 750]),
+  online: pad([993, 760, 482, 493]),
+  cataractExam: pad([96, 68, 76, 58]),
+  visionExam: pad([1868, 1604, 853, 807]),
+  examCount: pad([2038, 1721, 1007, 932]),
+  oneDayExam: pad([895, 937, 471, 446]),
+  cataractRate: pad([60, 56, 55, 64]),
+  visionRate: pad([74, 75, 80, 76]),
+  successAll: pad([78.5, 80.4, 85.0, 81.4]),
+  successOneday: pad([95, 94, 95, 96]),
+  successGeneral: pad([64, 59, 71, 69]),
+  cataractSurgery: pad([90, 67, 69, 42]),
+  visionSurgery: pad([1361, 1388, 657, 568]),
+  totalSurgery: pad([1483, 1488, 745, 629]),
+  outpatient: pad([4822, 4339, 4247, 3653]),
+}

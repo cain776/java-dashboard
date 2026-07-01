@@ -10,7 +10,7 @@ import { useCataractReservationRateTrend } from '@/hooks/consultation/useCatarac
 import { useStopReasonMonthly } from '@/hooks/consultation/useStopReasonMonthly'
 import { useOverallExamWeekly } from '@/hooks/overall/useOverallExamWeekly'
 import { useConsultationRateTrend } from '@/hooks/consultation/useConsultationRateTrend'
-import { MONTHLY_LEGACY_CHARTS } from '@/data/monthlyReportLegacy'
+import { MONTHLY_LEGACY_CHARTS, MONTHLY_REPORT_PDF_2026_CHARTS } from '@/data/monthlyReportLegacy'
 import { CURRENT_YEAR } from '@/constants/chart'
 import {
   StopReasonBar,
@@ -20,7 +20,9 @@ import {
 } from './MonthlyReportCharts'
 import {
   YEARS,
+  applyCurrentYearBase,
   isIncompleteMonth,
+  mergeMonthlySeries,
   VISION_RATE_LEGACY,
   CATARACT_RATE_LEGACY,
   type OverallMonthSums,
@@ -79,9 +81,20 @@ export function MonthlyReportPage() {
       return out
     }
 
+    const withPdfBase = (
+      chartKey: string,
+      data: Record<number, (number | null)[]>,
+    ): Record<number, (number | null)[]> =>
+      applyCurrentYearBase(
+        data,
+        CURRENT_YEAR,
+        CURRENT_YEAR === 2026 ? MONTHLY_REPORT_PDF_2026_CHARTS[chartKey] : undefined,
+      )
+
     // 예약률: 2024·2025 확정값 + 2026 API
     const rateMap = (
       legacy: Record<number, number[]>,
+      pdfKey: string,
       rateData: Record<number, { examCount: number; reservationRate: number }[]>,
     ): Record<number, (number | null)[]> => {
       const out: Record<number, (number | null)[]> = {}
@@ -96,7 +109,7 @@ export function MonthlyReportPage() {
           return it && it.examCount ? Math.ceil(it.reservationRate) : null
         })
       })
-      return out
+      return withPdfBase(pdfKey, out)
     }
 
     // 2024·2025 = 레거시 확정값, 당해연도 = overall-exam/weekly 월합산 라이브
@@ -117,7 +130,7 @@ export function MonthlyReportPage() {
           return s ? pick(s) : null
         })
       })
-      return out
+      return applyCurrentYearBase(out, CURRENT_YEAR, legacy[CURRENT_YEAR])
     }
 
     // 당해연도 12개월 단일 시리즈 (consultation 등 외부 dataMap에서 직접) — 미완성월 null
@@ -138,27 +151,36 @@ export function MonthlyReportPage() {
       YEARS.forEach((y) => {
         out[y] = y !== CURRENT_YEAR && legacy[y] ? legacy[y] : curYearSeries(pick)
       })
-      return out
+      return applyCurrentYearBase(out, CURRENT_YEAR, legacy[CURRENT_YEAR])
     }
 
     return {
-      reservations: build((y, i) => resv.dataMap[y]?.[i]?.reservations),
-      call: build((y, i) => resv.dataMap[y]?.[i]?.call),
-      online: build((y, i) => resv.dataMap[y]?.[i]?.online),
-      cataractExam: build((y, i) => exam.dataMap[y]?.[i]?.cataract),
-      visionExam: build((y, i) => exam.dataMap[y]?.[i]?.visionCorrection),
-      examCount: build((y, i) => procedure.dataMap[y]?.[i]?.examCount),
-      oneDayExam: build((y, i) => procedure.dataMap[y]?.[i]?.oneDayExamCount),
-      cataractRate: rateMap(CATARACT_RATE_LEGACY, cataractRate.dataMap),
-      visionRate: rateMap(VISION_RATE_LEGACY, visionRate.dataMap),
-      cataractSurgery: build((y, i) => surgery.dataMap[y]?.[i]?.cataractPatients),
-      visionSurgery: build((y, i) => surgery.dataMap[y]?.[i]?.visionPatients),
-      totalSurgery: build((y, i) => surgery.dataMap[y]?.[i]?.total),
-      outpatient: build((y, i) => outpatient.dataMap[y]?.[i]?.outpatientCount),
+      reservations: withPdfBase('reservations', build((y, i) => resv.dataMap[y]?.[i]?.reservations)),
+      call: withPdfBase('call', build((y, i) => resv.dataMap[y]?.[i]?.call)),
+      online: withPdfBase('online', build((y, i) => resv.dataMap[y]?.[i]?.online)),
+      cataractExam: withPdfBase('cataractExam', build((y, i) => exam.dataMap[y]?.[i]?.cataract)),
+      visionExam: withPdfBase('visionExam', build((y, i) => exam.dataMap[y]?.[i]?.visionCorrection)),
+      examCount: withPdfBase('examCount', build((y, i) => procedure.dataMap[y]?.[i]?.examCount)),
+      oneDayExam: withPdfBase('oneDayExam', build((y, i) => procedure.dataMap[y]?.[i]?.oneDayExamCount)),
+      cataractRate: rateMap(CATARACT_RATE_LEGACY, 'cataractRate', cataractRate.dataMap),
+      visionRate: rateMap(VISION_RATE_LEGACY, 'visionRate', visionRate.dataMap),
+      cataractSurgery: withPdfBase('cataractSurgery', build((y, i) => surgery.dataMap[y]?.[i]?.cataractPatients)),
+      visionSurgery: withPdfBase('visionSurgery', build((y, i) => surgery.dataMap[y]?.[i]?.visionPatients)),
+      totalSurgery: withPdfBase('totalSurgery', build((y, i) => surgery.dataMap[y]?.[i]?.total)),
+      outpatient: withPdfBase('outpatient', build((y, i) => outpatient.dataMap[y]?.[i]?.outpatientCount)),
       // 시력교정 상담성공률(검사중단/수술불가 제외) — 전체/원데이/일반 3계열, 당해연도 라이브 (#21)
-      successAll: curYearSeries((i) => consult.dataMap[CURRENT_YEAR]?.[i]?.visionConsultation),
-      successOneday: curYearSeries((i) => consult.dataMap[CURRENT_YEAR]?.[i]?.visionConsultationOneday),
-      successGeneral: curYearSeries((i) => consult.dataMap[CURRENT_YEAR]?.[i]?.visionConsultationGeneral),
+      successAll: mergeMonthlySeries(
+        CURRENT_YEAR === 2026 ? MONTHLY_REPORT_PDF_2026_CHARTS.successAll : undefined,
+        curYearSeries((i) => consult.dataMap[CURRENT_YEAR]?.[i]?.visionConsultation),
+      ),
+      successOneday: mergeMonthlySeries(
+        CURRENT_YEAR === 2026 ? MONTHLY_REPORT_PDF_2026_CHARTS.successOneday : undefined,
+        curYearSeries((i) => consult.dataMap[CURRENT_YEAR]?.[i]?.visionConsultationOneday),
+      ),
+      successGeneral: mergeMonthlySeries(
+        CURRENT_YEAR === 2026 ? MONTHLY_REPORT_PDF_2026_CHARTS.successGeneral : undefined,
+        curYearSeries((i) => consult.dataMap[CURRENT_YEAR]?.[i]?.visionConsultationGeneral),
+      ),
       // 🟢 라이브 전환 (overall-exam/weekly 월합산) — 2024·2025 레거시 확정값, 당해연도 라이브
       examGeneralCustomer: liveOrLegacy('exam-general-customer', (s) => s.introGeneral),
       examReferralCustomer: liveOrLegacy('exam-referral-customer', (s) => s.introCustomer),
