@@ -120,6 +120,7 @@ public class ReservationStatsSystemQueryService {
 
         Optional<ReservationStatsSnapshot> snapshot = snapshotStore.find(period);
         boolean needsAutoFill = ReservationStatsQuerySupport.needsAutoFill(
+                LocalDate.now(),
                 period,
                 snapshotStore.isLocked(period),
                 snapshot,
