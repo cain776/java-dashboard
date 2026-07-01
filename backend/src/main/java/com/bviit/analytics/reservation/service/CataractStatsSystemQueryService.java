@@ -131,6 +131,7 @@ public class CataractStatsSystemQueryService {
 
         Optional<CataractStatsSnapshot> snapshot = snapshotStore.find(period);
         boolean needsAutoFill = ReservationStatsQuerySupport.needsAutoFill(
+                LocalDate.now(),
                 period,
                 snapshotStore.isLocked(period),
                 snapshot,

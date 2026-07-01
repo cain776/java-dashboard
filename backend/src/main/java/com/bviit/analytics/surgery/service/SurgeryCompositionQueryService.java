@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.util.List;
 import java.util.Optional;
 
@@ -66,7 +67,8 @@ public class SurgeryCompositionQueryService {
     /**
      * 조회 시 자동 적재(실패해도 기존 데이터로 계속):
      *   - 당월: 미잠금·오늘 미적재면 전일(D-1)까지 증분 채움(있는 날짜 보존).
-     *   - 지난 달: 아직 미적재면 월 전체를 1회 적재해 동결(이후 조회는 스냅샷).
+     *   - 지난 달(미적재): 월 전체를 1회 적재해 동결(이후 조회는 스냅샷).
+     *   - 지난 달(적재 있으나 말일 누락): 다음달 1일+ 첫 조회 시 1회 최종 채움(말일 데이터 반영).
      *   - 미래월: 아무것도 하지 않음.
      */
     private void ensureSnapshot(String period, String username) {
@@ -81,6 +83,8 @@ public class SurgeryCompositionQueryService {
                 if (needsCurrentFill(snapshot)) liveService.get().fillSnapshot(period, actor(username));
             } else if (snapshot.isEmpty()) {
                 liveService.get().saveSnapshot(period, actor(username));
+            } else if (needsPastFinalize(period, snapshot.get())) {
+                liveService.get().fillSnapshot(period, actor(username));
             }
         } catch (RuntimeException e) {
             log.warn("조회 중 자동 적재 실패(기존 데이터로 계속): period={}, err={}", period, e.getMessage());
@@ -91,9 +95,21 @@ public class SurgeryCompositionQueryService {
     private boolean needsCurrentFill(Optional<SurgerySnapshot> snapshot) {
         if (snapshot.isEmpty()) return true;
         if (snapshot.get().locked()) return false;
-        String confirmedAt = snapshot.get().confirmedAt();
-        String confirmedDate = confirmedAt != null && confirmedAt.length() >= 10 ? confirmedAt.substring(0, 10) : "";
-        return confirmedDate.compareTo(LocalDate.now().toString()) < 0; // 오늘 미적재면 채움
+        return confirmedDate(snapshot.get().confirmedAt()).compareTo(LocalDate.now().toString()) < 0;
+    }
+
+    /**
+     * 지난달 최종화가 필요한가 — 미잠금이고 마지막 적재일이 그 달 말일 이하일 때.
+     * (말일에 적재해도 그날은 D-1까지만 잡혀 말일이 비므로, 다음날 최종 채움 필요.)
+     */
+    private boolean needsPastFinalize(String period, SurgerySnapshot snapshot) {
+        if (snapshot.locked()) return false;
+        String monthEnd = YearMonth.parse(period).atEndOfMonth().toString();
+        return confirmedDate(snapshot.confirmedAt()).compareTo(monthEnd) <= 0;
+    }
+
+    private static String confirmedDate(String confirmedAt) {
+        return confirmedAt != null && confirmedAt.length() >= 10 ? confirmedAt.substring(0, 10) : "";
     }
 
     private static List<SurgeryDailyItem> filterDays(List<SurgeryDailyItem> days, LocalDate from, LocalDate to) {
