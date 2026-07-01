@@ -1,5 +1,6 @@
 package com.bviit.analytics.reservation.service;
 
+import com.bviit.analytics.common.stats.SnapshotWindow;
 import com.bviit.analytics.reservation.dto.CataractStatsDailyRow;
 import com.bviit.analytics.reservation.dto.CataractStatsSnapshot;
 import com.bviit.analytics.reservation.repository.CataractStatsSystemRepository;
@@ -34,17 +35,13 @@ public class CataractStatsSystemService {
     /** 해당 월(period=YYYY-MM) 전체를 1회 조회해 JSON 스냅샷으로 확정 저장(월 전체 덮어쓰기). */
     @Transactional(readOnly = true)
     public CataractStatsSnapshot saveSnapshot(String period, String by) {
-        LocalDate first = LocalDate.parse(period + "-01");
-        if (first.isAfter(LocalDate.now())) {
-            throw new IllegalArgumentException("미래 월은 스냅샷을 저장할 수 없습니다: " + period);
+        Optional<LocalDate> end = SnapshotWindow.completedEnd(period, LocalDate.now());
+        if (end.isEmpty()) {
+            // 오늘이 1일이면 마감된 날(전일)이 이 달에 없음 → 저장 생략(오늘 데이터는 내일 반영).
+            return snapshotStore.find(period).orElseGet(() -> emptySnapshot(period, by));
         }
-        LocalDate monthEnd = first.withDayOfMonth(first.lengthOfMonth());
-        LocalDate yesterday = LocalDate.now().minusDays(1);
-        LocalDate to = monthEnd.isBefore(yesterday) ? monthEnd : yesterday;
-        if (to.isBefore(first)) to = first;
 
-        LocalDate snapshotTo = to;
-        List<CataractStatsDailyRow> days = repository.findDailyCounts(first.toString(), snapshotTo.toString());
+        List<CataractStatsDailyRow> days = repository.findDailyCounts(period + "-01", end.get().toString());
         return periodLock.withPeriodLock(period, () -> {
             CataractStatsSnapshot snapshot =
                     new CataractStatsSnapshot(period, LocalDateTime.now().toString(), by, false, days);
@@ -59,18 +56,14 @@ public class CataractStatsSystemService {
      */
     @Transactional(readOnly = true)
     public CataractStatsSnapshot fillSnapshot(String period, String by) {
-        LocalDate first = LocalDate.parse(period + "-01");
-        if (first.isAfter(LocalDate.now())) {
-            throw new IllegalArgumentException("미래 월은 호출(채움)할 수 없습니다: " + period);
+        Optional<LocalDate> end = SnapshotWindow.completedEnd(period, LocalDate.now());
+        if (end.isEmpty()) {
+            // 오늘이 1일이면 마감된 날(전일)이 이 달에 없음 → 채움 생략(기존 유지, 오늘 데이터는 내일 반영).
+            return snapshotStore.find(period).orElseGet(() -> emptySnapshot(period, by));
         }
-        LocalDate monthEnd = first.withDayOfMonth(first.lengthOfMonth());
-        LocalDate yesterday = LocalDate.now().minusDays(1);
-        LocalDate to = monthEnd.isBefore(yesterday) ? monthEnd : yesterday;
-        if (to.isBefore(first)) to = first;
 
-        LocalDate snapshotTo = to;
         // 라이브 조회는 무거울 수 있으므로 period lock 밖에서 끝내고, 파일 read/merge/save만 잠근다.
-        List<CataractStatsDailyRow> fetched = repository.findDailyCounts(first.toString(), snapshotTo.toString());
+        List<CataractStatsDailyRow> fetched = repository.findDailyCounts(period + "-01", end.get().toString());
         return periodLock.withPeriodLock(period, () -> {
             Optional<CataractStatsSnapshot> existing = snapshotStore.find(period);
             List<CataractStatsDailyRow> merged = snapshotStore.mergeDays(existing, fetched);
@@ -81,5 +74,10 @@ public class CataractStatsSystemService {
             snapshotStore.save(snapshot);
             return snapshot;
         });
+    }
+
+    /** 적재할 완료일이 없을 때(월초) 저장 없이 돌려주는 빈 스냅샷. */
+    private static CataractStatsSnapshot emptySnapshot(String period, String by) {
+        return new CataractStatsSnapshot(period, LocalDateTime.now().toString(), by, false, List.of());
     }
 }
