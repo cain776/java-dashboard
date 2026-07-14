@@ -34,6 +34,16 @@ public class OutpatientReservationStatsQueryService {
             String username
     ) {
         String period = from.toString().substring(0, 7);
+
+        // 당월은 확정 스냅샷 동결 전이라도 라이브(요청 범위 = D-1까지)로 최신값을 그대로 노출한다.
+        // (지난달은 아래 확정 스냅샷 우선 — 소급 변동 방지. 스냅샷은 확정/월 마감 동결용.)
+        if (isCurrentMonth(period) && liveService.isPresent()) {
+            return new ReservationStatsResult<>(
+                    liveService.get().getDailyCounts(from.toString(), to.toString()),
+                    liveMeta(period)
+            );
+        }
+
         autoFillIfNeeded(period, username);
 
         Optional<OutpatientReservationStatsSnapshot> snapshot = snapshotStore.find(period);
@@ -47,7 +57,7 @@ public class OutpatientReservationStatsQueryService {
             return new ReservationStatsResult<>(days, snapshotMeta(period, snapshot.get()));
         }
 
-        // 당월인데 스냅샷이 없음(월초라 마감된 날 D-1이 아직 없음) → 오늘을 라이브로 노출하지 않고 빈 결과.
+        // 라이브가 없는(비-mssql) 당월 → 빈 결과(미연결 안내).
         if (isCurrentMonth(period)) {
             return new ReservationStatsResult<>(List.of(), liveMeta(period));
         }
