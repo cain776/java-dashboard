@@ -30,8 +30,9 @@ import {
 
 const TOTAL_COL_SPAN = 2 + CHANNEL_COLUMNS.length // 구분 + 총예약 + 채널
 
-/** 채널 그룹 경계(굵은 구분선)를 그릴 첫 컬럼 키. */
-const GROUP_DIVIDER_KEYS = new Set<ColumnMeta['key']>([
+/** 왼쪽에 굵은 세로 구분선을 그릴 컬럼 키 — 채널 그룹 경계 + 응대율|일정관련 사이. */
+const DIVIDER_KEYS = new Set<ColumnMeta['key']>([
+  'scheduleTotal', // 응대율 | 일정관련 총 응대건수 사이
   'appReservation',
   'crmReservation',
   'kakaoAll',
@@ -118,24 +119,22 @@ const group = (
   children,
 })
 
-const groupLeaves = (columns: readonly ColumnMeta[], firstDivider: boolean) =>
-  columns.map((col, i) =>
+const groupLeaves = (columns: readonly ColumnMeta[]) =>
+  columns.map((col) =>
     leaf(
       col,
-      `${firstDivider && i === 0 ? divider : ''} ${
-        col.strong
-          ? 'bg-amber-100 font-bold text-slate-900'
-          : `bg-white font-medium ${col.emphasis ? 'text-rose-600' : 'text-slate-700'}`
+      `${DIVIDER_KEYS.has(col.key) ? divider : ''} bg-white font-medium ${
+        col.emphasis ? 'text-rose-600' : 'text-slate-700'
       }`,
     ),
   )
 
 const HEADER_NODES: StatsHeaderNode<ColumnMeta>[] = [
-  group('콜', 'bg-amber-100', groupLeaves(CHANNEL_COLUMNS.slice(0, 13), false)),
-  group('어플', `${divider} bg-sky-100`, groupLeaves(CHANNEL_COLUMNS.slice(13, 17), true)),
-  group('현장(CRM)', `${divider} bg-emerald-100`, groupLeaves(CHANNEL_COLUMNS.slice(17, 21), true)),
-  group('카카오톡상담', `${divider} bg-yellow-100`, groupLeaves(CHANNEL_COLUMNS.slice(21, 26), true)),
-  group('부도', `${divider} bg-rose-100`, groupLeaves(CHANNEL_COLUMNS.slice(26, 29), true)),
+  group('콜', 'bg-amber-100', groupLeaves(CHANNEL_COLUMNS.slice(0, 13))),
+  group('어플', `${divider} bg-sky-100`, groupLeaves(CHANNEL_COLUMNS.slice(13, 17))),
+  group('현장(CRM)', `${divider} bg-emerald-100`, groupLeaves(CHANNEL_COLUMNS.slice(17, 21))),
+  group('카카오톡상담', `${divider} bg-yellow-100`, groupLeaves(CHANNEL_COLUMNS.slice(21, 26))),
+  group('부도', `${divider} bg-rose-100`, groupLeaves(CHANNEL_COLUMNS.slice(26, 29))),
 ]
 
 const headerModel = (period: string): StatsHeaderModel<ColumnMeta> => ({
@@ -299,17 +298,15 @@ function BodyRow({ row }: { row: OutpatientDisplayRow }) {
         muted ? (
           <td
             key={col.key}
-            className={`${numCell} text-slate-300 ${GROUP_DIVIDER_KEYS.has(col.key) ? divider : ''} ${
-              col.strong ? 'bg-amber-50/60' : ''
-            }`}
+            className={`${numCell} text-slate-300 ${DIVIDER_KEYS.has(col.key) ? divider : ''}`}
           >
             –
           </td>
         ) : (
           <td
             key={col.key}
-            className={`${numCell} ${GROUP_DIVIDER_KEYS.has(col.key) ? divider : ''} ${
-              col.strong ? 'bg-amber-50/70 font-semibold text-slate-900' : col.emphasis ? 'text-rose-600' : ''
+            className={`${numCell} ${DIVIDER_KEYS.has(col.key) ? divider : ''} ${
+              col.emphasis ? 'text-rose-600' : ''
             }`}
           >
             {formatChannelValue(channel[col.key], col.fmt)}

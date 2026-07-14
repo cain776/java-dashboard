@@ -100,8 +100,6 @@ export interface ColumnMeta {
   fmt: CellFormat
   /** 비율 강조 컬럼(빨강 글씨). */
   emphasis?: boolean
-  /** 핵심 집계 컬럼(굵게 + 연한 배경 강조). */
-  strong?: boolean
 }
 
 /** 콜(13) → 어플(4) → 현장(4) → 카톡(5) → 부도(3) = 29컬럼. */
@@ -110,7 +108,7 @@ export const CHANNEL_COLUMNS: ColumnMeta[] = [
   { key: 'inboundCall', label: '총 인입콜', fmt: 'num' },
   { key: 'answeredCall', label: '응대콜', fmt: 'num' },
   { key: 'answerRate', label: '응대율', fmt: 'pct', emphasis: true },
-  { key: 'scheduleTotal', label: '일정관련 총 응대건수', fmt: 'num', strong: true },
+  { key: 'scheduleTotal', label: '일정관련 총 응대건수', fmt: 'num' },
   { key: 'inquiryOnly', label: '문의만', fmt: 'num' },
   { key: 'inquiryRate', label: '문의율', fmt: 'pct' },
   { key: 'reservationChange', label: '예약 변경', fmt: 'num' },
