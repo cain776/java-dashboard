@@ -122,8 +122,10 @@ const groupLeaves = (columns: readonly ColumnMeta[], firstDivider: boolean) =>
   columns.map((col, i) =>
     leaf(
       col,
-      `${firstDivider && i === 0 ? divider : ''} bg-white font-medium ${
-        col.emphasis ? 'text-rose-600' : 'text-slate-700'
+      `${firstDivider && i === 0 ? divider : ''} ${
+        col.strong
+          ? 'bg-amber-100 font-bold text-slate-900'
+          : `bg-white font-medium ${col.emphasis ? 'text-rose-600' : 'text-slate-700'}`
       }`,
     ),
   )
@@ -297,7 +299,9 @@ function BodyRow({ row }: { row: OutpatientDisplayRow }) {
         muted ? (
           <td
             key={col.key}
-            className={`${numCell} text-slate-300 ${GROUP_DIVIDER_KEYS.has(col.key) ? divider : ''}`}
+            className={`${numCell} text-slate-300 ${GROUP_DIVIDER_KEYS.has(col.key) ? divider : ''} ${
+              col.strong ? 'bg-amber-50/60' : ''
+            }`}
           >
             –
           </td>
@@ -305,7 +309,7 @@ function BodyRow({ row }: { row: OutpatientDisplayRow }) {
           <td
             key={col.key}
             className={`${numCell} ${GROUP_DIVIDER_KEYS.has(col.key) ? divider : ''} ${
-              col.emphasis ? 'text-rose-600' : ''
+              col.strong ? 'bg-amber-50/70 font-semibold text-slate-900' : col.emphasis ? 'text-rose-600' : ''
             }`}
           >
             {formatChannelValue(channel[col.key], col.fmt)}
