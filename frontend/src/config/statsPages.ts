@@ -260,6 +260,15 @@ export const statsPages: StatsPageDefinition[] = [
     '/api/stats/outpatient-count'
   ),
   statsPage(
+    'outpatient-reservation-stats',
+    '외래 예약통계',
+    '/stats/outpatient-reservation-stats',
+    'outpatient',
+    '외래',
+    '외래 예약을 채널별(콜·어플·현장·카카오톡상담·부도)로 주차 단위 분해한 월간 종합표입니다.',
+    '/api/stats/outpatient-reservation-stats'
+  ),
+  statsPage(
     'overseas',
     '해외 환자 관련 지표',
     '/stats/overseas',

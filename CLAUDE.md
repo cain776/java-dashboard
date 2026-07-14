@@ -127,7 +127,7 @@ project-root/
 
 ## 통계 페이지 목록
 
-`statsPages.ts`에 38개 정의하고, `navigation.ts`의 상태 맵으로 완료/미구현을 관리한다. 상태: **완료**(전용 페이지+API) 24개 / **미구현(pending)** 14개.
+`statsPages.ts`에 39개 정의하고, `navigation.ts`의 상태 맵으로 완료/미구현을 관리한다. 상태: **완료**(전용 페이지+API) 25개 / **미구현(pending)** 14개.
 (시력교정/드림렌즈 검사건수 2종은 `시술별`(examination)에 포함되어 2026-06-22 메뉴 삭제)
 
 | ID | 메뉴명 | 경로 | 그룹 | 상태 |
@@ -156,6 +156,7 @@ project-root/
 | surgery-ratio | 주요 수술별 비중 | /stats/surgery-ratio | 수술 | 완료 |
 | surgery-composition | 수술별 비중 | /stats/surgery-composition | 수술 | 완료 |
 | outpatient-count | 외래수 | /stats/outpatient-count | 외래 | 완료 |
+| outpatient-reservation-stats | 외래 예약통계 | /stats/outpatient-reservation-stats | 외래 | 완료 (2026-07-14 신규, 예약통계_시력교정 구조 미러링, 스냅샷+라이브. 5채널 전부 라이브: 인입콜(EICN)·콜상세(CtiRptLst)·어플/현장·카톡(HappyTalk 수술후외래)·부도) |
 | overseas | 해외 환자 관련 지표 | /stats/overseas | 마케팅 | 미구현 |
 | marketing | 마케팅 유입 및 효율 지표 | /stats/marketing | 마케팅 | 미구현 |
 | cancel-rate | 예약취소율 | /stats/cancel-rate | 취소&부도 | 미구현 |
