@@ -3,8 +3,9 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
-const frontendPort = Number(process.env.VITE_FRONTEND_PORT ?? 15173)
-const backendUrl = process.env.VITE_BACKEND_URL ?? 'http://localhost:18080'
+// 포트 19080/19173 — 사내 bnviit-dashboard-spring 스택이 18080/15173 을 쓰므로 겹치지 않게 띄운다.
+const frontendPort = Number(process.env.VITE_FRONTEND_PORT ?? 19173)
+const backendUrl = process.env.VITE_BACKEND_URL ?? 'http://localhost:19080'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],

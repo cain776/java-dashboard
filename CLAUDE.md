@@ -90,11 +90,11 @@ project-root/
 │   │   ├── constants/ · data/ · lib/ · utils/   # chart 상수·레거시 데이터·목 픽스처·cn()·stats 포맷터
 │   │   └── test/                        # Vitest + @testing-library/jest-dom
 │   ├── components.json                  # shadcn CLI 설정
-│   ├── vite.config.ts                   # 프록시: /api → localhost:8080
+│   ├── vite.config.ts                   # 프록시: /api → localhost:19080
 │   └── package.json
 │
-├── 서버시작.bat                          # Backend(8080) + Frontend(5173) 동시 실행
-├── 서버종료.bat                          # 포트 8080/5173 프로세스 종료
+├── 서버시작.bat                          # Backend(19080) + Frontend(19173) 동시 실행
+├── 서버종료.bat                          # 포트 19080/19173 프로세스 종료
 └── CLAUDE.md
 ```
 
@@ -302,7 +302,7 @@ cd frontend && npx shadcn@latest add <component-name>
 
 ```bash
 # 동시 실행
-서버시작.bat                              # Backend(8080) + Frontend(5173)
+서버시작.bat                              # Backend(19080) + Frontend(19173)
 서버종료.bat                              # 전체 종료
 
 # 개별 실행
@@ -348,7 +348,7 @@ cd frontend && npm run test              # Vitest
 
 - `application-local.properties` → `.gitignore`
 - 프론트 환경변수: `VITE_` 접두사 사용
-- Vite 프록시: `/api` → `http://localhost:8080` (`vite.config.ts`)
+- Vite 프록시: `/api` → `http://localhost:19080` (`vite.config.ts`). 포트 19080/19173 은 사내 bnviit-dashboard-spring 스택(18080/15173)과 겹치지 않게 고른 값이다.
 
 ## Claude에게 요청할 때 참고사항
 

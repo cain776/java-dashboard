@@ -75,14 +75,14 @@ STATS_DB_PASSWORD=비밀번호
 ### 서버시작.bat 더블클릭
 
 자동으로 수행되는 작업:
-1. 기존 포트(18080, 15173) 프로세스 종료
+1. 기존 포트(19080, 19173) 프로세스 종료
 2. `backend/.env` 환경변수 로드
-3. 백엔드 실행 (포트 18080, mssql 프로파일)
-4. 프론트엔드 개발 서버 실행 (포트 15173)
+3. 백엔드 실행 (포트 19080, mssql 프로파일)
+4. 프론트엔드 개발 서버 실행 (포트 19173)
 
 ### 접속
 
-- 대시보드: http://localhost:15173
+- 대시보드: http://localhost:19173
 - 로그인 계정: `APP_SEED_ADMIN_LOGIN_ID / APP_SEED_ADMIN_PASSWORD`
 
 > 이 방식은 운영 배포용이 아니라 개발/검증용 실행 흐름입니다.
@@ -114,8 +114,8 @@ Windows 시작 프로그램에 등록하려면:
 ### 포트 충돌
 
 ```
-netstat -aon | findstr :18080
-netstat -aon | findstr :15173
+netstat -aon | findstr :19080
+netstat -aon | findstr :19173
 ```
 
 이미 사용 중인 포트가 있으면 서버종료.bat으로 정리 후 재시작
@@ -153,7 +153,7 @@ gradlew.bat bootRun --args="--spring.profiles.active=mssql"
 
 | 서비스 | 포트 | 용도 |
 | --- | --- | --- |
-| Backend (Spring Boot) | 18080 | REST API |
-| Frontend (Vite) | 15173 | 웹 UI |
+| Backend (Spring Boot) | 19080 | REST API |
+| Frontend (Vite) | 19173 | 웹 UI |
 | MSSQL (운영 DB) | 1433 | 통계 데이터 조회 (READ ONLY) |
 | H2 (내장 DB) | - | 인증/사용자 관리 (인메모리) |
