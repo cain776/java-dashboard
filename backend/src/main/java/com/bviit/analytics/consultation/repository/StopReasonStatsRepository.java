@@ -20,8 +20,12 @@ import java.util.Map;
  *   매핑: recommendX=121·305 / visionChange=111·302 / glaucoma=114·303 / lensImpossible=122·306·399 /
  *        keratoconus=124·125·308·309 / avellino=126·310 / other=그 외(107 전안부재검·199·코드없음 등).
  *
+ * 매핑 규칙·수정 방법·검증 쿼리·함정은 docs/기획/중단사유-분류-정의.md 참조.
+ * 분류는 find-stop-reason-monthly.sql의 CASE 한 곳 — 코드 재매핑은 SQL만 고치면 되고 DTO·프론트 계약은 불변.
+ *
  * READ-ONLY — SELECT만 실행. 날짜 컬럼은 char(10) 'YYYY-MM-DD'.
  * ⚠️ EXAM은 고객당 1행 덮어쓰기라 과거월 중단건수는 소급 변동 가능(당월 기준은 정합).
+ * ⚠️ other는 잔차 — 미매핑 코드가 조용히 기타로 새므로 골든 대조 시 기타 과다를 먼저 의심할 것.
  */
 @Repository
 @Profile("mssql")
