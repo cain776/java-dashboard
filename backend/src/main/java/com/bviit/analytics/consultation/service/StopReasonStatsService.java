@@ -17,9 +17,9 @@ import static com.bviit.analytics.common.util.NumberUtils.toInt;
 /**
  * 검사 중단 사유 서비스.
  *
- * EXAM.STOP_YN='Y' 건을 EXAM_MEMO 키워드로 분류한 월별 사유별 건수를 제공한다.
+ * EXAM.STOP_YN='Y' 건을 정형 중단사유 코드(EXAM.CANCEL_CD, 마스터 CANCEL_CFG)로 분류한 월별 사유별 건수를 제공한다.
  * 전 기간 운영 DB 라이브 집계(mssql 프로파일에서만). H2(개발)에서는 0으로 채운다.
- * 사유 코드가 DB에 없어 키워드 추정이므로 직원 수동분류와 다를 수 있다(부정확성 감안).
+ * 상담사 드롭다운 선택 코드라 골든 차트와 정합(구 EXAM_MEMO 키워드 추정 방식에서 2026-06 검증 후 교체).
  */
 @Service
 @RequiredArgsConstructor

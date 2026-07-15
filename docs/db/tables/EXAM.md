@@ -29,8 +29,8 @@
 | STOP_YN | char(1) | Y | |  |
 | EXAM_MEMO | nvarchar(4000) | Y | |  |
 | TODAY_YN | char(1) | Y | |  |
-| CANCEL_CD | char(3) | Y | |  |
-| CANCEL_REASON | nvarchar(50) | Y | |  |
+| CANCEL_CD | char(3) | Y | **중단 사유 코드** | 마스터 `CANCEL_CFG`. 상담사 드롭다운 선택값. 1xx/3xx 두 코드군이 같은 라벨 세트 → [중단사유-분류-정의.md](../../기획/중단사유-분류-정의.md) |
+| CANCEL_REASON | nvarchar(50) | Y | 중단 사유 라벨 | `CANCEL_CD`에 대응하는 텍스트 |
 | RIGHT01 | nvarchar(20) | Y | |  |
 | LEFT01 | nvarchar(20) | Y | |  |
 
@@ -45,6 +45,11 @@
 - **검사 이력 복원 불가**: 이력 테이블 `EXAM_FU`는 PROD에 14행뿐 — 실질 미사용. 과거 검사/중단 시점을 복원할 소스가 없다.
 - **STOP_YN 값 분포** (PROD 전체): `N`=353,784 / `NULL`=34,712 / `Y`=27,005. NULL 비중이 커서 `STOP_YN='Y'`(중단)과 `STOP_YN<>'Y'`(비중단)는 다르게 카운트되니 주의.
 - **STOP_YN(검사 중단) ≠ RESERVATION.RESERVE_STATE='C'(예약 취소)**: 별개 개념. 예약 테이블에는 "중단" 상태가 없다 (Y/I/H/C 4상태뿐).
+- **⚠️ CANCEL_CD는 이름과 달리 "취소 플래그"가 아니라 "중단 사유 코드"다 — 같은 컬럼이 두 용도로 쓰인다**:
+  - **사유 분류**: `STOP_YN='Y'` 행의 `CANCEL_CD`를 중단 사유로 해석 → 중단사유 차트 ([중단사유-분류-정의.md](../../기획/중단사유-분류-정의.md), `find-stop-reason-monthly.sql`)
+  - **취소 제외**: `ISNULL(CANCEL_CD,'') = ''` 조건으로 "코드 있으면 취소된 건" 취급해 검사수에서 제외 (지표정의 §검사수 제외조건)
+  - 한쪽 의미만 알고 고치면 반대쪽이 깨진다. **둘 다 확인할 것.**
+- **중단 사유는 코드가 있다** (`CANCEL_CD` + 마스터 `CANCEL_CFG`). 과거 코드에 `EXAM_MEMO` 자유텍스트 키워드로 사유를 추정하던 방식이 있었으나 부정확해 2026-07-14(`fd54e30`) 폐기됨 — **"사유 코드가 DB에 없다"는 옛 주석·메모가 남아 있으면 그게 낡은 것.**
 
 ## 사용처
 

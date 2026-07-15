@@ -14,13 +14,18 @@ import java.util.Map;
 /**
  * 검사 중단 사유 통계 쿼리.
  *
- * 검사 중단(EXAM.STOP_YN='Y') 건을 EXAM_MEMO 키워드로 분류한 월별 사유별 건수.
- * ⚠️ 중단 사유는 DB에 코드가 없고 EXAM_MEMO(자유텍스트)에만 있어 키워드 LIKE로 추정한다.
- *   분류 우선순위(위에서 먼저 매칭): 아벨리노 > 원추각막 > 녹내장 > 렌즈삽입 > 시력변화 > 수술권유X > 기타.
- *   메모는 공백/탭/개행 제거 + 소문자화 후 매칭('권유 x'·'권유X' → '권유x').
- *   약어·표기 변형(렌삽/ICL, 권유안/비권유/수술불가, 시력변동 등)을 함께 잡는다.
+ * 검사 중단(EXAM.STOP_YN='Y') 건을 정형 중단사유 코드(EXAM.CANCEL_CD)로 분류한 월별 사유별 건수.
+ * 코드 마스터 CANCEL_CFG(CANCEL_CD → CANCEL_REASON) 기준이며 상담사 드롭다운 선택값이라 골든/PDF와 정합.
+ * (구: EXAM_MEMO 자유텍스트 키워드 LIKE 추정 → 수술권유X 과소·기타 과다로 어긋났음. 2026-06 검증으로 교체.)
+ *   매핑: recommendX=121·305 / visionChange=111·302 / glaucoma=114·303 / lensImpossible=122·306·399 /
+ *        keratoconus=124·125·308·309 / avellino=126·310 / other=그 외(107 전안부재검·199·코드없음 등).
+ *
+ * 매핑 규칙·수정 방법·검증 쿼리·함정은 docs/기획/중단사유-분류-정의.md 참조.
+ * 분류는 find-stop-reason-monthly.sql의 CASE 한 곳 — 코드 재매핑은 SQL만 고치면 되고 DTO·프론트 계약은 불변.
  *
  * READ-ONLY — SELECT만 실행. 날짜 컬럼은 char(10) 'YYYY-MM-DD'.
+ * ⚠️ EXAM은 고객당 1행 덮어쓰기라 과거월 중단건수는 소급 변동 가능(당월 기준은 정합).
+ * ⚠️ other는 잔차 — 미매핑 코드가 조용히 기타로 새므로 골든 대조 시 기타 과다를 먼저 의심할 것.
  */
 @Repository
 @Profile("mssql")
