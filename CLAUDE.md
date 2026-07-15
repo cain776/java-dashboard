@@ -90,11 +90,11 @@ project-root/
 │   │   ├── constants/ · data/ · lib/ · utils/   # chart 상수·레거시 데이터·목 픽스처·cn()·stats 포맷터
 │   │   └── test/                        # Vitest + @testing-library/jest-dom
 │   ├── components.json                  # shadcn CLI 설정
-│   ├── vite.config.ts                   # 프록시: /api → localhost:8080
+│   ├── vite.config.ts                   # 프록시: /api → localhost:19080
 │   └── package.json
 │
-├── 서버시작.bat                          # Backend(8080) + Frontend(5173) 동시 실행
-├── 서버종료.bat                          # 포트 8080/5173 프로세스 종료
+├── 서버시작.bat                          # Backend(19080) + Frontend(19173) 동시 실행
+├── 서버종료.bat                          # 포트 19080/19173 프로세스 종료
 └── CLAUDE.md
 ```
 
@@ -127,7 +127,7 @@ project-root/
 
 ## 통계 페이지 목록
 
-`statsPages.ts`에 39개 정의하고, `navigation.ts`의 상태 맵으로 완료/미구현을 관리한다. 상태: **완료**(전용 페이지+API) 25개 / **미구현(pending)** 14개.
+`statsPages.ts`에 40개 정의하고, `navigation.ts`의 상태 맵으로 완료/미구현을 관리한다. 상태: **완료**(전용 페이지+API) 26개 / **미구현(pending)** 14개.
 (시력교정/드림렌즈 검사건수 2종은 `시술별`(examination)에 포함되어 2026-06-22 메뉴 삭제)
 
 | ID | 메뉴명 | 경로 | 그룹 | 상태 |
@@ -137,6 +137,7 @@ project-root/
 | intake-conversion | 유입(검사예약) | /stats/intake-conversion | 예약 | 미구현 (메뉴 숨김) |
 | reservation | 예약 건수 | /stats/reservation | 예약 | 완료 (메뉴 숨김·라우트 유지) |
 | reservation-list | 예약자 리스트 | /stats/reservation-list | 예약 | 완료 (메뉴 순서: 예약 종합보다 앞) |
+| reservation-list-homepage | 예약자 리스트_홈페이지 | /stats/reservation-list-homepage | 예약 | 완료 (2026-07-15 신규, 레거시 `counsel/online_list.php` 이관·조회 전용. **소스가 대시보드 DB 아님** — `LEGACY_DATASOURCE_URL` 미설정 시 503) |
 | reservation-overall | 예약 종합 | /stats/reservation-overall | 예약 | 완료 (3탭: 종합/온라인/콜, 지표정의 §5.1) |
 | reservation-stats-system | 예약통계_시력교정 | /stats/reservation-stats-system | 예약 | 완료 (주차별 채널 분해, RSS 스냅샷+라이브) |
 | reservation-stats-cataract | 예약통계_백내장 | /stats/reservation-stats-cataract | 예약 | 완료 (스냅샷 전용) |
@@ -301,7 +302,7 @@ cd frontend && npx shadcn@latest add <component-name>
 
 ```bash
 # 동시 실행
-서버시작.bat                              # Backend(8080) + Frontend(5173)
+서버시작.bat                              # Backend(19080) + Frontend(19173)
 서버종료.bat                              # 전체 종료
 
 # 개별 실행
@@ -347,7 +348,7 @@ cd frontend && npm run test              # Vitest
 
 - `application-local.properties` → `.gitignore`
 - 프론트 환경변수: `VITE_` 접두사 사용
-- Vite 프록시: `/api` → `http://localhost:8080` (`vite.config.ts`)
+- Vite 프록시: `/api` → `http://localhost:19080` (`vite.config.ts`). 포트 19080/19173 은 사내 bnviit-dashboard-spring 스택(18080/15173)과 겹치지 않게 고른 값이다.
 
 ## Claude에게 요청할 때 참고사항
 

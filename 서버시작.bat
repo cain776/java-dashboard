@@ -3,8 +3,9 @@ setlocal disabledelayedexpansion
 title BVIIT Dashboard
 
 set "PROJECT_DIR=%~dp0"
-set "BACKEND_PORT=18080"
-set "FRONTEND_PORT=15173"
+REM 포트 19080/19173 — 사내 bnviit-dashboard-spring 스택이 18080/15173 을 쓰므로 겹치지 않게 띄운다.
+set "BACKEND_PORT=19080"
+set "FRONTEND_PORT=19173"
 set "SERVER_PORT=%BACKEND_PORT%"
 set "VITE_BACKEND_URL=http://localhost:%BACKEND_PORT%"
 set "VITE_FRONTEND_PORT=%FRONTEND_PORT%"

@@ -42,7 +42,7 @@ npm run preview
 ## 연동 메모
 
 - API base path는 `/api` 입니다.
-- Vite 개발 서버는 `/api`를 `http://localhost:18080`으로 프록시합니다.
+- Vite 개발 서버는 `/api`를 `http://localhost:19080`으로 프록시합니다.
 - 로그인 후 토큰은 `Authorization: Bearer ...` 헤더로 전송됩니다.
 
 ## handoff 체크
