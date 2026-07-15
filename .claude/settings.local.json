@@ -19,7 +19,8 @@
       "Skill(run)",
       "Skill(run:*)",
       "PowerShell(node --version; New-Item -ItemType Directory -Force -Path c:\\\\tmp\\\\pwverify | Out-Null; cd c:\\\\tmp\\\\pwverify; if \\(-not \\(Test-Path package.json\\)\\) { npm init -y | Out-Null }; npm i playwright-core 2>&1 | Select-Object -Last 5)",
-      "PowerShell($env:VITE_BACKEND_URL = 'http://localhost:18080'; $env:VITE_FRONTEND_PORT = '15173'; cd c:\\\\workspace\\\\java_dashboard\\\\frontend; npm run dev 2>&1 | Tee-Object -FilePath c:\\\\tmp\\\\frontend2.log)"
+      "PowerShell($env:VITE_BACKEND_URL = 'http://localhost:18080'; $env:VITE_FRONTEND_PORT = '15173'; cd c:\\\\workspace\\\\java_dashboard\\\\frontend; npm run dev 2>&1 | Tee-Object -FilePath c:\\\\tmp\\\\frontend2.log)",
+      "Bash(gh pr create:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
